@@ -78,7 +78,7 @@ async def search(ctx, searchkey):
             for j in list(ELOpop):
                 if(i == ELOpop[j][0]):
                     playerID = j
-            pMsgList.append(i + " " * (30 - len(i)) + " ELO: " + str(ELOpop[playerID][1]) + "\n")
+            pMsgList.append(i + " " * (30 - len(i)) + " ELO: " + str(ELOpop[playerID][1]) + "                 1-20 rank: " + str(ELOpop[playerID][1] / 120) + "\n")
         mMsg = ''.join(pMsgList)
         if(len(searchList) > 0):
             await ctx.send(content = "```\n" + mMsg + "```")
@@ -221,9 +221,12 @@ def PickMaps():
                     mapPick2.append(i)
                 else:
                     mapPick2.append(i)
-    print(loveMaps)
-    print(hateMaps)
-    print(mapPick, mapPick2)
+
+    print(f"Map Lists: {mapPick} {mapPick2}" )
+    print(f"Maps Selected: {mapSelected}")
+    print(f"Love Maps: {loveMaps}")
+    print(f"Hate Maps: {hateMaps}")
+    print(f"Last Five: {lastFive}")
 
     #print(mapPick)
     mapChoice1 = random.choice(mapPick)
@@ -360,6 +363,9 @@ def newRank(ID):
         if(ELOpop[ID][1] > 2300): #10
             ELOpop[ID][3] = v['rank10']
 
+    with open('ELOpop.json', 'w') as cd:
+        json.dump(ELOpop, cd,indent= 4)
+
 
 
 @client.command(pass_context=True)
@@ -444,9 +450,17 @@ async def swapteam(ctx, player1: discord.Member, player2: discord.Member):
             redTeam.append(player2ID)
             blueTeam.remove(player2ID)
 
+        for j in blueTeam:
+            blueRank += int(ELOpop[j][1])
+        for j in redTeam:
+            redRank += int(ELOpop[j][1])
+
+        team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+        team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+
         print(blueRank, redRank)
 
-        await teamsDisplay(ctx, blueTeam, redTeam)
+        await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
 def savePickup():
     global winningMap
@@ -768,8 +782,9 @@ async def next(ctx, player: discord.Member):
                 counter += 5
             else:
                 counter += 20
-
-        await teamsDisplay(ctx, blueTeam, redTeam)
+        team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+        team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+        await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
@@ -837,8 +852,9 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member):
                 counter += 5
             else:
                 counter += 20
-
-        teamsDisplay(ctx, blueTeam, redTeam)
+        team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+        team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2) 
+        teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
@@ -1137,8 +1153,9 @@ async def shuffle(ctx, game = "None"):
                 else:
                     counter += 20
             
-
-            await teamsDisplay(ctx, blueTeam, redTeam)
+            team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+            team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+            await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
         else:
             nblueTeam = activePickups[game][2]
             nredTeam = activePickups[game][5]
@@ -1208,8 +1225,9 @@ async def shuffle(ctx, game = "None"):
                     counter += 2
                 else:
                     counter += 20
-
-            await teamsDisplay(ctx, nblueTeam, nredTeam)
+            team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+            team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+            await teamsDisplay(ctx, nblueTeam, nredTeam, team1prob, team2prob)
 
 @client.command(pass_context=True)
 @commands.cooldown(1, 300, commands.BucketType.user)
@@ -1453,38 +1471,38 @@ async def on_message(message):
             await vMsg.add_reaction("2️⃣")
             await vMsg.add_reaction("3️⃣")
         
-        if(("server is being launched.." in message.content) or ("selecting new maps.." in message.content)):
-            with open('ELOpop.json') as f:
-                ELOpop = json.load(f)
-            alreadyVoted = []
-            mapVotes = {}           
-            PickMaps()
-            if(("server is being launched.." in message.content)):
-                mapChoice4 = "New Maps"
-            mapVotes[mapChoice4] = []
-            
-            playersAbstained = []
-            for i in eligiblePlayers:
-                if i not in alreadyVoted:
-                    playersAbstained.append(ELOpop[i][0])
-            toVoteString = "```"
-            if len(playersAbstained) != 0:
-                toVoteString = "\n💩 " + ", ".join(playersAbstained) +  " need to vote 💩```"
-            with open('mainmaps.json') as f:
-                mapList = json.load(f)
-            with open('specmaps.json') as f:
-                mapList2 = json.load(f)
-            vMsg = await message.channel.send("```Vote up and make sure you hydrate!\n\n"
-                                            + "1️⃣ " + mapChoice1 + " " * (25 - len(mapChoice1)) + "   " + str(mapList[mapChoice1]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice1) + "\n"
-                                            + "2️⃣ " + mapChoice2 + " " * (25 - len(mapChoice2)) + "   " + str(mapList[mapChoice2]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice2) + "\n"
-                                            + "3️⃣ " + mapChoice3 + " " * (25 - len(mapChoice3)) + "   " + str(mapList2[mapChoice3]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice3) + "\n"
-                                            + "4️⃣ " + mapChoice4 + " " * (49 - len(mapChoice4)) + mapVoteOutput(mapChoice4)
-                                            + toVoteString)
+    if(("server is being launched.." in message.content) or ("selecting new maps.." in message.content)):
+        with open('ELOpop.json') as f:
+            ELOpop = json.load(f)
+        alreadyVoted = []
+        mapVotes = {}           
+        PickMaps()
+        if(("server is being launched.." in message.content)):
+            mapChoice4 = "New Maps"
+        mapVotes[mapChoice4] = []
+        
+        playersAbstained = []
+        for i in eligiblePlayers:
+            if i not in alreadyVoted:
+                playersAbstained.append(ELOpop[i][0])
+        toVoteString = "```"
+        if len(playersAbstained) != 0:
+            toVoteString = "\n💩 " + ", ".join(playersAbstained) +  " need to vote 💩```"
+        with open('mainmaps.json') as f:
+            mapList = json.load(f)
+        with open('specmaps.json') as f:
+            mapList2 = json.load(f)
+        vMsg = await message.channel.send("```Vote up and make sure you hydrate!\n\n"
+                                        + "1️⃣ " + mapChoice1 + " " * (25 - len(mapChoice1)) + "   " + str(mapList[mapChoice1]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice1) + "\n"
+                                        + "2️⃣ " + mapChoice2 + " " * (25 - len(mapChoice2)) + "   " + str(mapList[mapChoice2]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice2) + "\n"
+                                        + "3️⃣ " + mapChoice3 + " " * (25 - len(mapChoice3)) + "   " + str(mapList2[mapChoice3]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice3) + "\n"
+                                        + "4️⃣ " + mapChoice4 + " " * (49 - len(mapChoice4)) + mapVoteOutput(mapChoice4)
+                                        + toVoteString)
 
-            await vMsg.add_reaction("1️⃣")
-            await vMsg.add_reaction("2️⃣")
-            await vMsg.add_reaction("3️⃣")
-            await vMsg.add_reaction("4️⃣")
+        await vMsg.add_reaction("1️⃣")
+        await vMsg.add_reaction("2️⃣")
+        await vMsg.add_reaction("3️⃣")
+        await vMsg.add_reaction("4️⃣")
 
     await client.process_commands(message)
 
