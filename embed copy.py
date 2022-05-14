@@ -63,7 +63,7 @@ winningServer = None
 @client.command(pass_context=True)
 @commands.has_role(v['rater'])
 async def search(ctx, searchkey):
-    print('test')
+    #print('test')
     if(ctx.channel.name == 'tfc-ratings'):    
         with open('ELOpop.json') as f:
             ELOpop = json.load(f)
@@ -78,7 +78,7 @@ async def search(ctx, searchkey):
             for j in list(ELOpop):
                 if(i == ELOpop[j][0]):
                     playerID = j
-            pMsgList.append(i + " " * (30 - len(i)) + " ELO: " + str(ELOpop[playerID][1]) + "                 1-20 rank: " + str(ELOpop[playerID][1] / 120) + "\n")
+            pMsgList.append(i + " " * (30 - len(i)) + " ELO: " + str(ELOpop[playerID][1]) + "                 1-20 rank: " + str(ELOpop[playerID][1] / 120) + f"     W:{ELOpop[playerID][4]} L:{ELOpop[playerID][5]} D:{ELOpop[playerID][6]}\n")
         mMsg = ''.join(pMsgList)
         if(len(searchList) > 0):
             await ctx.send(content = "```\n" + mMsg + "```")
@@ -106,7 +106,6 @@ def DePopulatePickup():
     global alreadyVoted
     global vMsg
     global pMsg
-    global lastFive
     global mapSelected
     global winningIP
     global votePhase
@@ -138,7 +137,6 @@ def DePopulatePickup():
     mapVotes = {}
     alreadyVoted = []
     pMsg = None
-    lastFive = []
     mapSelected = []
     winningIP = "None"
     votePhase = 0
@@ -258,7 +256,7 @@ def TeamPickPopulate():
     #pTotalPlayers = list(eligiblePlayers)
     for i in pTotalPlayers:
         msgList.append(str(i[0]) + ". " + i[1] + "\n")
-    print(redTeam)
+    #print(redTeam)
     for i in redTeam:
         redTeamList.append(i + "\n")
     for i in blueTeam:
@@ -458,7 +456,7 @@ async def swapteam(ctx, player1: discord.Member, player2: discord.Member):
         team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
         team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
 
-        print(blueRank, redRank)
+        #print(blueRank, redRank)
 
         await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
@@ -500,7 +498,7 @@ def savePickup():
         blueTeam = blueTeam[4:]
         redTeam = redTeam[4:]
 
-    print(blueTeam, redTeam)
+    #print(blueTeam, redTeam)
     for i in blueTeam:
         blueRank += int(ELOpop[i][1])
     for i in redTeam:
@@ -625,7 +623,7 @@ async def teams(ctx, playerCount = 4):
                     for i in eligiblePlayers:
                         if i in playersAdded:
                             playersAdded.remove(i)
-                    print(playersAdded)
+                    #print(playersAdded)
                     while teamsPicked == 0:
                         blueTeam = []
                         redTeam = [] 
@@ -651,8 +649,8 @@ async def teams(ctx, playerCount = 4):
                             diff = abs(blueRank - half)
                             if(diff <= counter):
                                 if((len(blueTeam) == playerCount) and (len(redTeam) == playerCount)):
-                                    print(blueTeam, blueRank)
-                                    print(redTeam, redRank)
+                                    #print(blueTeam, blueRank)
+                                    #print(redTeam, redRank)
                                     teamsPicked = 1
                                     break
                             else:
@@ -675,7 +673,7 @@ async def teams(ctx, playerCount = 4):
                     inVote = 1
                 
                 elif(len(capList) >= 2):
-                    print("will use capts")
+                    #print("will use capts")
                     with open('ELOpop.json') as f:
                         ELOpop = json.load(f)    
                     playerCount = int(playerCount)
@@ -768,8 +766,8 @@ async def next(ctx, player: discord.Member):
                 diff = abs(blueRank - half)
                 if(diff <= counter):
                     if((len(blueTeam) == playerCount / 2) and (len(redTeam) == playerCount / 2)):
-                        print(blueTeam, blueRank)
-                        print(redTeam, redRank)
+                        #print(blueTeam, blueRank)
+                        #print(redTeam, redRank)
                         teamsPicked = 1
                         break
                 else:
@@ -838,8 +836,8 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member):
                 
                 diff = abs(blueRank - half)
                 if(diff <= counter):
-                    print(blueTeam, blueRank)
-                    print(redTeam, redRank)
+                    #print(blueTeam, blueRank)
+                    #print(redTeam, redRank)
                     teamsPicked = 1
                     break
                 else:
@@ -854,12 +852,12 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member):
                 counter += 20
         team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
         team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2) 
-        teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+        await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def win(ctx, team, pNumber = "None"):
-    #global ELOpop
+    global ELOpop
     if(ctx.channel.name == v['pc']):    
         with open('activePickups.json') as f:
             activePickups = json.load(f)
@@ -868,7 +866,7 @@ async def win(ctx, team, pNumber = "None"):
         if(pNumber == "None"):
             pNumber = list(activePickups)[-1]
 
-        print(activePickups[pNumber][2])
+        #print(activePickups[pNumber][2])
         blueTeam = activePickups[pNumber][2]
         redTeam = activePickups[pNumber][5]
         blueProb = activePickups[pNumber][0]
@@ -900,10 +898,10 @@ async def win(ctx, team, pNumber = "None"):
             if(team == "draw"):
                 ELOpop[i][6] += 1
             newRank(i)
-            print(ELOpop[i][2])
+            #print(ELOpop[i][2])
         for i in redTeam:
-            print(type(ELOpop[i][1]))
-            print(ELOpop)
+            #print(type(ELOpop[i][1]))
+            #print(ELOpop)
             ELOpop[i][1] += adjustTeam2
             if(int(ELOpop[i][1]) > 2599):
                 ELOpop[i][1] = 2599
@@ -997,10 +995,13 @@ async def forceVote(channel):
         global cap2Name
         global winningMap
         global winningServer
+        global alreadyVoted
+        global lastFive
 
         winningMap = None
         with open('activePickups.json') as f:
             activePickups = json.load(f)
+        alreadyVoted = []
         if(serverVote == 1):
             votes = [len(mapVotes[mapChoice1]), len(mapVotes[mapChoice2]), len(mapVotes[mapChoice3])]
             windex = votes.index(max(votes))
@@ -1010,6 +1011,7 @@ async def forceVote(channel):
                 winningIP = "steam://connect/34.125.240.0:27015/letsplay!"
                 winningServer = "West"
                 serverVote = 0
+                #alreadyVoted = []
                 #activePickups[list(activePickups)[-1]][8] = "West"
             if(windex == 1):
                 await channel.send("Central (Iowa) server is being launched..")
@@ -1017,12 +1019,14 @@ async def forceVote(channel):
                 winningIP = "steam://connect/35.188.60.68:27015/letsplay!"
                 winningServer = "Central"
                 serverVote = 0
+                #alreadyVoted = []
             if(windex == 2):
                 await channel.send("East (N. Virginia) server is being launched..")
                 r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/startEast")
                 winningIP = "steam://connect/35.194.65.124:27015/letsplay!"
                 winningServer = "East"
                 serverVote = 0
+                #alreadyVoted = []
         else:
             votes = [len(mapVotes[mapChoice4]), len(mapVotes[mapChoice1]), len(mapVotes[mapChoice2]), len(mapVotes[mapChoice3])]
             windex = votes.index(max(votes))
@@ -1037,12 +1041,17 @@ async def forceVote(channel):
                         mapChoice4 = mapChoice2
                     if(windex == 2):
                         mapChoice4 = mapChoice3
+                    #alreadyVoted = []
                     await channel.send("New maps has won, now selecting new maps..")
                 else:
                     await channel.send(f"The winning map is **{mapChoice4}** and will be played at {winningIP}")
                     fVCoolDown.stop()
+                    
                     inVote = 0
                     winningMap = mapChoice4
+                    if(len(lastFive) >= 5):
+                        lastFive.remove(lastFive[0])
+                    lastFive.append(mapChoice4)
                     if(captMode == 0):
                         savePickup()
             if(windex == 1):
@@ -1050,6 +1059,9 @@ async def forceVote(channel):
                 fVCoolDown.stop()
                 inVote = 0
                 winningMap = mapChoice1
+                if(len(lastFive) >= 5):
+                    lastFive.remove(lastFive[0])
+                lastFive.append(mapChoice1)
                 if(captMode == 0):
                     savePickup()
             if(windex == 2):
@@ -1057,13 +1069,20 @@ async def forceVote(channel):
                 fVCoolDown.stop()
                 inVote = 0
                 winningMap = mapChoice2
+                if(len(lastFive) >= 5):
+                    lastFive.remove(lastFive[0])
+                lastFive.append(mapChoice2)
                 if(captMode == 0):
                     savePickup()
             if(windex == 3):
                 await channel.send(f"The winning map is **{mapChoice3}** and will be played at {winningIP}")
                 fVCoolDown.stop()
                 inVote = 0
+                
                 winningMap = mapChoice3
+                if(len(lastFive) >= 5):
+                    lastFive.remove(lastFive[0])
+                lastFive.append(mapChoice3)
                 if(captMode == 0):
                     savePickup()
             
@@ -1138,8 +1157,8 @@ async def shuffle(ctx, game = "None"):
                     diff = abs(blueRank - half)
                     if(diff <= counter):
                         if((len(blueTeam) == int(playerCount/ 2)) and (len(redTeam) == int(playerCount/ 2))):
-                            print(blueTeam, blueRank)
-                            print(redTeam, redRank)
+                            #print(blueTeam, blueRank)
+                            #print(redTeam, redRank)
                             teamsPicked = 1
                             break
                     else:
@@ -1174,7 +1193,7 @@ async def shuffle(ctx, game = "None"):
             
             combos = list(itertools.combinations(neligiblePlayers, int(len(neligiblePlayers) / 2)))
             random.shuffle(combos)
-            print(neligiblePlayers)
+            #print(neligiblePlayers)
             while teamsPicked == 0:
                 nblueTeam = []
                 nredTeam = []
@@ -1196,12 +1215,12 @@ async def shuffle(ctx, game = "None"):
                         blueRank += int(ELOpop[j][1])
                     for j in nredTeam:
                         redRank += int(ELOpop[j][1])    
-                    print(diff, half, blueRank, redRank)
+                    #print(diff, half, blueRank, redRank)
                     diff = abs(blueRank - half)
                     if(diff <= counter):
                         if((len(nblueTeam) == int(playerCount / 2)) and (len(nredTeam) == int(playerCount / 2))):
-                            print(nblueTeam, blueRank)
-                            print(nredTeam, redRank)
+                            #print(nblueTeam, blueRank)
+                            #print(nredTeam, redRank)
                             teamsPicked = 1
                             team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
                             team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
@@ -1260,6 +1279,7 @@ async def on_reaction_add(reaction, user):
     global pTotalPlayers
     global blueTeam
     global redTeam
+    global alreadyVoted
 
     if(reaction.message == pMsg):
         if((str(user.id) == cap1) or (str(user.id) == cap2)):
@@ -1343,7 +1363,7 @@ async def on_reaction_add(reaction, user):
             channel = await client.fetch_channel(reaction.message.channel.id)
             playerName = ELOpop[str(userID)][0]
             if(inVote == 1):
-                print(eligiblePlayers)
+                #print(eligiblePlayers)
                 if(userID in eligiblePlayers):
                     for i in list(mapVotes):
                         if playerName in mapVotes[i]:
@@ -1357,7 +1377,7 @@ async def on_reaction_add(reaction, user):
                     if(reaction.emoji == '4️⃣'):
                         mapVotes[mapChoice4].append(playerName)
                     if(playerName not in alreadyVoted):    
-                        alreadyVoted.append(playerName)
+                        alreadyVoted.append(userID)
 
                     playersAbstained = []
                     for i in eligiblePlayers:
@@ -1403,6 +1423,8 @@ async def on_reaction_add(reaction, user):
                             #print(len(mapVotes[i], playerCount / 2))
                             #print(len(alreadyVoted), playerCount)
                     if((playerCount == len(alreadyVoted)) or (forceResults == 1)):
+                        alreadyVoted = []
+                        forceResults = 0
                         await forceVote(channel)
                 else:
                     await reaction.message.remove_reaction(reaction, user)
@@ -1430,7 +1452,7 @@ async def on_message(message):
         if message.guild is None and message.author != client.user:
             with open('ELOpop.json') as f:
                 ELOpop = json.load(f)
-            print(ELOpop[str(message.author.id)][2])
+            #print(ELOpop[str(message.author.id)][2])
             plt.plot(ELOpop[str(message.author.id)][2])
             plt.savefig(message.author.display_name + '.png')
             #await ctx.author.send(file = discord.File(ctx.author.display_name + '.png'), content="Your ELO is currently " + ctx.author.display_name][0])
