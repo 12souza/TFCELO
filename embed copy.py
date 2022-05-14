@@ -28,6 +28,7 @@ cap1 = None
 cap1Name = None
 cap2 = None
 cap2Name = None
+pauseVote = 0
 playersAdded = []
 capList = []
 blueTeam = []
@@ -93,6 +94,7 @@ def DePopulatePickup():
     global playersAdded
     global blueTeam
     global redTeam
+    global pauseVote
     global winner
     global mapChoice1
     global mapChoice2
@@ -143,6 +145,7 @@ def DePopulatePickup():
     fTimer = 0
     inVote = 0
     eligiblePlayers = []
+    pauseVote = 0
     reVote = 0
     captMode = 0
     vMsg = None
@@ -1260,177 +1263,180 @@ async def notice(ctx, anumber = 8):
 
 @client.event
 async def on_reaction_add(reaction, user):
-    global vMsg
-    global mapVotes
-    global serverVote
-    global inVote
-    global eligiblePlayers
-    global mapChoice1
-    global mapChoice2
-    global mapChoice3
-    global mapChoice4
-    global reVote
-    global pMsg
-    global pickCount
-    global cap1
-    global cap2
-    global cap1Name
-    global cap2Name
-    global pTotalPlayers
-    global blueTeam
-    global redTeam
-    global alreadyVoted
+    if(not user.bot):    
+        global vMsg
+        global mapVotes
+        global serverVote
+        global inVote
+        global eligiblePlayers
+        global mapChoice1
+        global mapChoice2
+        global mapChoice3
+        global pauseVote
+        global mapChoice4
+        global reVote
+        global pMsg
+        global pickCount
+        global cap1
+        global cap2
+        global cap1Name
+        global cap2Name
+        global pTotalPlayers
+        global blueTeam
+        global redTeam
+        global alreadyVoted
 
-    if(reaction.message == pMsg):
-        if((str(user.id) == cap1) or (str(user.id) == cap2)):
-            if(reaction.emoji == '1️⃣'):
-                playerPicked = 1
-            elif(reaction.emoji == '2️⃣'):
-                playerPicked = 2
-            elif(reaction.emoji == '3️⃣'):
-                playerPicked = 3
-            elif(reaction.emoji == '4️⃣'):
-                playerPicked = 4
-            elif(reaction.emoji == '5️⃣'):
-                playerPicked = 5
-            elif(reaction.emoji == '6️⃣'):
-                playerPicked = 6
-            
-            if(pickCount == 0 and str(user.id) == cap1):
-                for i in pTotalPlayers:
-                    if playerPicked in i:
-                        pTotalPlayers.remove(i)
-                        redTeam.append(i[1])
-                        pickCount += 1
-                        TeamPickPopulate()
-                        await pMsg.edit(content="```" + msg + "```")
-            elif(pickCount == 1 and str(user.id) == cap2):
-                for i in pTotalPlayers:
-                    if playerPicked in i:
-                        pTotalPlayers.remove(i)
-                        blueTeam.append(i[1])
-                        pickCount += 1
-                        TeamPickPopulate()
-                        await pMsg.edit(content="```" + msg + "```")
-            elif(pickCount == 2 and str(user.id) == cap1):
-                #print("recognized pick")
-                for i in pTotalPlayers:
-                    if playerPicked in i:
-                        pTotalPlayers.remove(i)
-                        redTeam.append(i[1])
-                        pickCount += 1
-                        TeamPickPopulate()
-                        await pMsg.edit(content="```" + msg + "```")
-            elif(pickCount == 3 and str(user.id) == cap2):
-                #print("recognized pick")
-                for i in pTotalPlayers:
-                    if playerPicked in i:
-                        pTotalPlayers.remove(i)
-                        blueTeam.append(i[1])
-                        pickCount += 1
-                        TeamPickPopulate()
-                        await pMsg.edit(content="```" + msg + "```")
-                        await reaction.message.remove_reaction(reaction, user)
-                        await reaction.message.remove_reaction(reaction, pMsg)
-            elif(pickCount == 4 and str(user.id) == cap2):
-                #print("recognized pick")
-                for i in pTotalPlayers:
-                    if playerPicked in i:
-                        pTotalPlayers.remove(i)
-                        blueTeam.append(i[1])
-                        redTeam.append(pTotalPlayers[0][1])
-                        pTotalPlayers.remove(pTotalPlayers[0])
-                        pickCount += 1
-                        TeamPickPopulate()
-                        
-                        await reaction.message.channel.send("```Teams are done being picked!  Here are the teams:\n\n" + msg + "```")
-                        await reaction.message.channel.send("Picking has ended.. join the server")
-                        savePickup()
-                        DePopulatePickup()
-                        inVote = 0
-                        reVote = 0
-                        
-            else:
-                await user.send("It is not your pick..")
-                await reaction.message.remove_reaction(reaction, user)
-    if(reaction.message == vMsg):
-        if((reaction.emoji == '1️⃣') or (reaction.emoji == '2️⃣') or (reaction.emoji == '3️⃣') or (reaction.emoji == '4️⃣')):
-            with open('ELOpop.json') as f:
-                ELOpop = json.load(f)
-            playerCount = len(eligiblePlayers)
-            userID = str(user.id)
-            forceResults = 0
-            channel = await client.fetch_channel(reaction.message.channel.id)
-            playerName = ELOpop[str(userID)][0]
-            if(inVote == 1):
-                #print(eligiblePlayers)
-                if(userID in eligiblePlayers):
-                    for i in list(mapVotes):
-                        if playerName in mapVotes[i]:
-                            mapVotes[i].remove(playerName)
-                    if(reaction.emoji == '1️⃣'):
-                        mapVotes[mapChoice1].append(playerName)
-                    if(reaction.emoji == '2️⃣'):
-                        mapVotes[mapChoice2].append(playerName)
-                    if(reaction.emoji == '3️⃣'):
-                        mapVotes[mapChoice3].append(playerName)
-                    if(reaction.emoji == '4️⃣'):
-                        mapVotes[mapChoice4].append(playerName)
-                    if(playerName not in alreadyVoted):    
-                        alreadyVoted.append(userID)
-
-                    playersAbstained = []
-                    for i in eligiblePlayers:
-                        if i not in alreadyVoted:
-                            playersAbstained.append(ELOpop[str(i)][0])
-                    toVoteString = "```"
-                    if len(playersAbstained) != 0:
-                        toVoteString = "\n💩 " + ", ".join(playersAbstained) +  " need to vote 💩```"
-
-                    with open('mainmaps.json') as f:
-                        mapList = json.load(f)
-                    with open('specmaps.json') as f:
-                        mapList2 = json.load(f)
-                    #print(mapVotes)   
-                    if(serverVote == 1):    
-                        await vMsg.edit(content="```Vote for your server!  Be quick, you only have 45 seconds to vote..\n\n"
-                                                            + "1️⃣ " + mapChoice1 + " " * (70 - len(mapChoice1)) + mapVoteOutput(mapChoice1) + "\n"
-                                                            + "2️⃣ " + mapChoice2 + " " * (70 - len(mapChoice2)) + mapVoteOutput(mapChoice2) + "\n"
-                                                            + "3️⃣ " + mapChoice3 + " " * (70 - len(mapChoice3)) + mapVoteOutput(mapChoice3)
-                                                            + toVoteString) 
-                    elif(serverVote == 0):  
-                        if(reVote == 0):    
-                            await vMsg.edit(content="```Vote up and make sure you hydrate!\n\n"
-                                            + "1️⃣ " + mapChoice1 + " " * (25 - len(mapChoice1)) + "   " + str(mapList[mapChoice1]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice1) + "\n"
-                                            + "2️⃣ " + mapChoice2 + " " * (25 - len(mapChoice2)) + "   " + str(mapList[mapChoice2]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice2) + "\n"
-                                            + "3️⃣ " + mapChoice3 + " " * (25 - len(mapChoice3)) + "   " + str(mapList2[mapChoice3]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice3) + "\n"
-                                            + "4️⃣ " + mapChoice4 + " " * (49 - len(mapChoice4)) + mapVoteOutput(mapChoice4)
-                                            + toVoteString)
-                        elif(reVote == 1):
-                            if(serverVote == 0):
-                                await vMsg.edit(content="```Vote up and make sure you hydrate!\n\n"
-                                            + "1️⃣ " + mapChoice1 + " " * (25 - len(mapChoice1)) + "   " + str(mapList[mapChoice1]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice1) + "\n"
-                                            + "2️⃣ " + mapChoice2 + " " * (25 - len(mapChoice2)) + "   " + str(mapList[mapChoice2]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice2) + "\n"
-                                            + "3️⃣ " + mapChoice3 + " " * (25 - len(mapChoice3)) + "   " + str(mapList2[mapChoice3]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice3) + "\n"
-                                            + "4️⃣ " + mapChoice4 + " " * (49 - len(mapChoice4)) + mapVoteOutput(mapChoice4)
-                                            + toVoteString)
-                    if(reVote == 1):
-                        print(mapVotes)
-                    for i in list(mapVotes):
-                        if (len(mapVotes[i]) > (playerCount / 2)):
-                        #if (len(mapVotes[i]) == 1):
-                            forceResults = 1
-                            #print(len(mapVotes[i], playerCount / 2))
-                            #print(len(alreadyVoted), playerCount)
-                    if((playerCount == len(alreadyVoted)) or (forceResults == 1)):
-                        alreadyVoted = []
-                        forceResults = 0
-                        await forceVote(channel)
+        if(reaction.message == pMsg):
+            if((str(user.id) == cap1) or (str(user.id) == cap2)):
+                if(reaction.emoji == '1️⃣'):
+                    playerPicked = 1
+                elif(reaction.emoji == '2️⃣'):
+                    playerPicked = 2
+                elif(reaction.emoji == '3️⃣'):
+                    playerPicked = 3
+                elif(reaction.emoji == '4️⃣'):
+                    playerPicked = 4
+                elif(reaction.emoji == '5️⃣'):
+                    playerPicked = 5
+                elif(reaction.emoji == '6️⃣'):
+                    playerPicked = 6
+                
+                if(pickCount == 0 and str(user.id) == cap1):
+                    for i in pTotalPlayers:
+                        if playerPicked in i:
+                            pTotalPlayers.remove(i)
+                            redTeam.append(i[1])
+                            pickCount += 1
+                            TeamPickPopulate()
+                            await pMsg.edit(content="```" + msg + "```")
+                elif(pickCount == 1 and str(user.id) == cap2):
+                    for i in pTotalPlayers:
+                        if playerPicked in i:
+                            pTotalPlayers.remove(i)
+                            blueTeam.append(i[1])
+                            pickCount += 1
+                            TeamPickPopulate()
+                            await pMsg.edit(content="```" + msg + "```")
+                elif(pickCount == 2 and str(user.id) == cap1):
+                    #print("recognized pick")
+                    for i in pTotalPlayers:
+                        if playerPicked in i:
+                            pTotalPlayers.remove(i)
+                            redTeam.append(i[1])
+                            pickCount += 1
+                            TeamPickPopulate()
+                            await pMsg.edit(content="```" + msg + "```")
+                elif(pickCount == 3 and str(user.id) == cap2):
+                    #print("recognized pick")
+                    for i in pTotalPlayers:
+                        if playerPicked in i:
+                            pTotalPlayers.remove(i)
+                            blueTeam.append(i[1])
+                            pickCount += 1
+                            TeamPickPopulate()
+                            await pMsg.edit(content="```" + msg + "```")
+                            await reaction.message.remove_reaction(reaction, user)
+                            await reaction.message.remove_reaction(reaction, pMsg)
+                elif(pickCount == 4 and str(user.id) == cap2):
+                    #print("recognized pick")
+                    for i in pTotalPlayers:
+                        if playerPicked in i:
+                            pTotalPlayers.remove(i)
+                            blueTeam.append(i[1])
+                            redTeam.append(pTotalPlayers[0][1])
+                            pTotalPlayers.remove(pTotalPlayers[0])
+                            pickCount += 1
+                            TeamPickPopulate()
+                            
+                            await reaction.message.channel.send("```Teams are done being picked!  Here are the teams:\n\n" + msg + "```")
+                            await reaction.message.channel.send("Picking has ended.. join the server")
+                            savePickup()
+                            DePopulatePickup()
+                            inVote = 0
+                            reVote = 0
+                            
                 else:
+                    await user.send("It is not your pick..")
                     await reaction.message.remove_reaction(reaction, user)
-                    await user.send("You are not in this pickup..")
-        else:
-            await reaction.message.remove_reaction(reaction, user)
+        if(reaction.message == vMsg):
+            if((reaction.emoji == '1️⃣') or (reaction.emoji == '2️⃣') or (reaction.emoji == '3️⃣') or (reaction.emoji == '4️⃣')):
+                with open('ELOpop.json') as f:
+                    ELOpop = json.load(f)
+                playerCount = len(eligiblePlayers)
+                userID = str(user.id)
+                forceResults = 0
+                channel = await client.fetch_channel(reaction.message.channel.id)
+                playerName = ELOpop[str(userID)][0]
+                if(inVote == 1):
+                    #print(eligiblePlayers)
+                    if(userID in eligiblePlayers):
+                        for i in list(mapVotes):
+                            if playerName in mapVotes[i]:
+                                mapVotes[i].remove(playerName)
+                        if(reaction.emoji == '1️⃣'):
+                            mapVotes[mapChoice1].append(playerName)
+                        if(reaction.emoji == '2️⃣'):
+                            mapVotes[mapChoice2].append(playerName)
+                        if(reaction.emoji == '3️⃣'):
+                            mapVotes[mapChoice3].append(playerName)
+                        if(reaction.emoji == '4️⃣'):
+                            mapVotes[mapChoice4].append(playerName)
+                        if(playerName not in alreadyVoted):    
+                            alreadyVoted.append(userID)
+
+                        playersAbstained = []
+                        for i in eligiblePlayers:
+                            if i not in alreadyVoted:
+                                playersAbstained.append(ELOpop[str(i)][0])
+                        toVoteString = "```"
+                        if len(playersAbstained) != 0:
+                            toVoteString = "\n💩 " + ", ".join(playersAbstained) +  " need to vote 💩```"
+
+                        with open('mainmaps.json') as f:
+                            mapList = json.load(f)
+                        with open('specmaps.json') as f:
+                            mapList2 = json.load(f)
+                        #print(mapVotes)   
+                        if(serverVote == 1):    
+                            await vMsg.edit(content="```Vote for your server!  Be quick, you only have 45 seconds to vote..\n\n"
+                                                                + "1️⃣ " + mapChoice1 + " " * (70 - len(mapChoice1)) + mapVoteOutput(mapChoice1) + "\n"
+                                                                + "2️⃣ " + mapChoice2 + " " * (70 - len(mapChoice2)) + mapVoteOutput(mapChoice2) + "\n"
+                                                                + "3️⃣ " + mapChoice3 + " " * (70 - len(mapChoice3)) + mapVoteOutput(mapChoice3)
+                                                                + toVoteString) 
+                        elif(serverVote == 0):  
+                            if(reVote == 0):    
+                                await vMsg.edit(content="```Vote up and make sure you hydrate!\n\n"
+                                                + "1️⃣ " + mapChoice1 + " " * (25 - len(mapChoice1)) + "   " + str(mapList[mapChoice1]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice1) + "\n"
+                                                + "2️⃣ " + mapChoice2 + " " * (25 - len(mapChoice2)) + "   " + str(mapList[mapChoice2]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice2) + "\n"
+                                                + "3️⃣ " + mapChoice3 + " " * (25 - len(mapChoice3)) + "   " + str(mapList2[mapChoice3]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice3) + "\n"
+                                                + "4️⃣ " + mapChoice4 + " " * (49 - len(mapChoice4)) + mapVoteOutput(mapChoice4)
+                                                + toVoteString)
+                            elif(reVote == 1):
+                                if(serverVote == 0):
+                                    await vMsg.edit(content="```Vote up and make sure you hydrate!\n\n"
+                                                + "1️⃣ " + mapChoice1 + " " * (25 - len(mapChoice1)) + "   " + str(mapList[mapChoice1]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice1) + "\n"
+                                                + "2️⃣ " + mapChoice2 + " " * (25 - len(mapChoice2)) + "   " + str(mapList[mapChoice2]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice2) + "\n"
+                                                + "3️⃣ " + mapChoice3 + " " * (25 - len(mapChoice3)) + "   " + str(mapList2[mapChoice3]) + " mirv" + " " * 15 + mapVoteOutput(mapChoice3) + "\n"
+                                                + "4️⃣ " + mapChoice4 + " " * (49 - len(mapChoice4)) + mapVoteOutput(mapChoice4)
+                                                + toVoteString)
+                        if(reVote == 1):
+                            print(mapVotes)
+                        for i in list(mapVotes):
+                            if (len(mapVotes[i]) > (playerCount / 2)):
+                            #if (len(mapVotes[i]) == 1):
+                                forceResults = 1
+                                #print(len(mapVotes[i], playerCount / 2))
+                                #print(len(alreadyVoted), playerCount)
+                        if(((playerCount == len(alreadyVoted)) or (forceResults == 1)) and pauseVote == 0):
+                            alreadyVoted = []
+                            forceResults = 0
+                            pauseVote = 1
+                            await forceVote(channel)
+                    else:
+                        await reaction.message.remove_reaction(reaction, user)
+                        await user.send("You are not in this pickup..")
+            else:
+                await reaction.message.remove_reaction(reaction, user)
                     
 
 
@@ -1440,6 +1446,7 @@ async def on_message(message):
     global alreadyVoted
     global serverVote
     global reVote
+    global pauseVote
     global vMsg
     global mapVotes
     global mapChoice1
@@ -1525,6 +1532,7 @@ async def on_message(message):
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
         await vMsg.add_reaction("4️⃣")
+        pauseVote = 0
 
     await client.process_commands(message)
 
