@@ -2,6 +2,7 @@ from asyncio.tasks import sleep
 from email.utils import collapse_rfc2231_value
 from http import server
 import json
+from platform import python_build, python_version
 import discord
 from discord import player
 from discord.ext import commands
@@ -13,14 +14,21 @@ import random
 import itertools
 import time
 import requests
+#from discord import app_commands
+#from discord_slash import SlashCommand
 
+
+#print(discord.__version__)
 intents = discord.Intents.all()
-client = commands.Bot(command_prefix = ["!", "+", "-"], case_insensitive=True)
+client = commands.Bot(command_prefix = ["!", "+", "-"], case_insensitive=True, intents= intents)
 client.remove_command('help')
+#slash = SlashCommand(client)
+
+#print(python_build)
 
 with open('ELOpop.json') as f:
     ELOpop = json.load(f)
-with open('variables2.json') as f:
+with open('variables.json') as f:
     v = json.load(f)
 
 #globals
@@ -404,6 +412,22 @@ async def pickupDisplay(ctx):
         embed.add_field(name = "Players Added", value= "PUG IS EMPTY!")
     await ctx.send(embed = embed)
 
+async def teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob):
+    msgList = []
+
+    for i in blueTeam:
+        msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+    bMsg = "".join(msgList)
+    msgList.clear()
+    for i in redTeam:
+        msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+    rMsg = "".join(msgList)
+    embed = discord.Embed(title = "Teams Sorted!")
+    embed.add_field(name = "Blue Team " + v['t1img'] + " " + str(int(team1prob * 100)) + "%", value= bMsg, inline=True)
+    embed.add_field(name="\u200b", value = "\u200b")
+    embed.add_field(name = "Red Team " + v['t2img'] + " " + str(int(team2prob * 100)) + "%", value= rMsg, inline=True)
+    await ctx.send(embed = embed)
+
 async def pastGames(ctx):
     with open('pastten.json') as f:
         pastTen = json.load(f)
@@ -431,22 +455,6 @@ async def pastGames(ctx):
     elif(len(pastTen) == 0):
         embed.add_field(name = "#", value= "No unreported pickups!!", inline=True) 
 
-    await ctx.send(embed = embed)
-
-async def teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob):
-    msgList = []
-
-    for i in blueTeam:
-        msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
-    bMsg = "".join(msgList)
-    msgList.clear()
-    for i in redTeam:
-        msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
-    rMsg = "".join(msgList)
-    embed = discord.Embed(title = "Teams Sorted!")
-    embed.add_field(name = "Blue Team " + v['t1img'] + " " + str(int(team1prob * 100)) + "%", value= bMsg, inline=True)
-    embed.add_field(name="\u200b", value = "\u200b")
-    embed.add_field(name = "Red Team " + v['t2img'] + " " + str(int(team2prob * 100)) + "%", value= rMsg, inline=True)
     await ctx.send(embed = embed)
 
 async def openPickups(ctx):
@@ -771,10 +779,6 @@ async def addplayer(ctx, player: discord.Member):
         await pickupDisplay(ctx)
 
 @client.command(pass_context=True)
-async def slap(ctx, player: discord.Member):
-    await ctx.send(f"{ctx.author.mention} slapped {player.mention} around a bit with a large trout.")
-    
-@client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def teams(ctx, playerCount = 4):
     if(ctx.channel.name == v['pc']):    
@@ -788,7 +792,7 @@ async def teams(ctx, playerCount = 4):
         global fTimer
         global captMode
         global serverVote
-        DMList = []
+
         if(len(playersAdded) >= int(playerCount * 2)):
             if(inVote == 0):
                 if(len(capList) < 2):    
@@ -852,11 +856,6 @@ async def teams(ctx, playerCount = 4):
                     team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
                     team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
                     await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-                    for i in eligiblePlayers:
-                        DMList.append(f"<@{i}> ")
-                        
-                    dmMsg = "".join(DMList)
-                    await ctx.send(dmMsg)
                     await ctx.send("Please react to the server you want to play on..")
                     serverVote = 1
                     await voteSetup()
@@ -874,11 +873,6 @@ async def teams(ctx, playerCount = 4):
                     else:    
                         eligiblePlayers = playersAdded[0:playerCount * 2]
                     captMode = 1
-                    for i in eligiblePlayers:
-                        DMList.append(f"<@{i}> ")
-                        
-                    dmMsg = "".join(DMList)
-                    await ctx.send(dmMsg)
                     await ctx.send("Please react to the server you want to play on..")
                     serverVote = 1
                     await voteSetup()
@@ -1144,6 +1138,9 @@ async def draw(ctx, pNumber = "None"):
             activePickups = json.load(f)
         with open('ELOpop.json') as f:
             ELOpop = json.load(f)
+        with open('pastten.json') as f:
+            pastTen = json.load(f)
+
         if(pNumber == "None"):
             pNumber = list(activePickups)[-1]
 
@@ -1180,11 +1177,20 @@ async def draw(ctx, pNumber = "None"):
             ELOpop[i][2].append(int(ELOpop[i][1]))
             ELOpop[i][6] += 1
             newRank(i)
+
+        if(len(list(pastTen)) >= 10):
+            while len(list(pastTen) > 9):
+                ID = list(pastTen)[0]
+                del pastTen[ID]
+        
+        pastTen[pNumber] = [blueTeam, blueProb, adjustTeam1, blueRank, redTeam, redProb, adjustTeam2, redRank, 0, activePickups[pNumber][7]] #winningTeam, team1prob, adjustmentTeam1, losingteam, team2prob, adjustmentTeam2    
         del activePickups[pNumber]
         with open('activePickups.json', 'w') as cd:
             json.dump(activePickups, cd,indent= 4)
         with open('ELOpop.json', 'w') as cd:
             json.dump(ELOpop, cd,indent= 4)
+        with open('pastten.json', 'w') as cd:
+            json.dump(pastTen, cd,indent= 4)
         
         await ctx.send("Match reported.. thank you!")
 
@@ -1197,6 +1203,8 @@ async def win(ctx, team, pNumber = "None"):
             activePickups = json.load(f)
         with open('ELOpop.json') as f:
             ELOpop = json.load(f)
+        with open('pastten.json') as f:
+            pastTen = json.load(f)
         if(pNumber == "None"):
             pNumber = list(activePickups)[-1]
 
@@ -1209,14 +1217,15 @@ async def win(ctx, team, pNumber = "None"):
         redRank = activePickups[pNumber][4]
         adjustTeam1 = 0
         adjustTeam2 = 0
-        
+        winner = 0
         if(team == "1"):
             adjustTeam1 = int(blueRank + 50 * (1 - blueProb)) - blueRank
             adjustTeam2 = int(redRank + 50 * (0 - redProb)) - redRank
-
+            winner = 1
         if(team == "2"):
             adjustTeam1 = int(blueRank + 50 * (0 - blueProb)) - blueRank
             adjustTeam2 = int(redRank + 50 * (1 - redProb)) - redRank
+            winner = 2
         if(team == "draw"):
             adjustTeam1 = int(blueRank + 50 * (.5 - blueProb)) - blueRank
             adjustTeam2 = int(redRank + 50 * (.5 - redProb)) - redRank
@@ -1226,7 +1235,7 @@ async def win(ctx, team, pNumber = "None"):
                 #ELOpop[i][1] = 2599
             if(int(ELOpop[i][1]) < 0):
                 ELOpop[i][1] = 0    
-            ELOpop[i][2].append(int(ELOpop[i][1]))
+            ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
             if(team == "1"):
                 ELOpop[i][4] += 1
             if(team == "2"):
@@ -1243,7 +1252,7 @@ async def win(ctx, team, pNumber = "None"):
                 #ELOpop[i][1] = 2599
             if(int(ELOpop[i][1]) < 0):
                 ELOpop[i][1] = 0
-            ELOpop[i][2].append(int(ELOpop[i][1]))
+            ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
             if(team == "1"):
                 ELOpop[i][5] += 1
             if(team == "2"):
@@ -1251,18 +1260,91 @@ async def win(ctx, team, pNumber = "None"):
             if(team == "draw"):
                 ELOpop[i][6] += 1
             newRank(i)
+        
+
+        if(len(list(pastTen)) >= 10):
+            while len(list(pastTen) > 9):
+                ID = list(pastTen)[0]
+                del pastTen[ID]
+        
+        pastTen[pNumber] = [blueTeam, blueProb, adjustTeam1, blueRank, redTeam, redProb, adjustTeam2, redRank, winner, activePickups[pNumber][7]] #winningTeam, team1prob, adjustmentTeam1, losingteam, team2prob, adjustmentTeam2
         del activePickups[pNumber]
+        
         with open('activePickups.json', 'w') as cd:
             json.dump(activePickups, cd,indent= 4)
         with open('ELOpop.json', 'w') as cd:
             json.dump(ELOpop, cd,indent= 4)
+        with open('pastten.json', 'w') as cd:
+            json.dump(pastTen, cd,indent= 4)
         
+        pastTen[pNumber] = []
+
         await ctx.send("Match reported.. thank you!")
+
+@client.command(pass_context=True)
+@commands.has_role(v['runner'])
+async def undo(ctx, pNumber = "None"):
+    with open('pastten.json') as f:
+        pastTen = json.load(f)
+    with open('ELOpop.json') as f:
+        ELOpop = json.load(f)
+    with open('activePickups.json') as f:
+            activePickups = json.load(f)
+
+    blueTeam = pastTen[pNumber][0]
+    redTeam = pastTen[pNumber][4]
+    winningTeam = pastTen[pNumber][8]
+    team1Adjust = pastTen[pNumber][2]
+    team2Adjust = pastTen[pNumber][6]
+
+    
+    
+    for i in blueTeam:
+        ELOpop[i][1] += -1 * team1Adjust
+        if(winningTeam == 1):
+            ELOpop[i][4] += -1
+        elif(winningTeam == 2):
+            ELOpop[i][5] += -1
+        elif(winningTeam == 0):
+            ELOpop[i][6] += -1
+        for j in list(ELOpop[i][2]):
+            if(j[1] == pNumber):
+                ELOpop[i][2].remove(j)
+    
+    for i in redTeam:
+        ELOpop[i][1] += -1 * team2Adjust
+        if(winningTeam == 2):
+            ELOpop[i][4] += -1
+        elif(winningTeam == 1):
+            ELOpop[i][5] += -1
+        elif(winningTeam == 0):
+            ELOpop[i][6] += -1
+        for j in list(ELOpop[i][2]):
+            if(j[1] == pNumber):
+                ELOpop[i][2].remove(j)
+
+                
+    #pastTen[pNumber] = [blueTeam, blueProb, adjustTeam1, blueRank, redTeam, redProb, adjustTeam2, redRank, winner, activePickups[pNumber][7]]
+    activePickups[pNumber] = [pastTen[pNumber][1], pastTen[pNumber][3], blueTeam, pastTen[pNumber][5], pastTen[pNumber][7], redTeam, "None", pastTen[pNumber][9], "None"]
+
+    await ctx.send(f"Match Number {pNumber} has been undone")
+
+    with open('activePickups.json', 'w') as cd:
+            json.dump(activePickups, cd,indent= 4)
+    with open('ELOpop.json', 'w') as cd:
+        json.dump(ELOpop, cd,indent= 4)
+    with open('pastten.json', 'w') as cd:
+        json.dump(pastTen, cd,indent= 4)
 
 @client.command(pass_context=True)
 async def games(ctx):
     if(ctx.channel.name == v['pc']):    
         await openPickups(ctx)
+
+@client.command(pass_context=True)
+async def recent(ctx):
+    if(ctx.channel.name == v['pc']):
+        await pastGames(ctx)
 
 @client.command(pass_context=True)
 async def checkgame(ctx, number):
@@ -1310,32 +1392,10 @@ async def cancel(ctx):
 
         playersAdded.clear()
         DePopulatePickup()
-
-@client.command(pass_context=True)
-@commands.has_role(v['runner'])
-async def command(ctx):
-    await ctx.author.send("""```\nNEW BOT\n"
-    !add / !add cap - same as before\n            
-    !remove - same as before \n
-    !teams # - same as before cept you can specify a team number, default is 4.  If there are 20 ppl in queue and you do !teams.. itll take the first 8 players in queue and sort a game leaving 12 ppl in queue.  alternatively if you did !teams 8, itll take the first 16 and do the same leaving 4 people in queue\n
-    !kick @person - kick person from queue \n
-    !sub @personout @personin # - was !swap \n
-    !swapteams @person1 @person2 - will swap their teams within the current teams queue\n 
-    !next @personout - will kick a player and bring in the next player in queue\n
-    !games - list of games that havent been reported\n
-    !checkgame # - check the rosters of a particular open game\n
-    !removegame # - remove a game\n
-    !win teamWin game# - reports a win with the game number and the team that one (blue = 1, red = 2 .. these are the r1 teams)\n
-    !cancel - clears everything\n
-    !status - shows queue\n
-    !forcevote - forces vote on map/server\n
-    !shuffle # - the # is optional.. if "!shuffle" itll shuffle current teams.. if "!shuffle 1329843" itll reshuffle teams for that game. so we can now shuffle post vote.\n
-    !elo - players can check their own elo with a graph.. must have DMs enabled\n
-    !startserver region - same as before\n
-    !stopserver region - same as before```""")
+        await ctx.send("Queue has been cancelled..")
 
 @client.command(aliases=['fv'])
-@commands.cooldown(1, 3, commands.BucketType.default)
+@commands.cooldown(1, 3, commands.BucketType.user)
 @commands.has_role(v['runner'])
 async def forceVote(channel):
     channel = await client.fetch_channel(v['pID'])
@@ -1633,65 +1693,9 @@ async def notice(ctx, anumber = 8):
     await ctx.send(f"{role.mention} {number}/{anumber}")
 
 
-@client.command(pass_context=True)
-@commands.has_role(v['runner'])
-async def undo(ctx, pNumber = "None"):
-    with open('pastten.json') as f:
-        pastTen = json.load(f)
-    with open('ELOpop.json') as f:
-        ELOpop = json.load(f)
-    with open('activePickups.json') as f:
-            activePickups = json.load(f)
-
-    blueTeam = pastTen[pNumber][0]
-    redTeam = pastTen[pNumber][4]
-    winningTeam = pastTen[pNumber][8]
-    team1Adjust = pastTen[pNumber][2]
-    team2Adjust = pastTen[pNumber][6]
-
-    
-    
-    for i in blueTeam:
-        ELOpop[i][1] += -1 * team1Adjust
-        if(winningTeam == 1):
-            ELOpop[i][4] += -1
-        elif(winningTeam == 2):
-            ELOpop[i][5] += -1
-        elif(winningTeam == 0):
-            ELOpop[i][6] += -1
-        for j in list(ELOpop[i][2]):
-            if(j[1] == pNumber):
-                ELOpop[i][2].remove(j)
-    
-    for i in redTeam:
-        ELOpop[i][1] += -1 * team2Adjust
-        if(winningTeam == 2):
-            ELOpop[i][4] += -1
-        elif(winningTeam == 1):
-            ELOpop[i][5] += -1
-        elif(winningTeam == 0):
-            ELOpop[i][6] += -1
-        for j in list(ELOpop[i][2]):
-            if(j[1] == pNumber):
-                ELOpop[i][2].remove(j)
-
-                
-    #pastTen[pNumber] = [blueTeam, blueProb, adjustTeam1, blueRank, redTeam, redProb, adjustTeam2, redRank, winner, activePickups[pNumber][7]]
-    activePickups[pNumber] = [pastTen[pNumber][1], pastTen[pNumber][3], blueTeam, pastTen[pNumber][5], pastTen[pNumber][7], redTeam, "None", pastTen[pNumber][9], "None"]
-
-    await ctx.send(f"Match Number {pNumber} has been undone")
-
-    with open('activePickups.json', 'w') as cd:
-            json.dump(activePickups, cd,indent= 4)
-    with open('ELOpop.json', 'w') as cd:
-        json.dump(ELOpop, cd,indent= 4)
-    with open('pastten.json', 'w') as cd:
-        json.dump(pastTen, cd,indent= 4)
-
-@client.command(pass_context=True)
-async def recent(ctx):
-    if(ctx.channel.name == v['pc']):
-        await pastGames(ctx)
+'''@slash.slash(name="slap")
+async def slap(ctx, player: discord.Member):
+    await ctx.send(f"{ctx.author.display_name} slapped {player.display_name} around a bit with a large trout")'''
 
 @client.event
 async def on_reaction_add(reaction, user):
@@ -1893,11 +1897,16 @@ async def on_message(message):
             with open('ELOpop.json') as f:
                 ELOpop = json.load(f)
             #print(ELOpop[str(message.author.id)][2])
-            plt.plot(ELOpop[str(message.author.id)][2])
+            plotList = []
+            for i in ELOpop[str(message.author.id)][2]:
+                print(i[0])
+                plotList.append(i[0])
+            plt.plot(plotList)
+            print(plotList)
             plt.savefig(message.author.display_name + '.png')
             #await ctx.author.send(file = discord.File(ctx.author.display_name + '.png'), content="Your ELO is currently " + ctx.author.display_name][0])
             await message.author.send(file = discord.File(message.author.display_name + '.png'), content=f"Your ELO is currently {ELOpop[str(message.author.id)][1]} with a record of W: {ELOpop[str(message.author.id)][4]} L: {ELOpop[str(message.author.id)][5]} D: {ELOpop[str(message.author.id)][6]}")
-            #os.remove(ctx.author.display_name + '.png')
+            os.remove(message.author.display_name + '.png')
             plt.clf()
     '''if(message.content == "elolegend"):
         user = await client.fetch_user(message.author.id)
