@@ -549,15 +549,15 @@ async def hello(ctx):
 async def startserver(ctx, server):
     #if(ctx.channel.name == v['pc']):    
     if(server.lower() == 'west'):
-        r = requests.get("https://us-west1-coachoffice-332119.cloudfunctions.net/startWest")
+        r = requests.get("link")
     elif(server.lower() == 'central'):
-        r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
+        r = requests.get("link")
     elif(server.lower() == 'east'):
-        r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/startEast")
+        r = requests.get("link")
     elif(server.lower() == 'latam'):
-        r = requests.get("https://southamerica-east1-coachoffice-332119.cloudfunctions.net/startLATAM")
+        r = requests.get("link")
     elif(server.lower() == 'eu'):
-        r = requests.get("https://europe-west3-coachoffice-332119.cloudfunctions.net/startEU")
+        r = requests.get("link")
     await ctx.send(server + " is starting up..")
 
 @client.command(pass_context=True)
@@ -565,15 +565,15 @@ async def startserver(ctx, server):
 async def stopserver(ctx, server):
     #if(ctx.channel.name == v['pc']):    
     if(server == 'west'):
-        r = requests.get("https://us-west1-coachoffice-332119.cloudfunctions.net/stopWest")
+        r = requests.get("link")
     elif(server == 'central'):
-        r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/stopCentral-2")
+        r = requests.get("link")
     elif(server == 'east'):    
-        r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/stopEast")
+        r = requests.get("link")
     elif(server.lower() == 'latam'):
-        r = requests.get("https://southamerica-east1-coachoffice-332119.cloudfunctions.net/stopLATAM")
+        r = requests.get("link")
     elif(server.lower() == 'eu'):
-        r = requests.get("https://europe-west3-coachoffice-332119.cloudfunctions.net/stopEU")
+        r = requests.get("link")
     await ctx.send(server + " is shutting down..")
 
 @client.command(pass_context=True)
@@ -1484,7 +1484,7 @@ async def forceVote(channel):
             windex = votes.index(max(votes))
             if(windex == 0):
                 await channel.send("West (Las Vegas) server is being launched..")
-                r = requests.get("https://us-west1-coachoffice-332119.cloudfunctions.net/startWest")
+                r = requests.get("link")
                 winningIP = "steam://connect/34.125.240.0:27015/letsplay!"
                 winningServer = "West"
                 serverVote = 0
@@ -1492,14 +1492,14 @@ async def forceVote(channel):
                 #activePickups[list(activePickups)[-1]][8] = "West"
             elif(windex == 1):
                 await channel.send("Central (Iowa) server is being launched..")
-                r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
+                r = requests.get("link")
                 winningIP = "steam://connect/35.188.60.68:27015/letsplay!"
                 winningServer = "Central"
                 serverVote = 0
                 #alreadyVoted = []
             elif(windex == 2):
                 await channel.send("East (N. Virginia) server is being launched..")
-                r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/startEast")
+                r = requests.get("link")
                 winningIP = "steam://connect/35.194.65.124:27015/letsplay!"
                 winningServer = "East"
                 serverVote = 0
