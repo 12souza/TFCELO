@@ -1485,7 +1485,7 @@ async def forceVote(channel):
             if(windex == 0):
                 await channel.send("West (Las Vegas) server is being launched..")
                 r = requests.get("link")
-                winningIP = "steam://connect/34.125.240.0:27015/letsplay!"
+                winningIP = "steam://connect/34.125.8.154:27015/letsplay!"
                 winningServer = "West"
                 serverVote = 0
                 #alreadyVoted = []
