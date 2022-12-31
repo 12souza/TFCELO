@@ -53,10 +53,12 @@ hateMaps = []
 mapVotes = {}
 alreadyVoted = []
 pMsg = None
+oMsg = None
 lastFive = []
 mapSelected = []
 winningIP = "None"
 votePhase = 0
+ready = []
 fTimer = 0
 inVote = 0
 eligiblePlayers = []
@@ -71,6 +73,7 @@ pTotalPlayers = []
 winningMap = None
 winningServer = None
 
+#just a command used for raters to adjust ELO if necessary
 @client.command(pass_context=True)
 @commands.has_role(v['rater'])
 async def search(ctx, searchkey):
@@ -96,6 +99,24 @@ async def search(ctx, searchkey):
         else:
             await ctx.send("No results with that search string..")
 
+@client.command(pass_context=True)
+async def private(ctx):
+    global ELOpop
+    with open('ELOpop.json') as f:
+        ELOpop = json.load(f)
+
+    if(ELOpop[str(ctx.author.id)][3] != "<:norank:1001265843683987487>"):
+        ELOpop[str(ctx.author.id)][3] = "<:norank:1001265843683987487>"
+        await ctx.author.send("Your ELO Rank is now private")
+
+        with open('ELOpop.json', 'w') as cd:
+            json.dump(ELOpop, cd,indent= 4)
+    else:
+        newRank(str(ctx.author.id))
+        await ctx.author.send("Your ELO Rank is back")
+
+   
+
 def DePopulatePickup():
     global cap1
     global cap2
@@ -105,6 +126,7 @@ def DePopulatePickup():
     global blueTeam
     global redTeam
     global winner
+    global oMsg
     global mapChoice1
     global mapChoice2
     global mapChoice3
@@ -121,6 +143,7 @@ def DePopulatePickup():
     global winningIP
     global votePhase
     global fTimer
+    global ready
     global inVote
     global vnoELO
     global eligiblePlayers
@@ -138,6 +161,7 @@ def DePopulatePickup():
     #playersAdded = []
     capList = []
     blueTeam = []
+    ready = []
     redTeam = []
     winner = None
     vnoELO = 0
@@ -151,6 +175,7 @@ def DePopulatePickup():
     alreadyVoted = []
     pMsg = None
     mapSelected = []
+    oMsg = None
     winningIP = "None"
     votePhase = 0
     fTimer = 0
@@ -303,11 +328,11 @@ async def voteSetup():
     with open('ELOpop.json') as f:
         ELOpop = json.load(f)
     if(serverVote == 1):
-        mapChoice3 = "North Virginia - East"
+        mapChoice3 = "New York - East"
         mapVotes[mapChoice3] = []
-        mapChoice2 = "Iowa - Central"
+        mapChoice2 = "Chicago - Central"
         mapVotes[mapChoice2] = []    
-        mapChoice1 = "Las Vegas - West"
+        mapChoice1 = "None - None"
         mapVotes[mapChoice1] = []
 
         playersAbstained = []
@@ -397,40 +422,120 @@ async def voteSetup():
         votable = 1
 
 @client.command(pass_context=True)
+@commands.has_role(v['admin'])
+async def addach(ctx, key, value):
+    with open('emotes.json') as f:
+        e = json.load(f)
+
+    e[key] = value
+
+    with open('emotes.json', 'w') as cd:
+        json.dump(e, cd,indent= 4)
+    await ctx.send(f"value has been added to the list of achievements")
+
+@client.command(pass_context=True)
+@commands.has_role(v['admin'])
+async def ach(ctx, player: discord.Member, ach):
+    with open('ELOpop.json') as f:
+        ELOpop = json.load(f)
+    with open('emotes.json') as f:
+        e = json.load(f)
+    channel = await client.fetch_channel(1004934664475115582)
+    ELOpop[str(player.id)][7].append(e[ach])
+
+    with open('ELOpop.json', 'w') as cd:
+        json.dump(ELOpop, cd,indent= 4)
+
+    await ctx.send(f"{player.id} has been successfully given the achievement {e[ach]}")
+    await channel.send(f"Congratulations {player.display_name} for completing the {e[ach]} achievement!")
+
+@client.command(pass_context=True)
 async def pickupDisplay(ctx):
     global playersAdded
     global capList
+    global oMsg
+    global ready
     with open('ELOpop.json') as f:
         ELOpop = json.load(f)
-    msgList = []
-    for i in playersAdded:
-        if(i in capList):
-            msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + v['cptimg'] + "\n")
-        else:
-            msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
-    msg = "".join(msgList)
-    embed = discord.Embed(title = "Pickup Started!")
-    if(len(playersAdded) > 0):
-        embed.add_field(name = f"Players Added - {len(playersAdded)} Queued", value= msg)
-    elif(len(playersAdded) == 0):
-        embed.add_field(name = "Players Added", value= "PUG IS EMPTY!")
-    await ctx.send(embed = embed)
+    print("hello")
+    if(len(playersAdded) >= 8):    
+        msgList = []
+        for i in playersAdded:
+            achList = ELOpop[i][7]
+            ach = "".join(achList)
+            if(i in capList):
+                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + v['cptimg'] + " " + ach + "\n")
+                #msgList.append(ELOpop[i][0] + " " + v['cptimg'] + "\n")
+            else:
+                
+                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + ach + "\n")
+                #msgList.append(ELOpop[i][0] + "\n")
+        msg = "".join(msgList)
+        readyList = []
+        for i in ready:
+            readyList.append(f"{ELOpop[i][0]}\n")
+        rMsg = "".join(readyList)
+        embed = discord.Embed(title = "Pickup Has 8 or more Players")
+        if(len(playersAdded) > 0):
+            embed.add_field(name = f"Players Added - {len(playersAdded)} Queued", value= msg)
+        elif(len(playersAdded) == 0):
+            embed.add_field(name = "Players Added", value= "PUG IS EMPTY!")
+        if(len(ready) != 0):    
+            embed.add_field(name = "Players Ready", value = rMsg)
+        elif(len(ready) == 0):
+            embed.add_field(name = "Players Ready", value = "\u200b")
+        oMsg = await ctx.send(embed = embed)
+
+        await oMsg.add_reaction("👍")
+        notiflist = []
+        for i in playersAdded[0:8]:
+            notiflist.append(f"<@{i}> ")
+        notiflist.append("... React with 👍 when ready to teams if no runner available.")
+        msg = "".join(notiflist)
+        await ctx.send(msg)
+            
+
+    elif(len(playersAdded) < 8):
+        oMsg = None
+        msgList = []
+        for i in playersAdded:
+            achList = ELOpop[i][7]
+            ach = "".join(achList)
+            if(i in capList):
+                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + v['cptimg'] + "\n")
+                #msgList.append(ELOpop[i][0] + " " + v['cptimg'] + "\n")
+            else:
+                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + ach + "\n")
+                #msgList.append(ELOpop[i][0] + "\n")
+        msg = "".join(msgList)
+        embed = discord.Embed(title = "Pickup Started!")
+        if(len(playersAdded) > 0):
+            embed.add_field(name = f"Players Added - {len(playersAdded)} Queued", value= msg)
+        elif(len(playersAdded) == 0):
+            embed.add_field(name = "Players Added", value= "PUG IS EMPTY!")
+        await ctx.send(embed = embed)  
 
 async def teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob):
     msgList = []
 
     for i in blueTeam:
-        msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+        #msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+        msgList.append(ELOpop[i][0] + "\n")
     bMsg = "".join(msgList)
     msgList.clear()
     for i in redTeam:
-        msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+        #msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+        msgList.append(ELOpop[i][0] + "\n")
     rMsg = "".join(msgList)
     embed = discord.Embed(title = "Teams Sorted!")
-    embed.add_field(name = "Blue Team " + v['t1img'] + " " + str(int(team1prob * 100)) + "%", value= bMsg, inline=True)
+    #embed.add_field(name = "Blue Team " + v['t1img'] + " " + str(int(team1prob * 100)) + "%", value= bMsg, inline=True)
+    embed.add_field(name = "Blue Team " + v['t1img'], value= bMsg, inline=True)
     embed.add_field(name="\u200b", value = "\u200b")
-    embed.add_field(name = "Red Team " + v['t2img'] + " " + str(int(team2prob * 100)) + "%", value= rMsg, inline=True)
+    #embed.add_field(name = "Red Team " + v['t2img'] + " " + str(int(team2prob * 100)), value= rMsg, inline=True)
+    embed.add_field(name = "Red Team " + v['t2img'], value= rMsg, inline=True)
     await ctx.send(embed = embed)
+
+    
 
 async def pastGames(ctx):
     with open('pastten.json') as f:
@@ -460,6 +565,8 @@ async def pastGames(ctx):
         embed.add_field(name = "#", value= "No unreported pickups!!", inline=True) 
 
     await ctx.send(embed = embed)
+
+    await pMsg.add_reaction("1️⃣")
 
 async def openPickups(ctx):
     with open('activePickups.json') as f:
@@ -491,6 +598,7 @@ async def openPickups(ctx):
 
 def newRank(ID):
     global ELOpop
+    
     if(len(ELOpop[ID][2]) > 9):
         if(ELOpop[ID][1] < 240): #1
             ELOpop[ID][3] = v['rank1']
@@ -518,7 +626,18 @@ def newRank(ID):
     with open('ELOpop.json', 'w') as cd:
         json.dump(ELOpop, cd,indent= 4)
 
+@client.command(pass_context=True)
+@commands.has_role(v['rater'])
+async def avatar(ctx, player: discord.Member, emote):
+    with open('ELOpop.json') as f:
+        ELOpop = json.load(f)
 
+    playerID = player.id
+
+    ELOpop[playerID][2] = emote
+    
+    with open('ELOpop.json', 'w') as cd:
+        json.dump(ELOpop, cd,indent= 4)
 
 @client.command(pass_context=True)
 @commands.has_role(v['rater'])
@@ -549,15 +668,15 @@ async def hello(ctx):
 async def startserver(ctx, server):
     #if(ctx.channel.name == v['pc']):    
     if(server.lower() == 'west'):
-        r = requests.get("link")
-    elif(server.lower() == 'central'):
-        r = requests.get("link")
+        r = requests.get("https://us-west1-coachoffice-332119.cloudfunctions.net/startWest")
+    #elif(server.lower() == 'central'):
+        #r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
     elif(server.lower() == 'east'):
-        r = requests.get("link")
+        r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/startEast")
     elif(server.lower() == 'latam'):
-        r = requests.get("link")
+        r = requests.get("https://southamerica-east1-coachoffice-332119.cloudfunctions.net/startLATAM")
     elif(server.lower() == 'eu'):
-        r = requests.get("link")
+        r = requests.get("https://europe-west3-coachoffice-332119.cloudfunctions.net/startEU")
     await ctx.send(server + " is starting up..")
 
 @client.command(pass_context=True)
@@ -565,15 +684,15 @@ async def startserver(ctx, server):
 async def stopserver(ctx, server):
     #if(ctx.channel.name == v['pc']):    
     if(server == 'west'):
-        r = requests.get("link")
-    elif(server == 'central'):
-        r = requests.get("link")
+        r = requests.get("https://us-west1-coachoffice-332119.cloudfunctions.net/stopWest")
+    #elif(server == 'central'):
+        #r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/stopCentral-2")
     elif(server == 'east'):    
-        r = requests.get("link")
+        r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/stopEast")
     elif(server.lower() == 'latam'):
-        r = requests.get("link")
+        r = requests.get("https://southamerica-east1-coachoffice-332119.cloudfunctions.net/stopLATAM")
     elif(server.lower() == 'eu'):
-        r = requests.get("link")
+        r = requests.get("https://europe-west3-coachoffice-332119.cloudfunctions.net/stopEU")
     await ctx.send(server + " is shutting down..")
 
 @client.command(pass_context=True)
@@ -733,7 +852,7 @@ async def add(ctx, cap = None):
                 ELOpop = json.load(f)
             if(playerID not in playersAdded):
                 if(playerID not in list(ELOpop)):
-                    ELOpop[playerID] = [ctx.author.display_name, 800, [], "<:questionMark:972369805359337532>", 0, 0, 0]
+                    ELOpop[playerID] = [ctx.author.display_name, 800, [], "<:questionMark:972369805359337532>", 0, 0, 0, []]
 
                     with open('ELOpop.json', 'w') as cd:
                         json.dump(ELOpop, cd,indent= 4)
@@ -798,7 +917,298 @@ async def noELO(ctx):
         vnoELO = 0
         await ctx.send("ELO has been turned **ON** for this game.")
 
+async def doteams(channel2, playerCount = 4):    
+        global playersAdded
+        global capList
+        global inVote
+        global blueTeam
+        global redTeam
+        global inVote
+        global eligiblePlayers
+        global fTimer
+        global captMode
+        global serverVote
+        global rankedOrder
+        global ready
+        global oMsg
+        #global pastTeams
+        ready = []
+        oMsg = None
+        DMList = []
+        channel2 = await client.fetch_channel(v['pID'])
+        print("test1")
+        if(len(playersAdded) >= int(playerCount * 2)):
+            print("test2")
+            if(inVote == 0):
+                print("test3")
+                if(len(capList) < 2):  
+                    with open('ELOpop.json') as f:
+                        ELOpop = json.load(f)    
+                    playerCount = int(playerCount)
+                    if(len(playersAdded) == playerCount):
+                        eligiblePlayers = playersAdded
+                    else:    
+                        eligiblePlayers = playersAdded[0:playerCount * 2]
+                    counter = 0
+                    teamsPicked = 0
+                    
+                    combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
+                    random.shuffle(combos)
+                    
+                    for i in eligiblePlayers:
+                        if i in playersAdded:
+                            playersAdded.remove(i)
+                    #print(playersAdded)
+                    #while teamsPicked == 0:
+                    blueTeam = []
+                    redTeam = []
+                    rankedOrder = [] 
+                    redRank = 0
+                    blueRank = 0
+                    totalRank = 0
+                    half = 0
+                    for j in eligiblePlayers:
+                        totalRank += int(ELOpop[j][1])
+                    half = int(totalRank / 2)
+                    
+                    if(playerCount <= 8):
+                        if("303845825476558859" in eligiblePlayers and "120411697184768000" in eligiblePlayers):
+                            for i in list(combos):
+                                blueRank = 0
+                                for j in list(i):
+                                    blueRank += int(ELOpop[j][1])
+                                    if("303845825476558859" in i and "120411697184768000" in i):
+                                        rankedOrder.append((list(i), abs(blueRank - half)))
+                                #print((list(i), abs(blueRank - half)))
+                            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                        else:   
+                            for i in list(combos):
+                                blueRank = 0
+                                for j in list(i):
+                                    blueRank += int(ELOpop[j][1])
+                                rankedOrder.append((list(i), abs(blueRank - half)))
+                                #print((list(i), abs(blueRank - half)))
+                            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                    elif(playerCount > 8):
+                        teamList = []
+                        for i in range(100):
+                            rTeam = random.choice(combos)
+                            teamList.append(rTeam)
+                            combos.remove(rTeam)
+                        for i in list(teamList):
+                            blueRank = 0
+                            for j in list(i):
+                                blueRank += int(ELOpop[j][1])
+                            rankedOrder.append((list(i), abs(blueRank - half)))
+                            #print((list(i), abs(blueRank - half)))
+                        rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                        
+                    for i in rankedOrder:
+                        print(i)
+                    blueTeam = list(rankedOrder[0][0])
+
+                    for j in eligiblePlayers:
+                        if(j not in blueTeam):
+                            redTeam.append(j)
+                    blueRank = 0
+                    for j in blueTeam:
+                        blueRank += int(ELOpop[j][1])
+                    diff = abs(blueRank - half)
+                    print(blueTeam, diff)
+                    for j in redTeam:
+                        redRank += int(ELOpop[j][1])
+                    diff = abs(redRank - half)
+                    print(redTeam, diff)  
+                    team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+                    team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+                    await teamsDisplay(channel2, blueTeam, redTeam, team1prob, team2prob)
+                    for i in eligiblePlayers:
+                        DMList.append(f"<@{i}> ")
+                        
+                    dmMsg = "".join(DMList)
+                    await channel2.send(dmMsg)
+                    #await ctx.send("Please react to the map you want to play on..")
+                    await channel2.send("Please react to the server you want to play on..")
+                    serverVote = 1
+                    await voteSetup()
+                    fTimer = 5
+                    fVCoolDown.start()
+                    inVote = 1
+                
+                elif(len(capList) >= 2):
+                    #print("will use capts")
+                    with open('ELOpop.json') as f:
+                        ELOpop = json.load(f)    
+                    playerCount = int(playerCount)
+                    if(len(playersAdded) == playerCount):
+                        eligiblePlayers = playersAdded
+                    else:    
+                        eligiblePlayers = playersAdded[0:playerCount * 2]
+                    captMode = 1
+                    DMList = []
+                    for i in eligiblePlayers:
+                        DMList.append(f"<@{i}> ")
+                        
+                    dmMsg = "".join(DMList)
+                    await channel2.send(dmMsg)
+                    #await ctx.send("Please react to the map you want to play on..")
+                    await channel2.send("Please react to the server you want to play on..")
+                    serverVote = 1
+                    await voteSetup()
+                    fTimer = 5
+                    fVCoolDown.start()
+                    inVote = 1
+        else:
+            await channel2.send("you dont have enough people for that game size..")
+
 @client.command(pass_context=True)
+@commands.has_role(v['runner'])
+async def teams(ctx, playerCount = 4):
+    if(ctx.channel.name == v['pc']):    
+        global playersAdded
+        global capList
+        global inVote
+        global blueTeam
+        global redTeam
+        global inVote
+        global eligiblePlayers
+        global fTimer
+        global oMsg
+        global captMode
+        global serverVote
+        global rankedOrder
+        global ready
+        #global pastTeams
+        ready = []
+        oMsg = None
+        DMList = []
+        channel2 = client.fetch_channel(v['pID'])
+        print("test1")
+        if(len(playersAdded) >= int(playerCount * 2)):
+            print("test2")
+            if(inVote == 0):
+                print("test3")
+                if(len(capList) < 2):  
+                    with open('ELOpop.json') as f:
+                        ELOpop = json.load(f)    
+                    playerCount = int(playerCount)
+                    if(len(playersAdded) == playerCount):
+                        eligiblePlayers = playersAdded
+                    else:    
+                        eligiblePlayers = playersAdded[0:playerCount * 2]
+                    counter = 0
+                    teamsPicked = 0
+                    
+                    combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
+                    random.shuffle(combos)
+                    
+                    for i in eligiblePlayers:
+                        if i in playersAdded:
+                            playersAdded.remove(i)
+                    #print(playersAdded)
+                    #while teamsPicked == 0:
+                    blueTeam = []
+                    redTeam = []
+                    rankedOrder = [] 
+                    redRank = 0
+                    blueRank = 0
+                    totalRank = 0
+                    half = 0
+                    for j in eligiblePlayers:
+                        totalRank += int(ELOpop[j][1])
+                    half = int(totalRank / 2)
+                    
+                    if(playerCount <= 8):
+                        if("303845825476558859" in eligiblePlayers and "120411697184768000" in eligiblePlayers):
+                            for i in list(combos):
+                                blueRank = 0
+                                for j in list(i):
+                                    blueRank += int(ELOpop[j][1])
+                                    if("303845825476558859" in i and "120411697184768000" in i):
+                                        rankedOrder.append((list(i), abs(blueRank - half)))
+                                #print((list(i), abs(blueRank - half)))
+                            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                        else:   
+                            for i in list(combos):
+                                blueRank = 0
+                                for j in list(i):
+                                    blueRank += int(ELOpop[j][1])
+                                rankedOrder.append((list(i), abs(blueRank - half)))
+                                #print((list(i), abs(blueRank - half)))
+                            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                    elif(playerCount > 8):
+                        teamList = []
+                        for i in range(100):
+                            rTeam = random.choice(combos)
+                            teamList.append(rTeam)
+                            combos.remove(rTeam)
+                        for i in list(teamList):
+                            blueRank = 0
+                            for j in list(i):
+                                blueRank += int(ELOpop[j][1])
+                            rankedOrder.append((list(i), abs(blueRank - half)))
+                            #print((list(i), abs(blueRank - half)))
+                        rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                        
+                    for i in rankedOrder:
+                        print(i)
+                    blueTeam = list(rankedOrder[0][0])
+
+                    for j in eligiblePlayers:
+                        if(j not in blueTeam):
+                            redTeam.append(j)
+                    blueRank = 0
+                    for j in blueTeam:
+                        blueRank += int(ELOpop[j][1])
+                    diff = abs(blueRank - half)
+                    print(blueTeam, diff)
+                    for j in redTeam:
+                        redRank += int(ELOpop[j][1])
+                    diff = abs(redRank - half)
+                    print(redTeam, diff)  
+                    team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+                    team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                    for i in eligiblePlayers:
+                        DMList.append(f"<@{i}> ")
+                        
+                    dmMsg = "".join(DMList)
+                    await ctx.send(dmMsg)
+                    #await ctx.send("Please react to the map you want to play on..")
+                    await ctx.send("Please react to the server you want to play on..")
+                    serverVote = 1
+                    await voteSetup()
+                    fTimer = 5
+                    fVCoolDown.start()
+                    inVote = 1
+                
+                elif(len(capList) >= 2):
+                    #print("will use capts")
+                    with open('ELOpop.json') as f:
+                        ELOpop = json.load(f)    
+                    playerCount = int(playerCount)
+                    if(len(playersAdded) == playerCount):
+                        eligiblePlayers = playersAdded
+                    else:    
+                        eligiblePlayers = playersAdded[0:playerCount * 2]
+                    captMode = 1
+                    DMList = []
+                    for i in eligiblePlayers:
+                        DMList.append(f"<@{i}> ")
+                        
+                    dmMsg = "".join(DMList)
+                    await ctx.send(dmMsg)
+                    #await ctx.send("Please react to the map you want to play on..")
+                    await ctx.send("Please react to the server you want to play on..")
+                    serverVote = 1
+                    await voteSetup()
+                    fTimer = 5
+                    fVCoolDown.start()
+                    inVote = 1
+        else:
+            await ctx.send("you dont have enough people for that game size..")
+
+'''@client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def teams(ctx, playerCount = 4):
     if(ctx.channel.name == v['pc']):    
@@ -900,7 +1310,7 @@ async def teams(ctx, playerCount = 4):
                     fVCoolDown.start()
                     inVote = 1
         else:
-            await ctx.send("you dont have enough people for that game size..")
+            await ctx.send("you dont have enough people for that game size..")'''
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
@@ -1028,52 +1438,54 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member, number =
             counter = 0
             teamsPicked = 0
             #print(eligiblePlayers)
-            combos = list(itertools.combinations(eligiblePlayers, int(playerCount / 2)))
-            random.shuffle(combos)
             
+            combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
+            random.shuffle(combos)
+
             if(str(playerin.id) in playersAdded):
                 playersAdded.remove(str(playerin.id))
-
-            while teamsPicked == 0:
-                blueTeam = []
-                redTeam = [] 
-                redRank = 0
+            
+            for i in eligiblePlayers:
+                if i in playersAdded:
+                    playersAdded.remove(i)
+            #print(playersAdded)
+            #while teamsPicked == 0:
+            blueTeam = []
+            redTeam = []
+            rankedOrder = [] 
+            redRank = 0
+            blueRank = 0
+            totalRank = 0
+            half = 0
+            for j in eligiblePlayers:
+                totalRank += int(ELOpop[j][1])
+            half = int(totalRank / 2)  
+                
+            for i in list(combos):
                 blueRank = 0
-                totalRank = 0
-                half = 0
-                diff = 0   
-                for i in range(len(combos)):
-                    for j in eligiblePlayers:
-                        totalRank += ELOpop[j][1]
-                    half = int(totalRank / 2)
-                    blueTeam = list(combos[i])
-                    for j in eligiblePlayers:
-                        if(j not in blueTeam):
-                            redTeam.append(j)
+                for j in list(i):
+                    blueRank += int(ELOpop[j][1])
+                rankedOrder.append((list(i), abs(blueRank - half)))
+                #print((list(i), abs(blueRank - half)))
+            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+            for i in rankedOrder:
+                print(i)
+            blueTeam = list(rankedOrder[0][0])
 
-                    for j in blueTeam:
-                        blueRank += ELOpop[j][1]
-                    for j in redTeam:
-                        redRank += ELOpop[j][1]    
-                    
-                    diff = abs(blueRank - half)
-                    if(diff <= counter):
-                        #print(blueTeam, blueRank)
-                        #print(redTeam, redRank)
-                        teamsPicked = 1
-                        break
-                    else:
-                        blueTeam.clear()
-                        redTeam.clear()
-                        redRank = 0
-                        blueRank = 0
-                        totalRank = 0
-                if(playerCount <= 8):    
-                    counter += 5
-                else:
-                    counter += 20
+            for j in eligiblePlayers:
+                if(j not in blueTeam):
+                    redTeam.append(j)
+            blueRank = 0
+            for j in blueTeam:
+                blueRank += int(ELOpop[j][1])
+            diff = abs(blueRank - half)
+            print(blueTeam, diff)
+            for j in redTeam:
+                redRank += int(ELOpop[j][1])
+            diff = abs(redRank - half)
+            print(redTeam, diff)  
             team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
-            team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2) 
+            team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
             await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
         elif(number != "None"):    
             eligiblePlayers = []
@@ -1099,49 +1511,48 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member, number =
             counter = 0
             teamsPicked = 0
             #print(eligiblePlayers)
-            combos = list(itertools.combinations(eligiblePlayers, int(playerCount / 2)))
+            combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
             random.shuffle(combos)
-
-            while teamsPicked == 0:
-                blueTeam = []
-                redTeam = [] 
-                redRank = 0
+            
+            for i in eligiblePlayers:
+                if i in playersAdded:
+                    playersAdded.remove(i)
+            #print(playersAdded)
+            #while teamsPicked == 0:
+            blueTeam = []
+            redTeam = []
+            rankedOrder = [] 
+            redRank = 0
+            blueRank = 0
+            totalRank = 0
+            half = 0
+            for j in eligiblePlayers:
+                totalRank += int(ELOpop[j][1])
+            half = int(totalRank / 2)  
+                
+            for i in list(combos):
                 blueRank = 0
-                totalRank = 0
-                half = 0
-                diff = 0   
-                for i in range(len(combos)):
-                    for j in eligiblePlayers:
-                        totalRank += ELOpop[j][1]
-                    half = int(totalRank / 2)
-                    blueTeam = list(combos[i])
-                    for j in eligiblePlayers:
-                        if(j not in blueTeam):
-                            redTeam.append(j)
+                for j in list(i):
+                    blueRank += int(ELOpop[j][1])
+                rankedOrder.append((list(i), abs(blueRank - half)))
+                #print((list(i), abs(blueRank - half)))
+            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+            for i in rankedOrder:
+                print(i)
+            blueTeam = list(rankedOrder[0][0])
 
-                    for j in blueTeam:
-                        blueRank += ELOpop[j][1]
-                    for j in redTeam:
-                        redRank += ELOpop[j][1]    
-                    
-                    diff = abs(blueRank - half)
-                    if(diff <= counter):
-                        #print(blueTeam, blueRank)
-                        #print(redTeam, redRank)
-                        teamsPicked = 1
-                        break
-                    else:
-                        blueTeam.clear()
-                        redTeam.clear()
-                        redRank = 0
-                        blueRank = 0
-                        totalRank = 0
-                if(playerCount <= 8):    
-                    counter += 5
-                else:
-                    counter += 20
-                with open('activePickups.json', 'w') as cd:
-                    json.dump(activePickups, cd,indent= 4)
+            for j in eligiblePlayers:
+                if(j not in blueTeam):
+                    redTeam.append(j)
+            blueRank = 0
+            for j in blueTeam:
+                blueRank += int(ELOpop[j][1])
+            diff = abs(blueRank - half)
+            print(blueTeam, diff)
+            for j in redTeam:
+                redRank += int(ELOpop[j][1])
+            diff = abs(redRank - half)
+            print(redTeam, diff)  
             team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
             team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
             activePickups[number] = [team1prob, blueRank, blueTeam, team2prob, redRank, redTeam, activePickups[number][6], activePickups[number][7], activePickups[number][8]]
@@ -1184,7 +1595,8 @@ async def draw(ctx, pNumber = "None"):
                 ELOpop[i][1] = 0    
             ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
             ELOpop[i][6] += 1
-            newRank(i)
+            if(ELOpop[i][3] != "<:norank:1001265843683987487>"):
+                newRank(i)
             #print(ELOpop[i][2])
         for i in redTeam:
             #print(type(ELOpop[i][1]))
@@ -1196,7 +1608,8 @@ async def draw(ctx, pNumber = "None"):
                 ELOpop[i][1] = 0
             ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
             ELOpop[i][6] += 1
-            newRank(i)
+            if(ELOpop[i][3] != "<:norank:1001265843683987487>"):
+                newRank(i)
 
         if(len(list(pastTen)) >= 10):
             while (len(list(pastTen)) > 9):
@@ -1218,7 +1631,7 @@ async def draw(ctx, pNumber = "None"):
 @commands.has_role(v['runner'])
 async def win(ctx, team, pNumber = "None"):
     global ELOpop
-    if(ctx.channel.name == v['pc']):    
+    if((ctx.channel.name == v['pc']) or (ctx.channel.name == 'tfc-admins') or (ctx.channel.name == 'tfc-runners')):    
         with open('activePickups.json') as f:
             activePickups = json.load(f)
         with open('ELOpop.json') as f:
@@ -1262,7 +1675,8 @@ async def win(ctx, team, pNumber = "None"):
                 ELOpop[i][5] += 1
             if(team == "draw"):
                 ELOpop[i][6] += 1
-            newRank(i)
+            if(ELOpop[i][3] != "<:norank:1001265843683987487>"):
+                newRank(i)
             #print(ELOpop[i][2])
         for i in redTeam:
             #print(type(ELOpop[i][1]))
@@ -1279,7 +1693,9 @@ async def win(ctx, team, pNumber = "None"):
                 ELOpop[i][4] += 1
             if(team == "draw"):
                 ELOpop[i][6] += 1
-            newRank(i)
+            if(ELOpop[i][3] != "<:norank:1001265843683987487>"):
+                print(i)
+                newRank(i)
         
 
         if(len(list(pastTen)) >= 10):
@@ -1301,6 +1717,14 @@ async def win(ctx, team, pNumber = "None"):
 
         await ctx.send("Match reported.. thank you!")
 
+@client.command(pass_context = True)
+@commands.has_role(v['runner'])
+async def tfc(ctx, person: discord.Member):
+    #print("hello")
+    role = get(person.guild.roles, name="TFC Player")
+    await person.add_roles(role)
+    await ctx.author.send(f"You have given {person.display_name} the TFC Player role and they can now add to pickups")
+
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def reg(ctx, player:discord.Member):
@@ -1310,7 +1734,7 @@ async def reg(ctx, player:discord.Member):
         playerID = str(player.id)
         playerName = player.display_name
 
-        ELOpop[playerID] = [playerName, 800, [], "<:questionMark:972369805359337532>", 0, 0, 0]
+        ELOpop[playerID] = [playerName, 800, [], "<:questionMark:972369805359337532>", 0, 0, 0, []]
 
         with open('ELOpop.json', 'w') as cd:
             json.dump(ELOpop, cd,indent= 4)
@@ -1373,17 +1797,17 @@ async def undo(ctx, pNumber = "None"):
 
 @client.command(pass_context=True)
 async def games(ctx):
-    if(ctx.channel.name == v['pc']):    
+    if((ctx.channel.name == v['pc']) or (ctx.channel.name == 'tfc-admins') or (ctx.channel.name == 'tfc-runners')):    
         await openPickups(ctx)
 
 @client.command(pass_context=True)
 async def recent(ctx):
-    if(ctx.channel.name == v['pc']):
+    if((ctx.channel.name == v['pc']) or (ctx.channel.name == 'tfc-admins') or (ctx.channel.name == 'tfc-runners')):
         await pastGames(ctx)
 
 @client.command(pass_context=True)
 async def checkgame(ctx, number):
-    if(ctx.channel.name == v['pc']):    
+    if((ctx.channel.name == v['pc']) or (ctx.channel.name == 'tfc-admins') or (ctx.channel.name == 'tfc-runners')):   
         with open('activePickups.json') as f:
             activePickups = json.load(f)
         with open('ELOpop.json') as f:
@@ -1484,24 +1908,24 @@ async def forceVote(channel):
             windex = votes.index(max(votes))
             if(windex == 0):
                 await channel.send("West (Las Vegas) server is being launched..")
-                r = requests.get("link")
-                winningIP = "steam://connect/34.125.8.154:27015/letsplay!"
-                winningServer = "West"
+                r = requests.get("https://us-west1-coachoffice-332119.cloudfunctions.net/startWest")
+                winningIP = "NONE"
+                winningServer = "NONE"
                 serverVote = 0
                 #alreadyVoted = []
                 #activePickups[list(activePickups)[-1]][8] = "West"
             elif(windex == 1):
-                await channel.send("Central (Iowa) server is being launched..")
-                r = requests.get("link")
-                winningIP = "steam://connect/35.188.60.68:27015/letsplay!"
-                winningServer = "Central"
+                #await channel.send("Central (Iowa) server is being launched..")
+                #r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
+                winningIP = "steam://connect/coachcent.game.nfoservers.com:27015/letsplay!"
+                winningServer = "Central (Chi)"
                 serverVote = 0
                 #alreadyVoted = []
             elif(windex == 2):
-                await channel.send("East (N. Virginia) server is being launched..")
-                r = requests.get("link")
-                winningIP = "steam://connect/35.194.65.124:27015/letsplay!"
-                winningServer = "East"
+                #await channel.send("East (N. Virginia) server is being launched..")
+                #r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/startEast")
+                winningIP = "steam://connect/coach.game.nfoservers.com:27015/letsplay!"
+                winningServer = "East (NY)"
                 serverVote = 0
                 #alreadyVoted = []
             fTimer = 3
@@ -1598,69 +2022,137 @@ async def forceVote(channel):
             
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
-async def shuffle(ctx, game = "None"):
+async def shufflee(ctx, idx = None, game = "None"):
+    #global sMsg
+    #if(ctx.channel.name == v['pc']):
+    if(idx == None):
+        idx = random.randint(1, 11)
+    with open('activePickups.json') as f:
+        activePickups = json.load(f)
+    with open('ELOpop.json') as f:
+            ELOpop = json.load(f)
+    global rankedOrder
+    global blueTeam
+    global redTeam
+    global team1prob
+    global team2prob
+    global blueRank
+    global redRank
+    global tMsg
+    if(game == "None"):
+        blueRank = 0
+        redRank = 0
+        blueTeam = []
+        redTeam = []
+        print(rankedOrder)
+        blueTeam = list(rankedOrder[int(idx)][0])
+        for j in eligiblePlayers:
+            if(j not in blueTeam):
+                redTeam.append(j)
+        for j in blueTeam:
+            blueRank += int(ELOpop[j][1])
+        for j in redTeam:
+            redRank += int(ELOpop[j][1])  
+        team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+        team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+        await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+    else:
+        nblueTeam = activePickups[game][2]
+        nredTeam = activePickups[game][5]
+        neligiblePlayers = []
+        for i in nblueTeam:
+            neligiblePlayers.append(i)
+        for i in nredTeam:
+            neligiblePlayers.append(i)
+            
+        playerCount = len(neligiblePlayers)
+        counter = 0
+        teamsPicked = 0
+        
+        combos = list(itertools.combinations(neligiblePlayers, int(len(neligiblePlayers) / 2)))
+        random.shuffle(combos)
+        #print(neligiblePlayers)
+        blueTeam = []
+        redTeam = []
+        rankedOrder = [] 
+        redRank = 0
+        blueRank = 0
+        totalRank = 0
+        half = 0
+        diff = 0
+        for j in neligiblePlayers:
+            totalRank += int(ELOpop[j][1])
+        half = int(totalRank / 2)   
+        for i in list(combos):
+            blueRank = 0
+            for j in i:
+                blueRank += int(ELOpop[j][1])
+            rankedOrder.append((i, abs(blueRank - half)))
+        rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+        
+        blueTeam = list(rankedOrder[int(idx)][0])
+        for j in neligiblePlayers:
+            if(j not in blueTeam):
+                redTeam.append(j)
+        blueRank = 0
+        for j in blueTeam:
+            blueRank += int(ELOpop[j][1])
+        for j in redTeam:
+            redRank += int(ELOpop[j][1])  
+        team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+        team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+        #print(redTeam)
+        await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+        activePickups[game][0] = team1prob
+        activePickups[game][1] = blueRank
+        activePickups[game][2] = blueTeam
+        activePickups[game][3] = team2prob
+        activePickups[game][4] = redRank
+        activePickups[game][5] = redTeam
+
+        with open('activepickups.json', 'w') as cd:
+            json.dump(activePickups, cd,indent= 4)
+
+@client.command(pass_context=True)
+@commands.has_role(v['runner'])
+async def shuffle(ctx, idx = None, game = "None"):
+    #global sMsg
+    global rankedOrder
+    global blueTeam
+    global redTeam
+    global team1prob
+    global team2prob
+    global blueRank
+    global redRank
+    global tMsg
+    #rankedOrder = []
     if(ctx.channel.name == v['pc']):
+        if(idx == None):
+            idx = random.randint(1, 11)
         with open('activePickups.json') as f:
             activePickups = json.load(f)
-        global blueTeam
-        global redTeam
-        global eligiblePlayers
-
-        if(game == "None"):
-            with open('ELOpop.json') as f:
+        with open('ELOpop.json') as f:
                 ELOpop = json.load(f)
-                
-            playerCount = len(eligiblePlayers)
-            counter = 0
-            teamsPicked = 0
-            
-            combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
-            random.shuffle(combos)
-
-            while teamsPicked == 0:
-                blueTeam = []
-                redTeam = [] 
-                redRank = 0
-                blueRank = 0
-                totalRank = 0
-                half = 0
-                diff = 0   
-                for i in range(len(combos)):
-                    for j in eligiblePlayers:
-                        totalRank += int(ELOpop[j][1])
-                    half = int(totalRank / 2)
-                    blueTeam = list(combos[i])
-                    for j in eligiblePlayers:
-                        if(j not in blueTeam):
-                            redTeam.append(j)
-
-                    for j in blueTeam:
-                        blueRank += int(ELOpop[j][1])
-                    for j in redTeam:
-                        redRank += int(ELOpop[j][1])    
-                    
-                    diff = abs(blueRank - half)
-                    if(diff <= counter):
-                        if((len(blueTeam) == int(playerCount/ 2)) and (len(redTeam) == int(playerCount/ 2))):
-                            #print(blueTeam, blueRank)
-                            #print(redTeam, redRank)
-                            teamsPicked = 1
-                            break
-                    else:
-                        blueTeam.clear()
-                        redTeam.clear()
-                        redRank = 0
-                        blueRank = 0
-                        totalRank = 0
-                if(playerCount <= 8):    
-                    counter += 2
-                else:
-                    counter += 20
-            
+        
+        if(game == "None"):
+            blueRank = 0
+            redRank = 0
+            blueTeam = []
+            redTeam = []
+            print(rankedOrder)
+            blueTeam = list(rankedOrder[int(idx)][0])
+            for j in eligiblePlayers:
+                if(j not in blueTeam):
+                    redTeam.append(j)
+            for j in blueTeam:
+                blueRank += int(ELOpop[j][1])
+            for j in redTeam:
+                redRank += int(ELOpop[j][1])  
             team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
             team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
             await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
         else:
+            rankedOrder = []
             nblueTeam = activePickups[game][2]
             nredTeam = activePickups[game][5]
             neligiblePlayers = []
@@ -1668,9 +2160,6 @@ async def shuffle(ctx, game = "None"):
                 neligiblePlayers.append(i)
             for i in nredTeam:
                 neligiblePlayers.append(i)
-        
-            with open('ELOpop.json') as f:
-                ELOpop = json.load(f)
                 
             playerCount = len(neligiblePlayers)
             counter = 0
@@ -1679,59 +2168,46 @@ async def shuffle(ctx, game = "None"):
             combos = list(itertools.combinations(neligiblePlayers, int(len(neligiblePlayers) / 2)))
             random.shuffle(combos)
             #print(neligiblePlayers)
-            while teamsPicked == 0:
-                nblueTeam = []
-                nredTeam = []
-                redRank = 0
+            blueTeam = []
+            redTeam = []
+            rankedOrder = [] 
+            redRank = 0
+            blueRank = 0
+            totalRank = 0
+            half = 0
+            diff = 0
+            for j in neligiblePlayers:
+                totalRank += int(ELOpop[j][1])
+            half = int(totalRank / 2)   
+            for i in list(combos):
                 blueRank = 0
-                totalRank = 0
-                half = 0
-                diff = 0   
-                for i in range(len(combos)):
-                    for j in neligiblePlayers:
-                        totalRank += int(ELOpop[j][1])
-                    half = int(totalRank / 2)
-                    nblueTeam = list(combos[i])
-                    for j in neligiblePlayers:
-                        if(j not in nblueTeam):
-                            nredTeam.append(j)
-
-                    for j in nblueTeam:
-                        blueRank += int(ELOpop[j][1])
-                    for j in nredTeam:
-                        redRank += int(ELOpop[j][1])    
-                    #print(diff, half, blueRank, redRank)
-                    diff = abs(blueRank - half)
-                    if(diff <= counter):
-                        if((len(nblueTeam) == int(playerCount / 2)) and (len(nredTeam) == int(playerCount / 2))):
-                            #print(nblueTeam, blueRank)
-                            #print(nredTeam, redRank)
-                            teamsPicked = 1
-                            team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
-                            team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
-                            activePickups[game][0] = team1prob
-                            activePickups[game][1] = blueRank
-                            activePickups[game][2] = nblueTeam
-                            activePickups[game][3] = team2prob
-                            activePickups[game][4] = redRank
-                            activePickups[game][5] = nredTeam
-                            with open('activePickups.json', 'w') as cd:
-                                json.dump(activePickups, cd,indent= 4)
-                            break
-                    else:
-                        #print(blueRank, redRank)
-                        nblueTeam.clear()
-                        nredTeam.clear()
-                        redRank = 0
-                        blueRank = 0
-                        totalRank = 0
-                if(playerCount <= 8):    
-                    counter += 2
-                else:
-                    counter += 20
+                for j in i:
+                    blueRank += int(ELOpop[j][1])
+                rankedOrder.append((i, abs(blueRank - half)))
+            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+            
+            blueTeam = list(rankedOrder[int(idx)][0])
+            for j in neligiblePlayers:
+                if(j not in blueTeam):
+                    redTeam.append(j)
+            blueRank = 0
+            for j in blueTeam:
+                blueRank += int(ELOpop[j][1])
+            for j in redTeam:
+                redRank += int(ELOpop[j][1])  
             team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
             team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
-            await teamsDisplay(ctx, nblueTeam, nredTeam, team1prob, team2prob)
+            #print(redTeam)
+            await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+            activePickups[game][0] = team1prob
+            activePickups[game][1] = blueRank
+            activePickups[game][2] = blueTeam
+            activePickups[game][3] = team2prob
+            activePickups[game][4] = redRank
+            activePickups[game][5] = redTeam
+
+            with open('activepickups.json', 'w') as cd:
+                json.dump(activePickups, cd,indent= 4)
 
 @client.command(pass_context=True)
 @commands.cooldown(1, 300, commands.BucketType.default)
@@ -1765,6 +2241,8 @@ async def on_reaction_add(reaction, user):
         global votable
         global pickCount
         global cap1
+        global playersAdded
+        global ready
         global cap2
         global cap1Name
         global cap2Name
@@ -1845,6 +2323,42 @@ async def on_reaction_add(reaction, user):
                 else:
                     await user.send("It is not your pick..")
                     await reaction.message.remove_reaction(reaction, user)
+        if(reaction.message == oMsg):
+            if(reaction.emoji == "👍"):
+                with open('ELOpop.json') as f:
+                    ELOpop = json.load(f)
+                if(str(user.id) in playersAdded[0:8]):
+                    ready.append(str(user.id))
+                    if(len(ready) < 8):
+                        msgList = []
+                        for i in playersAdded:
+                            if(i in capList):
+                                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + v['cptimg'] + "\n")
+                                #msgList.append(ELOpop[i][0] + " " + v['cptimg'] + "\n")
+                            else:
+                                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+                                #msgList.append(ELOpop[i][0] + "\n")
+                        msg = "".join(msgList)
+                        readyList = []
+                        for i in ready:
+                            readyList.append(f"{ELOpop[i][0]}\n")
+                        rMsg = "".join(readyList)
+                        embed = discord.Embed(title = "Pickup Has 8 or more Players")
+                        if(len(playersAdded) > 0):
+                            embed.add_field(name = f"Players Added - {len(playersAdded)} Queued", value= msg)
+                        elif(len(playersAdded) == 0):
+                            embed.add_field(name = "Players Added", value= "PUG IS EMPTY!")
+                        embed.add_field(name = "Players Ready", value = rMsg)
+
+                        await oMsg.edit(embed = embed)
+                    elif(len(ready) == 8):
+                        print("go!")
+                        channel2 = await client.fetch_channel(reaction.message.channel.id)
+                        await doteams(channel2)
+                else:
+                    await reaction.message.remove_reaction(reaction, user)
+                    await user.send("You are not among the first 8 added...")
+
         if(reaction.message == vMsg):
             if(votable == 1):    
                 if((reaction.emoji == '1️⃣') or (reaction.emoji == '2️⃣') or (reaction.emoji == '3️⃣') or (reaction.emoji == '4️⃣')):
