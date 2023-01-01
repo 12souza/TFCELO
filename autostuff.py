@@ -20,7 +20,10 @@ with open('variables.json') as f:
 def pruneDict(dictk):   
     for i in list(dictk):
         if(i != "totalgame"):
-            percent = dictk[i][0] / dictk['totalgame'] * 100
+            if(dictk['totalgame'] != 0):
+                percent = dictk[i][0] / dictk['totalgame'] * 100
+            else:
+                percent = 0
             #print(f"{i} {percent}")
             if(percent < 5.0):
                 #print(i)
@@ -64,7 +67,10 @@ def simplifyDict(dictfrom, idx, pergame = "No"):
             if(pergame == "No"):
                 newDict[i] = dictfrom[i][idx]
             else:
-                newDict[i] = round(dictfrom[i][idx] / dictfrom[i][0], 2)
+                if(dictfrom[i][0] != 0):
+                    newDict[i] = round(dictfrom[i][idx] / dictfrom[i][0], 2)
+                else:
+                    newDict[i] = 0
     return newDict
 
 def find(haystack, needle, n):
@@ -121,7 +127,7 @@ def statUpdater(log1, log2):
                 for i in played:
                     if(i not in list(kills)):
                                   #[TG,TK,DK,OK,SK,DemoK,MedicK,HWK,SpyK,EngyK,SGK,ESGK,KK,SteamID]
-                        kills[i] = [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, i]
+                        kills[i] = [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, i]
                     else:
                         kills[i][0] += 1
                     if(i not in list(damage)):
@@ -196,8 +202,8 @@ def statUpdater(log1, log2):
                 e = find(line,'>',2)
                 steamid = line[b:e]
                 flagstats[steamid][2] += 1
-        except:
-            print(line)
+        except Exception as e:
+            print(e)
             continue
     
     for line in Lines2:
@@ -290,8 +296,8 @@ def statUpdater(log1, log2):
                 e = find(line,'>',2)
                 steamid = line[b:e]
                 flagstats[steamid][2] += 1
-        except:
-            #print(line)
+        except Exception as e:
+            print(e)
             continue
     kills['totalgame'] += 1
     damage['totalgame'] += 1
@@ -306,7 +312,7 @@ def statUpdater(log1, log2):
 
 @client.command(pass_context = True)
 @commands.has_role(v['tfc'])
-async def refreshlb():
+async def refreshlb(ctx):
     with open('kills.json') as f:
         kills = json.load(f)
     with open('damage.json') as f:
@@ -559,6 +565,37 @@ async def refreshlb():
     await fmsg.edit(content=f'```{msg}```')
 
 @client.command(pass_context=True)
+@commands.cooldown(1, 300, commands.BucketType.user)
+async def reg(ctx, steamid):
+    playername = ctx.author.display_name
+
+    with open('kills.json') as f:
+        kills = json.load(f)
+    with open('damage.json') as f:
+        damage = json.load(f)
+    with open('flagstats.json') as f:
+        flagstats = json.load(f)
+
+    if(steamid in list(kills) and steamid in list(damage) and steamid in list(flagstats)):
+        kills[steamid][13] = playername
+        damage[steamid][3] = playername
+        flagstats[steamid][3] = playername
+    else:
+        kills[steamid] = [0,0,0,0,0,0,0,0,0,0,0,0,0,playername]
+        damage[steamid] = [0,0,0,playername]
+        flagstats[steamid] = [0,0,0,playername]
+
+    with open('kills.json', 'w') as cd:
+        json.dump(kills, cd,indent= 4)
+    with open('damage.json', 'w') as cd:
+        json.dump(damage, cd,indent= 4)
+    with open('flagstats.json', 'w') as cd:
+        json.dump(flagstats, cd,indent= 4)
+
+    await ctx.author.send("Recorded")
+
+
+@client.command(pass_context=True)
 @commands.cooldown(1, 300, commands.BucketType.default)
 async def stats(ctx, region = None):
     with open('login.json') as f:
@@ -653,15 +690,15 @@ async def stats(ctx, region = None):
         except:
             newfile = None'''
 
-        await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}453453")
+        await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
         try:
             statUpdater(logToParse1,logToParse2)
-        except:
-            print('next')
+        except Exception as e:
+            print('su failed', e)
         try:
-            await refreshlb()
+            await refreshlb(ctx)
         except:
-            print("next")
+            print("rlb failed")
         os.remove(logToParse1)
         os.remove(logToParse2)
         
@@ -797,5 +834,4 @@ async def on_message(message):
     await client.process_commands(message)
 
 
-client.run(v['TOKEN'])
-#client.run('NzMyMzcyMTcwMzY5NTMxOTc4.GPL0pm.iRN9voORDs1haOXvmlhZu26tWOtS-e7Xpmf7LM')
+client.run(MAKE SURE TO PUT TOKEN HERE)
