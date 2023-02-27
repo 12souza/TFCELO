@@ -27,12 +27,17 @@ client.remove_command('help')
 
 #print(python_build)
 
+# Load in ELO configuration
 with open('ELOpop.json') as f:
     ELOpop = json.load(f)
+
+# Load in main script configuration
 with open('variables.json') as f:
     v = json.load(f)
 
-#globals
+# =====================================
+# =========== DEFINE GLOBALS ==========
+# =====================================
 cap1 = None
 cap1Name = None
 cap2 = None
@@ -72,8 +77,12 @@ msg = None
 pTotalPlayers = []
 winningMap = None
 winningServer = None
+# =====================================
+# =====================================
+# =====================================
 
-#just a command used for raters to adjust ELO if necessary
+# Allow users with the "rater" role to check ELO for players manually via a simple search
+# Example: !search kix
 @client.command(pass_context=True)
 @commands.has_role(v['rater'])
 async def search(ctx, searchkey):
@@ -94,11 +103,14 @@ async def search(ctx, searchkey):
                     playerID = j
             pMsgList.append(i + " " * (30 - len(i)) + " ELO: " + str(ELOpop[playerID][1]) + "                 1-20 rank: " + str(ELOpop[playerID][1] / 120) + f"     W:{ELOpop[playerID][4]} L:{ELOpop[playerID][5]} D:{ELOpop[playerID][6]}\n")
         mMsg = ''.join(pMsgList)
+
         if(len(searchList) > 0):
             await ctx.send(content = "```\n" + mMsg + "```")
         else:
             await ctx.send("No results with that search string..")
 
+# Allow all players to toggle their rank being private or hidden
+# Example: !private
 @client.command(pass_context=True)
 async def private(ctx):
     global ELOpop
@@ -114,8 +126,6 @@ async def private(ctx):
     else:
         newRank(str(ctx.author.id))
         await ctx.author.send("Your ELO Rank is back")
-
-   
 
 def DePopulatePickup():
     global cap1
@@ -450,40 +460,56 @@ async def ach(ctx, player: discord.Member, ach):
     await channel.send(f"Congratulations {player.display_name} for completing the {e[ach]} achievement!")
 
 @client.command(pass_context=True)
-async def pickupDisplay(ctx):
+async def showPickup(ctx):
     global playersAdded
     global capList
     global oMsg
     global ready
     with open('ELOpop.json') as f:
         ELOpop = json.load(f)
-    print("hello")
-    if(len(playersAdded) >= 8):    
+    if(len(playersAdded) >= 8):
+        # Create the ready message
+        readyList = []
+        for i in ready:
+            readyList.append(f"{ELOpop[i][0]}\n")
+        readyMsg = "".join(readyList)
+
+        # Create the emebd
+        embed = discord.Embed(title = "Pickup Has 8 or more Players")
+
         msgList = []
+        msgListLight = []
         for i in playersAdded:
             achList = ELOpop[i][7]
             ach = "".join(achList)
             if(i in capList):
                 msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + v['cptimg'] + " " + ach + "\n")
-                #msgList.append(ELOpop[i][0] + " " + v['cptimg'] + "\n")
+                msgListLight.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + v['cptimg'] + "\n")
             else:
-                
                 msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + " " + ach + "\n")
-                #msgList.append(ELOpop[i][0] + "\n")
+                msgListLight.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
         msg = "".join(msgList)
-        readyList = []
-        for i in ready:
-            readyList.append(f"{ELOpop[i][0]}\n")
-        rMsg = "".join(readyList)
-        embed = discord.Embed(title = "Pickup Has 8 or more Players")
+        msgLight = "".join(msgListLight)
+
+        # TODO: We are building a very long string for a single field value.  Max
+        # length is 1024.  We should do something smarter if we want to show the achievements
+        # for the player ready embed.
+        if (len(msg) > 1000):
+            msg = msgLight
+
         if(len(playersAdded) > 0):
-            embed.add_field(name = f"Players Added - {len(playersAdded)} Queued", value= msg)
+            embed.add_field(name = f"Players Added - {len(playersAdded)} Queued", value=msg)
         elif(len(playersAdded) == 0):
             embed.add_field(name = "Players Added", value= "PUG IS EMPTY!")
+
+        # print("msg: " + msg)
+
+        # Add the ready field to show who is ready
         if(len(ready) != 0):    
-            embed.add_field(name = "Players Ready", value = rMsg)
+            embed.add_field(name = "Players Ready", value = readyMsg)
         elif(len(ready) == 0):
             embed.add_field(name = "Players Ready", value = "\u200b")
+    
         oMsg = await ctx.send(embed = embed)
 
         await oMsg.add_reaction("👍")
@@ -839,33 +865,84 @@ async def elo(ctx):
         #os.remove(ctx.author.display_name + '.png')
         plt.clf()'''
 
+# Utility function for adding a player to the pickup if they aren't already added
+def addplayerImpl(playerID, playerDisplayName, cap = None):
+    global playersAdded
+    global capList
+    global ELOpop
+    if(len(playersAdded) <= 19):    
+        with open('ELOpop.json') as f:
+            ELOpop = json.load(f)
+        if(playerID not in playersAdded):
+            if(playerID not in list(ELOpop)): # Player is not registered, give them a default rating
+                ELOpop[playerID] = [playerDisplayName, 800, [], "<:questionMark:972369805359337532>", 0, 0, 0, []]
+                # Write the ELO out
+                with open('ELOpop.json', 'w') as cd:
+                    json.dump(ELOpop, cd,indent= 4)
+            
+            if(cap == "cap"):
+                capList.append(playerID)
+            
+            playersAdded.append(playerID)
+        else:
+            return 1 # Player already added
+        with open('ELOpop.json', 'w') as cd:
+            json.dump(ELOpop, cd,indent= 4)
+        return 0 # Player successfully added
+    else:
+        return 2 # Too many players 
+
+# Primary way for players to add themselves to the pickup
+# Example: !add
 @client.command(pass_context = True , aliases=['+'])
 @commands.has_role(v['tfc'])
 async def add(ctx, cap = None):
-    if(ctx.channel.name == v['pc']):    
-        global playersAdded
-        global capList
-        global ELOpop
+    if(ctx.channel.name == v['pc']):
         playerID = str(ctx.author.id)
-        if(len(playersAdded) <= 19):    
-            with open('ELOpop.json') as f:
-                ELOpop = json.load(f)
-            if(playerID not in playersAdded):
-                if(playerID not in list(ELOpop)):
-                    ELOpop[playerID] = [ctx.author.display_name, 800, [], "<:questionMark:972369805359337532>", 0, 0, 0, []]
+        playerDisplayName = ctx.author.display_name
 
-                    with open('ELOpop.json', 'w') as cd:
-                        json.dump(ELOpop, cd,indent= 4)
-                
-                if(cap == "cap"):
-                    capList.append(playerID)
-                
-                playersAdded.append(playerID)
-            else:
-                await ctx.author.send("you are already added to this pickup..")
-        with open('ELOpop.json', 'w') as cd:
-            json.dump(ELOpop, cd,indent= 4)
-        await pickupDisplay(ctx)
+        retVal = addplayerImpl(playerID, playerDisplayName, cap)
+        if (retVal == 1): # Already added
+            await ctx.author.send("you are already added to this pickup..") # Send PM to player
+        await showPickup(ctx)
+
+@client.command(pass_context=True)
+@commands.has_role(v['runner'])
+async def addplayer(ctx, player: discord.Member):
+    if(ctx.channel.name == v['pc']):
+        playerID = str(player.id)
+        playerDisplayName = player.display_name
+        print ("Adding player: %s, %s" % (playerID, playerDisplayName))
+        retVal = addplayerImpl(playerID, playerDisplayName, None)
+
+        await showPickup(ctx)
+
+# Convenience command for testing bot behavior with 7 people added
+# Example: !test7
+@client.command(pass_context=True)
+@commands.has_role(v['runner'])
+async def test7(ctx):
+    if(ctx.channel.name == v['pc']):
+        cancelImpl() # Clear out any existing pickup
+        retVal = addplayerImpl("704204162958753892", "sandro702", None)
+        retVal = addplayerImpl("303845825476558859", "dougtck", None)
+        retVal = addplayerImpl("270636499190546432", "CheeseFromGPT", None)
+        retVal = addplayerImpl("291754504158838784", "AUTHENTIC", None)
+        retVal = addplayerImpl("194276343540613121", "climax", None)
+        retVal = addplayerImpl("596225454721990676", "botch", None)
+        retVal = addplayerImpl("173619058657198082", "Moreno", None)
+        retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
+        # retVal = addplayerImpl("311769927432404994", "Nemsy", None)
+        await showPickup(ctx)
+
+#Adding player: 704204162958753892, sandro702
+#Adding player: 270636499190546432, CheeseFromGPT
+#Adding player: 291754504158838784, AUTHENTIC
+#Adding player: 194276343540613121, climax
+#Adding player: 596225454721990676, botch
+#Adding player: 173619058657198082, Moreno
+#Adding player: 311769927432404994, Nemsy
+#Adding player: 303845825476558859, dougtck
 
 @client.command(pass_context = True , aliases=['-'])
 async def remove(ctx):
@@ -878,7 +955,7 @@ async def remove(ctx):
             if(playerID in capList):
                 capList.remove(playerID)
         
-        await pickupDisplay(ctx)
+        await showPickup(ctx)
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
@@ -891,20 +968,8 @@ async def kick(ctx, player: discord.Member):
             playersAdded.remove(playerID)
             if(playerID in capList):
                 capList.remove(playerID)
-        await pickupDisplay(ctx)
+        await showPickup(ctx)
     
-@client.command(pass_context=True)
-@commands.has_role(v['runner'])
-async def addplayer(ctx, player: discord.Member):
-    if(ctx.channel.name == v['pc']):
-        global playersAdded
-        global capList
-        playerID = str(player.id)
-        if(playerID not in playersAdded):
-            playersAdded.append(playerID)
-
-        await pickupDisplay(ctx)
-
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def noELO(ctx):
@@ -1061,6 +1126,9 @@ async def doteams(channel2, playerCount = 4):
         else:
             await channel2.send("you dont have enough people for that game size..")
 
+# Start the pickup assuming enough players have been added.  This will kick off server and map voting and any other
+# flow needed to begin the pickup.
+# Example: !teams
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def teams(ctx, playerCount = 4):
@@ -1328,12 +1396,12 @@ async def addp(ctx, number):
             playersAdded.append(player)
             pickfrom.remove(player)
 
-        await pickupDisplay(ctx)
+        await showPickup(ctx)
 
 @client.command(pass_context=True)
 async def status(ctx):
     if(ctx.channel.name == v['pc']):
-        await pickupDisplay(ctx)
+        await showPickup(ctx)
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
@@ -1829,6 +1897,9 @@ async def checkgame(ctx, number):
         embed.add_field(name = "Red Team <:redLogo:971296302803587082>", value= rMsg, inline=True)
         await ctx.send(embed = embed)
 
+# Remove a game that you no longer wish to complete or count for ELO.  Use !games to get a 
+# list of game numbers that are valid to remove.
+# Example: !removegame 699670
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def removegame(ctx, number):
@@ -1843,14 +1914,18 @@ async def removegame(ctx, number):
         
         await ctx.send("Game has been removed..")
 
+def cancelImpl():
+    global playersAdded
+    playersAdded.clear()
+    DePopulatePickup()
+
+# Completely cancel the pickup
+# Example: !cancel
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def cancel(ctx):
     if(ctx.channel.name == v['pc']):
-        global playersAdded
-
-        playersAdded.clear()
-        DePopulatePickup()
+        cancelImpl()
         await ctx.send("Queue has been cancelled..")
 
 @client.command(pass_context = True)
@@ -1867,8 +1942,11 @@ async def requeue(ctx):
     playersAdded = neligibleplayers.copy() + playersAdded
     neligibleplayers.clear()
     #print(playersAdded)
-    await pickupDisplay(ctx)
+    await showPickup(ctx)
 
+# End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
+# Examples: !forceVote
+#           !fv
 @client.command(aliases=['fv'])
 @commands.cooldown(1, 3, commands.BucketType.default)
 @commands.has_role(v['runner'])
@@ -1931,66 +2009,55 @@ async def forceVote(channel):
             fTimer = 3
             await voteSetup()
         elif(serverVote == 0):
-            votes = [len(mapVotes[mapChoice4]), len(mapVotes[mapChoice1]), len(mapVotes[mapChoice2]), len(mapVotes[mapChoice3])]
-            windex = votes.index(max(votes))
-            if(windex == 0):
-                if(mapChoice4 == "New Maps"):
-                    reVote = 1    
-                    del votes[0]
-                    windex = votes.index(max(votes))
-                    if(windex == 0):
-                        mapChoice4 = mapChoice1
-                    if(windex == 1):
-                        mapChoice4 = mapChoice2
-                    if(windex == 2):
-                        mapChoice4 = mapChoice3
-                    #alreadyVoted = []
-                    await channel.send("New maps has won, now selecting new maps..")
-                    fTimer = 3
-                    await voteSetup()
-                else:
-                    await channel.send(f"The winning map is **{mapChoice4}** and will be played at {winningIP}")
-                    fVCoolDown.stop()
-                    
-                    inVote = 0
-                    winningMap = mapChoice4
-                    if(len(lastFive) >= 5):
-                        lastFive.remove(lastFive[0])
-                    lastFive.append(mapChoice4)
-                    if(captMode == 0):
-                        savePickup()
-                        DePopulatePickup()
-            elif(windex == 1):
-                await channel.send(f"The winning map is **{mapChoice1}** and will be played at {winningIP}")
-                fVCoolDown.stop()
-                inVote = 0
-                winningMap = mapChoice1
-                if(len(lastFive) >= 5):
-                    lastFive.remove(lastFive[0])
-                lastFive.append(mapChoice1)
-                if(captMode == 0):
-                    savePickup()
-                    DePopulatePickup()
-            elif(windex == 2):
-                await channel.send(f"The winning map is **{mapChoice2}** and will be played at {winningIP}")
-                fVCoolDown.stop()
-                inVote = 0
-                winningMap = mapChoice2
-                if(len(lastFive) >= 5):
-                    lastFive.remove(lastFive[0])
-                lastFive.append(mapChoice2)
-                if(captMode == 0):
-                    savePickup()
-                    DePopulatePickup()
-            elif(windex == 3):
-                await channel.send(f"The winning map is **{mapChoice3}** and will be played at {winningIP}")
-                fVCoolDown.stop()
-                inVote = 0
+            # We are currently in map voting round
+
+            # Tally the votes for each choice, putting map choice 4 in the first slot to give precedence for a tie, as it may be the "new maps" special
+            # slot which would trigger a new vote in the case of a tie with a real map.
+            votes =     [len(mapVotes[mapChoice4]), len(mapVotes[mapChoice1]), len(mapVotes[mapChoice2]), len(mapVotes[mapChoice3])]
+            mapNames =  [mapChoice4,                 mapChoice1,               mapChoice2,                mapChoice3]
+
+            maxVoteCount = max(votes)
+            windex = votes.index(maxVoteCount) # winning index
+
+            # Check for special case of new maps first to trigger new voting round
+            if((windex == 0) and (mapChoice4 == "New Maps")): 
+                # We need a new voting round
+                reVote = 1
+                # Find the real map with the most votes by deleting the new maps entry
+                del votes[0] # votes now has 3 entries
+                windex = votes.index(max(votes))
+                if(windex == 0):
+                    mapChoice4 = mapChoice1
+                if(windex == 1):
+                    mapChoice4 = mapChoice2
+                if(windex == 2):
+                    mapChoice4 = mapChoice3
+                #alreadyVoted = []
+                await channel.send("New maps has won, now selecting new maps..")
+                fTimer = 3
+                await voteSetup()
+            else:
+                # A real map has won. Gather all maps that had the maximum count
+                voteIndex = 0
+                candidateMapNames = []
+                for count in votes:
+                    if (count == maxVoteCount):
+                        candidateMapNames.append(mapNames[voteIndex])
+                    voteIndex = voteIndex + 1
                 
-                winningMap = mapChoice3
+                print(f"maxVoteCount: {maxVoteCount}, candidateMapNames: {candidateMapNames}")
+
+                # Pick a random final winner from the candidate maps
+                winningMap = random.choice(candidateMapNames)
+
+                await channel.send(f"The winning map is **{winningMap}** and will be played at {winningIP}")
+                fVCoolDown.stop()
+
+                inVote = 0
+                winningMap = winningMap
                 if(len(lastFive) >= 5):
                     lastFive.remove(lastFive[0])
-                lastFive.append(mapChoice3)
+                lastFive.append(winningMap)
                 if(captMode == 0):
                     savePickup()
                     DePopulatePickup()
@@ -2477,6 +2544,9 @@ async def on_message(message):
 
     await client.process_commands(message)
 
+
+print("This line will be printed.")
+print(v['TOKEN'])
 
 client.run(v['TOKEN'])
 #client.run('NzMyMzcyMTcwMzY5NTMxOTc4.XwzovA.mAG_B40lzStmKPGL7Hplf0cg8aA')
