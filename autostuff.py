@@ -349,8 +349,8 @@ async def refreshlb(ctx):
     msgList = [f'LAST REFRESH: {str(datetime.now())}\n\n',"TOTAL KILLS\n"]
     for i in list(totalKills):
         #print("totalKills[list(totalKills)[0]")
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
 
@@ -360,8 +360,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS PER GAME\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total defensive kills
@@ -370,8 +370,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL DEFENSIVE KILLS\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total offensive kills
@@ -380,8 +380,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL OFFENSIVE KILLS\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     msg = "".join(msgList)
@@ -392,8 +392,8 @@ async def refreshlb(ctx):
     x = 0
     msgList = ["\nTOTAL KILLS AS SOLDIER\n"]
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total kills as Demoman
@@ -402,8 +402,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS AS DEMOMAN\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total kills as medic
@@ -412,8 +412,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS AS MEDIC\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total kills as hwguy
@@ -422,8 +422,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS AS HWGUY\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total kills as Spy
@@ -432,8 +432,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS AS SPY\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total kills as Engineer
@@ -442,8 +442,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS AS ENGINEER\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total SG Kills
@@ -452,8 +452,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL SGs DESTROYED\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total kills with SG
@@ -462,8 +462,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS WITH SG\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total kills with knife
@@ -472,8 +472,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL KILLS WITH KNIFE\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     msg = "".join(msgList)
@@ -485,8 +485,8 @@ async def refreshlb(ctx):
     x = 0
     msgList = ["TOTAL OFFENSIVE DAMAGE\n"]
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total offensive damage per game
@@ -495,8 +495,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL OFFENSIVE DAMAGE PER GAME\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total defensive damage
@@ -505,8 +505,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL DEFENSIVE DAMAGE\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total defensive damage per game
@@ -515,8 +515,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL DEFENSIVE DAMAGE PER GAME\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
 
@@ -526,8 +526,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL FLAG TOUCHES\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total touches per game
@@ -536,8 +536,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL FLAG TOUCHES PER GAME\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total caps
@@ -546,8 +546,8 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL CAPTURES\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4):msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4):msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     #total caps PER GAME
@@ -556,14 +556,45 @@ async def refreshlb(ctx):
     x = 0
     msgList.append("\nTOTAL CAPTURES PER GAME\n")
     for i in list(totalKills):
-        if (x < 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')        
-        elif(x == 4): msgList.append(f'{i}{space * (30 - len(i))}{totalKills[i]}\n')
+        if (x < 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')        
+        elif(x == 4): msgList.append(f'{kills[i][13]}{space * (30 - len(kills[i][13]))}{totalKills[i]}\n')
         x += 1
         if(x == 5): break
     print(len(kills2))
     msg = "".join(msgList)
     await fmsg.edit(content=f'```{msg}```')
 
+@client.command(pass_context=True)
+@commands.has_role(v['admin'])
+async def resetlb(ctx):
+    with open('kills.json') as f:
+        kills = json.load(f)
+    with open('damage.json') as f:
+        damage = json.load(f)
+    with open('flagstats.json') as f:
+        flagstats = json.load(f)
+
+    for i in list(flagstats):
+        if(i != 'totalgame'):
+            flagstats[i] = [0,0,0,kills[i][13]]
+    for i in list(damage):
+        if(i != 'totalgame'):
+            damage[i] = [0,0,0,kills[i][13]]
+    for i in list(kills):
+        if(i != 'totalgame'):
+            kills[i] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, kills[i][13]]
+    kills['totalgame'] = 0
+    damage['totalgame'] = 0
+    flagstats['totalgame'] = 0
+
+    with open('kills.json', 'w') as cd:
+        json.dump(kills, cd,indent= 4)
+    with open('damage.json', 'w') as cd:
+        json.dump(damage, cd,indent= 4)
+    with open('flagstats.json', 'w') as cd:
+        json.dump(flagstats, cd,indent= 4)
+
+    await ctx.author.send("Recorded")
 @client.command(pass_context=True)
 @commands.cooldown(1, 300, commands.BucketType.user)
 async def reg(ctx, steamid):
@@ -592,11 +623,11 @@ async def reg(ctx, steamid):
     with open('flagstats.json', 'w') as cd:
         json.dump(flagstats, cd,indent= 4)
 
-    await ctx.author.send("Recorded")
+    await ctx.send("leaderboard stats reset")
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 300, commands.BucketType.default)
+@commands.has_role(v['runner'])
 async def stats(ctx, region = None):
     with open('login.json') as f:
         logins = json.load(f)
@@ -607,19 +638,29 @@ async def stats(ctx, region = None):
       try:
         ftp = FTP(logins[region][0])
         ftp.login(user= logins[region][1], passwd=logins[region][2])
+        
+        # Switch working directory to the tfc/logs directory
         ftp.cwd('tfc')
         ftp.cwd('logs')
 
-        list = ftp.nlst()
+        # Note: We are taking a dependency on newer logs having a higher ascending name
+        logListNameAsc = ftp.nlst()     # Get list of logs sorted in ascending order by name.
+        logListNameDesc = reversed(logListNameAsc) # We want to evaluate most recent first for efficiency, so reverse it
 
-        newList = []
-        for i in list:
-            size = (ftp.size(i))
-            if((size > 300000) and (".log" in i)):
-                newList.append(i)
-
-        logToParse1 = newList[-2]
-        logToParse2 = newList[-1]
+        lastTwoBigLogList = []
+        for logFile in logListNameDesc:
+            size = (ftp.size(logFile))
+            print(f"logFile: {logFile}, size:{size}")
+            # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+            # if we find any edge cases.
+            if((size > 300000) and (".log" in logFile)): # Rounds with logs of players and time will be big
+                print("passed heuristic!")
+                lastTwoBigLogList.append(logFile)
+                if (len(lastTwoBigLogList) >= 2):
+                    break
+                    
+        logToParse1 = lastTwoBigLogList[1]
+        logToParse2 = lastTwoBigLogList[0]
 
         try:
             ftp.retrbinary("RETR " + logToParse1 ,open(logToParse1, 'wb').write)
@@ -640,7 +681,6 @@ async def stats(ctx, region = None):
             pMap = line[mapstart:mapend]
         f.close()
 
-
         #os.system(f"cp {logToParse1} coachn-{logToParse1}")
         #os.system(f"cp {logToParse2} coachn-{logToParse2}")
 
@@ -653,8 +693,8 @@ async def stats(ctx, region = None):
         #newCMD = 'curl -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
         #output2 = os.popen(newCMD).read()
         #site = "**Round 1:** https://blarghalyzer.com/parsedlogs/" + logToParse1[:-4].lower() + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/" + logToParse2[:-4].lower() + "/"
-        #newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
-        output3 = "34879y45987543987453987043987439870453987345987439874387943578934578" #os.popen(newCMD).read()
+        newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
+        output3 = os.popen(newCMD).read()
         hampa = "http://app.hampalyzer.com/" + output3[21:-3]
         
         #os.remove(logToParse1[7:])
@@ -691,6 +731,7 @@ async def stats(ctx, region = None):
             newfile = None'''
 
         await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+
         try:
             statUpdater(logToParse1,logToParse2)
         except Exception as e:
@@ -833,5 +874,6 @@ async def on_message(message):
 
     await client.process_commands(message)
 
-
-client.run(MAKE SURE TO PUT TOKEN HERE)
+#resetlb()
+client.run(v['TOKEN'])
+#client.run('NzMyMzcyMTcwMzY5NTMxOTc4.GPL0pm.iRN9voORDs1haOXvmlhZu26tWOtS-e7Xpmf7LM')
