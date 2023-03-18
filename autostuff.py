@@ -877,3 +877,4 @@ async def on_message(message):
 #resetlb()
 client.run(v['TOKEN'])
 #client.run('NzMyMzcyMTcwMzY5NTMxOTc4.GPL0pm.iRN9voORDs1haOXvmlhZu26tWOtS-e7Xpmf7LM')
+
