@@ -185,8 +185,9 @@ async def dunce(ctx, player: discord.Member, reason=None):
                 ELOpop[str(player.id)][PLAYER_MAP_DUNCE_FLAG_INDEX] = reason
                 await ctx.send(f"{player.display_name} is a dunce! Reason: {reason}")
         else:
+            originalReason = ELOpop[str(player.id)][PLAYER_MAP_DUNCE_FLAG_INDEX]
             ELOpop[str(player.id)][PLAYER_MAP_DUNCE_FLAG_INDEX] = None
-            await ctx.send(f"{player.display_name} is no longer a dunce! (original reason: {reason})")
+            await ctx.send(f"{player.display_name} is no longer a dunce! (original reason: {originalReason})")
 
         # Write ELO database changes out
         with open('ELOpop.json', 'w') as cd:
