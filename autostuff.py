@@ -596,7 +596,6 @@ async def reg(ctx, steamid):
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 300, commands.BucketType.default)
 async def stats(ctx, region = None):
     with open('login.json') as f:
         logins = json.load(f)
