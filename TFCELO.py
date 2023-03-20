@@ -127,6 +127,7 @@ async def private(ctx):
         newRank(str(ctx.author.id))
         await ctx.author.send("Your ELO Rank is back")
 
+# Resets pickup upon a completed vote or !cancel        
 def DePopulatePickup():
     global cap1
     global cap2
@@ -201,6 +202,7 @@ def DePopulatePickup():
     pTotalPlayers = []
     fVCoolDown.stop()
 
+# Populates a list of players whom have voted for a particular map
 def mapVoteOutput(mapChoice):
     global mapVotes
     with open('ELOpop.json') as f:
@@ -224,6 +226,7 @@ async def fVCoolDown():
     if(fTimer > 0):
         fTimer = fTimer - 1
 
+# Selects maps from two different json files.  options 1/2 are from mainmaps.json and option 3 is from specmaps.json
 def PickMaps():
     global mapChoice1
     global mapChoice2
@@ -291,6 +294,7 @@ def PickMaps():
     mapVotes[mapChoice3] = []
     mapSelected.append(mapChoice3)
 
+# This function manages the captain's mode.    
 def TeamPickPopulate():
     global msg
     global eligiblePlayers
@@ -321,6 +325,7 @@ def TeamPickPopulate():
         msg = ("🔵 Blue Team 🔵 picks!\n\n" + msg + "\n" + blueMsg + "\n" + redMsg)
     return msg
 
+# Sets up voting and manages the voting process
 async def voteSetup():
     global mapChoice1
     global mapChoice2
@@ -689,6 +694,7 @@ async def adjustELO(ctx, player, ELO):
 async def hello(ctx):
     await ctx.send("bye")
 
+# Old GCP stuff for starting a server manually
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def startserver(ctx, server):
@@ -705,6 +711,7 @@ async def startserver(ctx, server):
         r = requests.get("https://europe-west3-coachoffice-332119.cloudfunctions.net/startEU")
     await ctx.send(server + " is starting up..")
 
+# Old GCP stuff for stopping a server manually.
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def stopserver(ctx, server):
@@ -721,6 +728,8 @@ async def stopserver(ctx, server):
         r = requests.get("https://europe-west3-coachoffice-332119.cloudfunctions.net/stopEU")
     await ctx.send(server + " is shutting down..")
 
+# can swap teams.. this will work as !swap @playerout @playerin and optionally a 3 parameter for if a pickup has already started
+# Should reset the ELO points for each team and odds
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def swapteam(ctx, player1: discord.Member, player2: discord.Member, number = "None"):
@@ -797,7 +806,7 @@ async def swapteam(ctx, player1: discord.Member, player2: discord.Member, number
                 json.dump(activePickups, cd,indent= 4)
             await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
-
+# Saves the pickup into the activepickups json which can be seen with !games
 def savePickup():
     global winningMap
     global winningServer
