@@ -1,4 +1,6 @@
 {
-	"east": ["HOST", "USER", "PASSWORD"],
-	"central" : ["HOST", "USER", "PASSWORD"]
+    "east": ["HOST", "USER", "PASSWORD"],
+    "east_hltv": ["HOST", "USER", "PASSWORD"],
+    "central" : ["HOST", "USER", "PASSWORD"],
+    "central_hltv" : ["HOST", "USER", "PASSWORD"]
 }
