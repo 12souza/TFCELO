@@ -23,7 +23,6 @@ from zipfile import ZipFile
 client = commands.Bot(command_prefix="!")
 UDP_IP_ADDRESS = "0.0.0.0"
 UDP_PORT_NO = 6789
-MIN_DEMO_FILE_SIZE = 100000  # TODO: Find average HLTV round filesize and use that instead
 serverSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 serverSock.bind((UDP_IP_ADDRESS, UDP_PORT_NO))
 with open('login.json') as f:
@@ -39,6 +38,7 @@ with open('flagstats.json') as f:
 
 srv = Console(host='coach.hltv.nfoservers.com', port=27020, password='asdfcoach')
 srv2 = Console(host='coachcent.hltv.nfoservers.com', port=27020, password='asdfcoach')
+
 
 @client.event
 async def on_ready():
