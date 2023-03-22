@@ -40,67 +40,6 @@ with open('flagstats.json') as f:
 srv = Console(host='coach.hltv.nfoservers.com', port=27020, password='asdfcoach')
 srv2 = Console(host='coachcent.hltv.nfoservers.com', port=27020, password='asdfcoach')
 
-
-async def hltv_ftp(region: str, map_name: str):
-    """Connect to the HLTV FTP for {region} and look for the last 2 demos for {map_name}
-       Download those files, zip them up locally, then upload to discord and post to stats"""
-    region = region + '_hltv'
-    try:
-        ftp = FTP(logins[region][0])
-        ftp.login(user=logins[region][1], passwd=logins[region][2])
-        ftp.cwd('tfc')
-        ftp.cwd('HLTV')
-
-        # Demos have the following naming convention - TFPUGS-YYMMDDHHMM-mapname
-        # The hour is in PST
-        # We are assuming demos will be ordered by the date prefix higher ascending name
-        demo_list_name_asc = list(filter(lambda input: 'dem' in input, ftp.nlst()))  # Get raw list of demos sorted in ascending order by name
-        demo_list_name_desc = reversed(demo_list_name_asc)  # We want to evaluate most recent first for efficiency, so reverse it
-
-        last_two_possible_demos = []
-        for demo_file in demo_list_name_desc:
-            if map_name not in demo_file:
-                continue
-            size = (ftp.size(demo_file))
-            print(f"demo: {demo_file}, size:{size}")
-            # Do a simple heuristic check to see if this is a "real" round
-            if (size > MIN_DEMO_FILE_SIZE):  # Rounds with logs of players and time will be big
-                last_two_possible_demos.append(demo_file)
-                if (len(last_two_possible_demos) >= 2):
-                    break
-
-        demo_to_upload_1 = last_two_possible_demos[1]
-        demo_to_upload_2 = last_two_possible_demos[0]
-
-        local_file_list = []
-
-        # Download the files locally
-        ftp.retrbinary("RETR " + demo_to_upload_1, open(demo_to_upload_1, 'wb').write)
-        ftp.retrbinary("RETR " + demo_to_upload_2, open(demo_to_upload_2, 'wb').write)
-
-        local_file_list.append(demo_to_upload_1)
-        local_file_list.append(demo_to_upload_2)
-        pickup_date = demo_to_upload_1.split('-')[1][:-2]
-        demo_zip = map_name + "-" + pickup_date + ".zip"
-        with ZipFile(file=demo_zip, compression=zipfile.ZIP_STORED, mode='w') as zip_object:
-            zip_object.write(demo_to_upload_1)
-            zip_object.write(demo_to_upload_2)
-
-        local_file_list.append(demo_zip)
-
-        pChannel = await client.fetch_channel(1000847501194174675)
-        await pChannel.send(file=discord.File(demo_zip), content="Testing HLTV Upload")
-
-        for input_file in local_file_list:
-            os.remove(input_file)
-
-    except Exception:
-        # Cleanup files, if they're present
-        for input_file in local_file_list:
-            os.remove(input_file)
-        raise
-
-
 @client.event
 async def on_ready():
     print("connected")
