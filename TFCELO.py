@@ -2606,6 +2606,7 @@ async def on_reaction_add(reaction, user):
             global blueTeam
             global redTeam
             global alreadyVoted
+            global msg
 
             if(reaction.message == pMsg):
                 if((str(user.id) == cap1) or (str(user.id) == cap2)):
