@@ -393,6 +393,8 @@ def TeamPickPopulate():
         msg = ("🔵 Blue Team 🔵 picks!\n\n" + msg + "\n" + blueMsg + "\n" + redMsg)
     return msg
 
+
+
 # Sets up voting and manages the voting process
 async def voteSetup():
     global mapChoice1
@@ -521,6 +523,20 @@ async def addach(ctx, key, value):
         await ctx.send(f"value has been added to the list of achievements")
     finally: # release the lock
         GLOBAL_LOCK.release()
+
+#will pick a random map
+@client.command(pass_context=True, aliases=['map'])
+@commands.has_role(v['runner'])
+async def pickRandomMap(ctx):
+    with open('mainmaps.json') as f:
+        mapList = json.load(f)
+    
+    rMap = random.choice(list(mapList))
+    channel = await client.fetch_channel(v['pID'])
+
+    await channel.send(f"The map chosen is **{rMap}**")
+
+    return rMap
 
 @client.command(pass_context=True)
 @commands.has_role(v['admin'])
@@ -707,23 +723,23 @@ async def openPickups(ctx):
 def getRank(ID):
     global ELOpop
 
-    if(ELOpop[ID][1] < 240): #1
+    if(ELOpop[ID][1] < 260): #1
         return v['rank1']
-    elif(ELOpop[ID][1] < 720): #2
+    elif(ELOpop[ID][1] < 520): #2
         return v['rank2']
-    elif(ELOpop[ID][1] < 960): #3
+    elif(ELOpop[ID][1] < 780): #3
         return v['rank3']
-    elif(ELOpop[ID][1] < 1200): #4
+    elif(ELOpop[ID][1] < 1040): #4
         return v['rank4']
-    elif(ELOpop[ID][1] < 1440): #5
+    elif(ELOpop[ID][1] < 1300): #5
         return v['rank5']
-    elif(ELOpop[ID][1] < 1680): #6
+    elif(ELOpop[ID][1] < 1560): #6
         return v['rank6']
-    elif(ELOpop[ID][1] < 1920): #7
+    elif(ELOpop[ID][1] < 1820): #7
         return v['rank7']
-    elif(ELOpop[ID][1] < 2160): #8
+    elif(ELOpop[ID][1] < 2080): #8
         return v['rank8'] 
-    elif(ELOpop[ID][1] < 2300): #9
+    elif(ELOpop[ID][1] < 2340): #9
         return v['rank9'] 
     elif(ELOpop[ID][1] < 2600): #10
         return v['rank10']
@@ -1070,7 +1086,7 @@ async def test7(ctx):
             retVal = addplayerImpl("194276343540613121", "climax", None)
             retVal = addplayerImpl("596225454721990676", "botch", None)
             retVal = addplayerImpl("173619058657198082", "Moreno", None)
-            retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
+            #retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
             # retVal = addplayerImpl("311769927432404994", "Nemsy", None)
             await showPickup(ctx)
 
@@ -2312,6 +2328,8 @@ async def forceVote(channel):
 
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
+                    if("Bot's Choice" in winningMap):
+                        winningMap = await pickRandomMap(channel)
 
                     await channel.send(f"The winning map is **{winningMap}** and will be played at {winningIP}")
                     fVCoolDown.stop()
@@ -2828,4 +2846,4 @@ async def on_message(message):
 print(v['TOKEN'])
 
 client.run(v['TOKEN'])
-#client.run('NzMyMzcyMTcwMzY5NTMxOTc4.XwzovA.mAG_B40lzStmKPGL7Hplf0cg8aA')
+
