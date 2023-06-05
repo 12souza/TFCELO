@@ -576,11 +576,11 @@ async def showPickup(ctx):
     msgListLight = []
     for i in playersAdded:
         achList = ELOpop[i][7]
-        visualRank = ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
+        visualRank = getRank(i) #ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
 
         if (ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] != None): # Is player a naughty dunce? 
             ach = v['dunce'] + "- Dunce cap for: " + ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] # Achievements get wiped and replaced with the dunce cap
-            visualRank = getRank(i) # Always show the rank of the dunce as a punishment
+            #visualRank = getRank(i) # Always show the rank of the dunce as a punishment
         else:
             ach = "".join(achList) # Not a dunce, use their real achievements
 
