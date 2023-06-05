@@ -723,23 +723,23 @@ async def openPickups(ctx):
 def getRank(ID):
     global ELOpop
 
-    if(ELOpop[ID][1] < 260): #1
+    if(ELOpop[ID][1] < 220): #1
         return v['rank1']
-    elif(ELOpop[ID][1] < 520): #2
+    elif(ELOpop[ID][1] < 450): #2
         return v['rank2']
-    elif(ELOpop[ID][1] < 780): #3
+    elif(ELOpop[ID][1] < 690): #3
         return v['rank3']
-    elif(ELOpop[ID][1] < 1040): #4
+    elif(ELOpop[ID][1] < 940): #4
         return v['rank4']
-    elif(ELOpop[ID][1] < 1300): #5
+    elif(ELOpop[ID][1] < 1200): #5
         return v['rank5']
-    elif(ELOpop[ID][1] < 1560): #6
+    elif(ELOpop[ID][1] < 1460): #6
         return v['rank6']
-    elif(ELOpop[ID][1] < 1820): #7
+    elif(ELOpop[ID][1] < 1730): #7
         return v['rank7']
-    elif(ELOpop[ID][1] < 2080): #8
+    elif(ELOpop[ID][1] < 2010): #8
         return v['rank8'] 
-    elif(ELOpop[ID][1] < 2340): #9
+    elif(ELOpop[ID][1] < 2300): #9
         return v['rank9'] 
     elif(ELOpop[ID][1] < 2600): #10
         return v['rank10']
