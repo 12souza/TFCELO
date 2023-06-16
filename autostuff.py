@@ -782,6 +782,7 @@ async def bwin(ctx, team, pNumber = "None"):
         blueRank = activePickups[pNumber][1]
         redProb = activePickups[pNumber][3]
         redRank = activePickups[pNumber][4]
+        pMap = activePickups[pNumber][7]
         adjustTeam1 = 0
         adjustTeam2 = 0
         winner = 0
@@ -796,6 +797,10 @@ async def bwin(ctx, team, pNumber = "None"):
         if(team == "draw"):
             adjustTeam1 = int(blueRank + 50 * (.5 - blueProb)) - blueRank
             adjustTeam2 = int(redRank + 50 * (.5 - redProb)) - redRank
+        if("Bot's Choice" in pMap):
+            adjustTeam1 = adjustTeam1 * 2
+            adjustTeam2 = adjustTeam2 * 2
+            print("giving double ELO")
         for i in blueTeam:
             ELOpop[i][1] += adjustTeam1
             #if(int(ELOpop[i][1]) > 2599):
@@ -877,4 +882,3 @@ async def on_message(message):
 #resetlb()
 client.run(v['TOKEN'])
 #client.run('NzMyMzcyMTcwMzY5NTMxOTc4.GPL0pm.iRN9voORDs1haOXvmlhZu26tWOtS-e7Xpmf7LM')
-
