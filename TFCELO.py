@@ -304,6 +304,7 @@ def PickMaps():
     global mapVotes
     global alreadyVoted
     global votePhase
+    global lastFive
     multiple = 0
     with open('mainmaps.json') as f:
         mapList = json.load(f)
@@ -357,7 +358,8 @@ def PickMaps():
     mapVotes[mapChoice2] = []
     mapSelected.append(mapChoice2)
     mapChoice3 = random.choice(mapPick2)
-    while(mapChoice3 in mapPick):
+    #mapChoice3 = "Bot's Choice (Double ELO)"
+    while(mapChoice3 in mapPick2):
         mapPick2.remove(mapChoice3)
     mapVotes[mapChoice3] = []
     mapSelected.append(mapChoice3)
@@ -530,10 +532,13 @@ async def addach(ctx, key, value):
 async def pickRandomMap(ctx):
     with open('mainmaps.json') as f:
         mapList = json.load(f)
+    global lastFive
     
     rMap = random.choice(list(mapList))
     channel = await client.fetch_channel(v['pID'])
 
+    while(rMap in lastFive):
+        rMap = random.choice(list(mapList))
     await channel.send(f"The map chosen is **{rMap}**")
 
     return rMap
@@ -576,11 +581,14 @@ async def showPickup(ctx):
     msgListLight = []
     for i in playersAdded:
         achList = ELOpop[i][7]
-        visualRank = getRank(i) #ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
+        if("norank" in ELOpop[i][3]):
+            visualRank = ELOpop[i][3]
+        else:
+            visualRank = getRank(i) #ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
 
         if (ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] != None): # Is player a naughty dunce? 
             ach = v['dunce'] + "- Dunce cap for: " + ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] # Achievements get wiped and replaced with the dunce cap
-            #visualRank = getRank(i) # Always show the rank of the dunce as a punishment
+            visualRank = getRank(i) # Always show the rank of the dunce as a punishment
         else:
             ach = "".join(achList) # Not a dunce, use their real achievements
 
@@ -1891,11 +1899,18 @@ async def draw(ctx, pNumber = "None"):
             blueRank = activePickups[pNumber][1]
             redProb = activePickups[pNumber][3]
             redRank = activePickups[pNumber][4]
+            pMap = activePickups[pNumber][7]
             adjustTeam1 = 0
             adjustTeam2 = 0
             
             adjustTeam1 = int(blueRank + 50 * (.5 - blueProb)) - blueRank
             adjustTeam2 = int(redRank + 50 * (.5 - redProb)) - redRank
+
+            if("Bot's Choice" in pMap):
+                adjustTeam1 = adjustTeam1 * 2
+                adjustTeam2 = adjustTeam2 * 2
+                print("giving double ELO")
+
             for i in blueTeam:
                 ELOpop[i][1] += adjustTeam1
                 #if(int(ELOpop[i][1]) > 2599):
@@ -1964,6 +1979,7 @@ async def win(ctx, team, pNumber = "None"):
             blueRank = activePickups[pNumber][1]
             redProb = activePickups[pNumber][3]
             redRank = activePickups[pNumber][4]
+            pMap = activePickups[pNumber][7]
             adjustTeam1 = 0
             adjustTeam2 = 0
             winner = 0
@@ -1978,6 +1994,11 @@ async def win(ctx, team, pNumber = "None"):
             if(team == "draw"):
                 adjustTeam1 = int(blueRank + 50 * (.5 - blueProb)) - blueRank
                 adjustTeam2 = int(redRank + 50 * (.5 - redProb)) - redRank
+            if("Bot's Choice" in pMap):
+                adjustTeam1 = adjustTeam1 * 2
+                adjustTeam2 = adjustTeam2 * 2
+                print("giving double ELO")
+
             for i in blueTeam:
                 ELOpop[i][1] += adjustTeam1
                 #if(int(ELOpop[i][1]) > 2599):
@@ -2274,14 +2295,16 @@ async def forceVote(channel):
                 elif(windex == 1):
                     #await channel.send("Central (Iowa) server is being launched..")
                     #r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
-                    winningIP = "steam://connect/coachcent.game.nfoservers.com:27015/letsplay!"
+                    #winningIP = "steam://connect/coach.game.nfoservers.com:27015/letsplay!"
+                    winningIP = "https://tinyurl.com/centraltfc"
                     winningServer = "Central (Chi)"
                     serverVote = 0
                     #alreadyVoted = []
                 elif(windex == 2):
                     #await channel.send("East (N. Virginia) server is being launched..")
                     #r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/startEast")
-                    winningIP = "steam://connect/coach.game.nfoservers.com:27015/letsplay!"
+                    #winningIP = "steam://connect/coach.game.nfoservers.com:27015/letsplay!"
+                    winningIP = "https://tinyurl.com/coacheast"
                     winningServer = "East (NY)"
                     serverVote = 0
                     #alreadyVoted = []
@@ -2329,16 +2352,20 @@ async def forceVote(channel):
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
                     if("Bot's Choice" in winningMap):
-                        winningMap = await pickRandomMap(channel)
-
-                    await channel.send(f"The winning map is **{winningMap}** and will be played at {winningIP}")
+                        wMap = await pickRandomMap(channel)
+                        await channel.send(f"The winning map is **{wMap}** and will be played at {winningIP}")
+                    else:
+                        await channel.send(f"The winning map is **{winningMap}** and will be played at {winningIP}")
                     fVCoolDown.stop()
 
                     inVote = 0
                     winningMap = winningMap
                     if(len(lastFive) >= 5):
                         lastFive.remove(lastFive[0])
-                    lastFive.append(winningMap)
+                    if("Bot's Choice" in winningMap):
+                        lastFive.append(wMap)
+                    elif("Bot's Choice" not in winningMap):
+                        lastFive.append(winningMap)
                     if(captMode == 0):
                         savePickup()
                         DePopulatePickup()
