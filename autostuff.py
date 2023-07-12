@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 from ftplib import FTP
 import os
+import zipfile
 
 intents = discord.Intents.all()
 client = commands.Bot(command_prefix = ["!", "+", "-"], case_insensitive=True, intents= intents)
@@ -680,40 +681,46 @@ async def stats(ctx, region = None):
             pDate =  line[datestart:dateend]
             pMap = line[mapstart:mapend]
         f.close()
+        ftp.close()
 
-        #os.system(f"cp {logToParse1} coachn-{logToParse1}")
-        #os.system(f"cp {logToParse2} coachn-{logToParse2}")
-
-        #logToParse1 = "coachn-" + logToParse1
-        #logToParse2 = "coachn-" + logToParse2
-        #print(logToParse1[7:])
-        #print(logToParse2[7:])
-        #newCMD = 'curl -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        #output = os.popen(newCMD).read()
-        #newCMD = 'curl -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        #output2 = os.popen(newCMD).read()
-        #site = "**Round 1:** https://blarghalyzer.com/parsedlogs/" + logToParse1[:-4].lower() + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/" + logToParse2[:-4].lower() + "/"
         newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
         output3 = os.popen(newCMD).read()
         hampa = "http://app.hampalyzer.com/" + output3[21:-3]
         
-        #os.remove(logToParse1[7:])
-        #os.remove(logToParse2[7:])
+        #Uses the same alg as cheese put in for logs... except now for HLTVs.  Things have been renamed for HLTV
+        try:
+            ftp = FTP(logins[region][3])
+            ftp.login(user= logins[region][4], passwd=logins[region][5])
 
-        '''try:
-            os.chdir('..')
-            os.chdir('demos')
-            list = []
-            list = sorted(os.listdir())
+            print(ftp)
 
-            newList = []
-            for i in list:
-                size = (os.path.getsize(i))
-                if((size > 10000000) and (".dem" in i)):
-                    newList.append(i)
+            ftp.cwd('tfc')
+            ftp.cwd('HLTV')
 
-            demoToZip1 = newList[-2]
-            demoToZip2 = newList[-1]
+            HLTVListNameAsc = ftp.nlst()     # Get list of logs sorted in ascending order by name.
+            HLTVListNameDesc = reversed(HLTVListNameAsc)
+
+            lastTwoBigHLTVList = []
+            for HLTVFile in HLTVListNameDesc:
+                size = (ftp.size(HLTVFile))
+                print(f"logFile: {HLTVFile}, size:{size}")
+                # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+                # if we find any edge cases.
+                if((size > 11000000) and (".dem" in HLTVFile)): # Rounds with logs of players and time will be big
+                    print("passed heuristic!")
+                    lastTwoBigHLTVList.append(HLTVFile)
+                    if (len(lastTwoBigHLTVList) >= 2):
+                        break
+                    
+            HLTVToZip1 = lastTwoBigHLTVList[1]
+            HLTVToZip2 = lastTwoBigHLTVList[0]
+
+            try:
+                ftp.retrbinary("RETR " + HLTVToZip1 ,open(HLTVToZip1, 'wb').write)
+                ftp.retrbinary("RETR " + HLTVToZip2 ,open(HLTVToZip2, 'wb').write)
+            except:
+                print("Error")
+            #zip file stuff.. get rid of slashes so we dont error.
             dDate = pDate.replace("/", "")
             try:
                 import zlib
@@ -722,15 +729,17 @@ async def stats(ctx, region = None):
                 mode= zipfile.ZIP_STORED
             newfile = pMap + "-" + dDate + ".zip"
             zip= zipfile.ZipFile(newfile, 'w', mode)
-            zip.write(demoToZip1)
-            zip.write(demoToZip2)
+            zip.write(HLTVToZip1)
+            zip.write(HLTVToZip2)
             zip.close()
-            #os.remove(demo)
-
         except:
-            newfile = None'''
+            print("error here.")
+            newfile = None
 
-        await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+        if(newfile == None):
+            await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+        elif(newfile != None):
+            await schannel.send(file = discord.File(newfile), content=f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
 
         try:
             statUpdater(logToParse1,logToParse2)
@@ -742,24 +751,12 @@ async def stats(ctx, region = None):
             print("rlb failed")
         os.remove(logToParse1)
         os.remove(logToParse2)
+        os.remove(HLTVToZip1)
+        os.remove(HLTVToZip2)
+        os.remove(newfile)
         
-
-        #if(newfile == None):
-            #await pChannel.send(content=f"{site} {pMap} {pDate}\n **Hampalyzer:** {hampa}")
-
-        '''delList = ftp.nlst()
-        for i in delList:
-          if(i not in newList):
-            ftp.delete(i)
-        ftp.delete(logToParse1)
-        ftp.delete(logToParse2)'''
-        '''else:
-            #await pChannel.send(file = discord.File(newfile), content=f"{site} {pMap} {pDate}\n **Hampalyzer:** {hampa}")
-            os.remove(demoToZip1)
-            os.remove(demoToZip2)
-            os.remove(newfile)'''
       except Exception as e:
-        await ctx.send(f"{e}")
+        print(f"{e}")
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])

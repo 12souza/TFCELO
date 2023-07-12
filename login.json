@@ -1,4 +1,4 @@
 {
-	"east": ["HOST", "USER", "PASSWORD"],
-	"central" : ["HOST", "USER", "PASSWORD"]
+	"east": ["coach.game.nfoservers.com", "server_coach", "z2CLtBLte3vEi63wbYRW","coach.hltv.nfoservers.com","coach00hltv","9zn5EFNFJmPkuwYLAwWC"],
+	"central" : ["coachcent.game.nfoservers.com", "server_coachcent", "eTdEhhDAYosFJ3SGRRSe","coachcent.hltv.nfoservers.com","coachcent00hltv","qTzjr5k3aVM64GXjhrxi"]
 }
