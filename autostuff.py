@@ -632,7 +632,7 @@ async def reg(ctx, steamid):
 async def stats(ctx, region = None):
     with open('login.json') as f:
         logins = json.load(f)
-    schannel = await client.fetch_channel(1000847501194174675)
+    schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
     if(region.lower() == "none"):
         await ctx.send("please specify region..")
     elif(region.lower() == 'east' or region.lower() == 'central'):
@@ -669,6 +669,12 @@ async def stats(ctx, region = None):
         except:
             print("Error")
 
+
+        os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
+        os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
+        
+        logToParse1 = f"{logToParse1[0:-4]}-coach{region}.log"
+        logToParse2 = f"{logToParse2[0:-4]}-coach{region}.log"
         f = open(logToParse1)
         pDate = None
         pMap = None
@@ -682,11 +688,20 @@ async def stats(ctx, region = None):
             pMap = line[mapstart:mapend]
         f.close()
         ftp.close()
-
+        site = None
         newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
         output3 = os.popen(newCMD).read()
-        hampa = "http://app.hampalyzer.com/" + output3[21:-3]
-        
+        if("nginx" not in output3 or output3 == None):
+            hampa = "http://app.hampalyzer.com/" + output3[21:-3]
+        else:
+            
+            
+            newCMD = 'curl -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+            output = os.popen(newCMD).read()
+            newCMD = 'curl -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+            output2 = os.popen(newCMD).read()
+            site = "**Round 1:** https://blarghalyzer.com/parsedlogs/" + logToParse1[:-4].lower() + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/" + logToParse2[:-4].lower() + "/"
+            
         #Uses the same alg as cheese put in for logs... except now for HLTVs.  Things have been renamed for HLTV
         try:
             ftp = FTP(logins[region][3])
@@ -720,6 +735,7 @@ async def stats(ctx, region = None):
                 ftp.retrbinary("RETR " + HLTVToZip2 ,open(HLTVToZip2, 'wb').write)
             except:
                 print("Error")
+
             #zip file stuff.. get rid of slashes so we dont error.
             dDate = pDate.replace("/", "")
             try:
@@ -736,10 +752,17 @@ async def stats(ctx, region = None):
             print("error here.")
             newfile = None
 
-        if(newfile == None):
-            await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
-        elif(newfile != None):
-            await schannel.send(file = discord.File(newfile), content=f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+        if("nginx" not in output3):
+            if(newfile == None):
+                await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+            elif(newfile != None):
+                await schannel.send(file = discord.File(newfile), content=f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+        else: 
+            if(newfile == None):
+                await schannel.send(f"**Blarghalyzer:** {site} {pMap} {pDate} {region}")
+            elif(newfile != None):
+                await schannel.send(file = discord.File(newfile), content=f"**Blarghalyzer:** {site} {pMap} {pDate} {region}")
+
 
         try:
             statUpdater(logToParse1,logToParse2)
