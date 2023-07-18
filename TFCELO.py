@@ -1403,7 +1403,7 @@ async def teams(ctx, playerCount = 4):
                         half = int(totalRank / 2)
                         
                         if(playerCount <= 8):
-                            if("303845825476558859" in eligiblePlayers and "120411697184768000" in eligiblePlayers):
+                            '''if("303845825476558859" in eligiblePlayers and "120411697184768000" in eligiblePlayers):
                                 for i in list(combos):
                                     blueRank = 0
                                     for j in list(i):
@@ -1412,14 +1412,14 @@ async def teams(ctx, playerCount = 4):
                                             rankedOrder.append((list(i), abs(blueRank - half)))
                                     #print((list(i), abs(blueRank - half)))
                                 rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-                            else:   
-                                for i in list(combos):
-                                    blueRank = 0
-                                    for j in list(i):
-                                        blueRank += int(ELOpop[j][1])
-                                    rankedOrder.append((list(i), abs(blueRank - half)))
-                                    #print((list(i), abs(blueRank - half)))
-                                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                            else:'''   
+                            for i in list(combos):
+                                blueRank = 0
+                                for j in list(i):
+                                    blueRank += int(ELOpop[j][1])
+                                rankedOrder.append((list(i), abs(blueRank - half)))
+                                #print((list(i), abs(blueRank - half)))
+                            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
                         elif(playerCount > 8):
                             teamList = []
                             for i in range(100):
@@ -1479,7 +1479,12 @@ async def teams(ctx, playerCount = 4):
                         DMList = []
                         for i in eligiblePlayers:
                             DMList.append(f"<@{i}> ")
-                            
+
+                        #remove all players from players added                     
+                        for i in eligiblePlayers:
+                            if i in playersAdded:
+                                playersAdded.remove(i)
+
                         dmMsg = "".join(DMList)
                         await ctx.send(dmMsg)
                         #await ctx.send("Please react to the map you want to play on..")
@@ -1716,7 +1721,7 @@ async def next(ctx, player: discord.Member):
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
-async def sub(ctx, playerout: discord.Member, playerin: discord.Member, number = "None"):
+async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number = "None"):
     global GLOBAL_LOCK
     await GLOBAL_LOCK.acquire()
     try: # Do logic under lock
@@ -1732,17 +1737,26 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member, number =
                 global eligiblePlayers
                 global blueTeam
                 global redTeam
-                global playersAdded    
+                global playersAdded   
+                playeroutid = None
+                playerinid = None 
                 eligiblePlayers = []
+                if(str(playerone.id) in blueTeam or str(playerone.id) in redTeam): 
+                    playeroutid = playerone.id
+                    playerinid = playertwo.id
+                elif(str(playertwo.id) in blueTeam or str(playertwo.id) in redTeam): 
+                    playeroutid = playertwo.id
+                    playerinid = playerone.id
+                print(playerinid, playeroutid)
                 for i in blueTeam:
-                    if(i != str(playerout.id)):
+                    if(i != str(playeroutid)):
                         eligiblePlayers.append(i)
 
                 for i in redTeam:
-                    if(i != str(playerout.id)):
+                    if(i != str(playeroutid)):
                         eligiblePlayers.append(i)
 
-                eligiblePlayers.append(str(playerin.id))
+                eligiblePlayers.append(str(playerinid))
                 #eligiblePlayers.remove(str(playerout.id))
                 playerCount = len(eligiblePlayers)
                 counter = 0
@@ -1752,8 +1766,8 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member, number =
                 combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
                 random.shuffle(combos)
 
-                if(str(playerin.id) in playersAdded):
-                    playersAdded.remove(str(playerin.id))
+                if(str(playerinid) in playersAdded):
+                    playersAdded.remove(str(playerinid))
                 
                 for i in eligiblePlayers:
                     if i in playersAdded:
@@ -1767,6 +1781,7 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member, number =
                 blueRank = 0
                 totalRank = 0
                 half = 0
+                print(eligiblePlayers)
                 for j in eligiblePlayers:
                     totalRank += int(ELOpop[j][1])
                 half = int(totalRank / 2)  
@@ -1799,10 +1814,18 @@ async def sub(ctx, playerout: discord.Member, playerin: discord.Member, number =
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
             elif(number != "None"):    
                 eligiblePlayers = []
-                playerIn = str(playerin.id)
-                playerOut = str(playerout.id)
+                playerIn = None
+                playerOut = None
+                
                 blueTeam = activePickups[number][2]
                 redTeam = activePickups[number][5]
+
+                if(str(playerone.id) in blueTeam or str(playerone.id) in redTeam): 
+                    playerOut = str(playerone.id)
+                    playerIn = str(playertwo.id)
+                elif(str(playertwo.id) in blueTeam or str(playertwo.id) in redTeam): 
+                    playerOut = str(playertwo.id)
+                    playerIn = str(playerone.id)
                 '''for i in blueTeam:
                     if(i != str(playerout.id)):
                         eligiblePlayers.append(i)
@@ -2228,15 +2251,21 @@ async def requeue(ctx):
     global GLOBAL_LOCK
     await GLOBAL_LOCK.acquire()
     try: # Do logic under lock
-    
-        neligibleplayers = blueTeam + redTeam
-        #print(neligibleplayers)
-        DePopulatePickup()
-        #print(neligibleplayers)
-        playersAdded = neligibleplayers.copy() + playersAdded
-        neligibleplayers.clear()
-        #print(playersAdded)
-        await showPickup(ctx)
+        if(captMode == 1):
+           print(blueTeam, redTeam, eligiblePlayers)
+           neligibleplayers = eligiblePlayers
+           DePopulatePickup()
+           playersAdded = neligibleplayers.copy() + playersAdded
+           await showPickup(ctx)
+        else:
+            neligibleplayers = blueTeam + redTeam
+            #print(neligibleplayers)
+            DePopulatePickup()
+            #print(neligibleplayers)
+            playersAdded = neligibleplayers.copy() + playersAdded
+            neligibleplayers.clear()
+            #print(playersAdded)
+            await showPickup(ctx)
 
     finally: # release the lock
         GLOBAL_LOCK.release()
