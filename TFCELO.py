@@ -1917,6 +1917,14 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number 
 async def draw(ctx, pNumber = "None"):
     global ELOpop
     coach = await client.fetch_user(118900492607684614)
+    db = mysql.connector.connect(
+    host = "coachcent.site.nfoservers.com",
+    user = 'coachcent',
+    passwd = 'ytpLzMANP4',
+    database = "coachcent_players"
+    )
+
+    mycursor = db.cursor()
     global GLOBAL_LOCK
     await GLOBAL_LOCK.acquire()
     try: # Do logic under lock
@@ -2007,6 +2015,14 @@ async def draw(ctx, pNumber = "None"):
 async def win(ctx, team, pNumber = "None"):
     global ELOpop
     coach = await client.fetch_user(118900492607684614)
+    db = mysql.connector.connect(
+    host = "coachcent.site.nfoservers.com",
+    user = 'coachcent',
+    passwd = 'ytpLzMANP4',
+    database = "coachcent_players"
+    )
+
+    mycursor = db.cursor()
     global GLOBAL_LOCK
     await GLOBAL_LOCK.acquire()
     try: # Do logic under lock
@@ -2360,7 +2376,7 @@ async def forceVote(channel):
                     #await channel.send("Central (Iowa) server is being launched..")
                     #r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
                     #winningIP = "steam://connect/coach.game.nfoservers.com:27015/letsplay!"
-                    winningIP = "https://tinyurl.com/centraltfc"
+                    winningIP = "https://tinyurl.com/tfpcentral"
                     winningServer = "Central (Chi)"
                     serverVote = 0
                     #alreadyVoted = []
@@ -2368,7 +2384,7 @@ async def forceVote(channel):
                     #await channel.send("East (N. Virginia) server is being launched..")
                     #r = requests.get("https://us-east4-coachoffice-332119.cloudfunctions.net/startEast")
                     #winningIP = "steam://connect/coach.game.nfoservers.com:27015/letsplay!"
-                    winningIP = "https://tinyurl.com/coacheast"
+                    winningIP = "https://tinyurl.com/tfpEast1"
                     winningServer = "East (NY)"
                     serverVote = 0
                     #alreadyVoted = []
@@ -2919,6 +2935,14 @@ async def on_message(message):
             ELOpop = json.load(f)
         user = await client.fetch_user(message.author.id)
         coach = await client.fetch_user(118900492607684614)
+        db = mysql.connector.connect(
+            host = "coachcent.site.nfoservers.com",
+            user = 'coachcent',
+            passwd = 'ytpLzMANP4',
+            database = "coachcent_players"
+        )
+
+        mycursor = db.cursor()
         try:
             if message.guild is None and message.author != client.user:
                 mycursor.execute(f"SELECT player_elos from player_elo WHERE discord_id = {user.id}")

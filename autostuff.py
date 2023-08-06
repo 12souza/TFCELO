@@ -15,14 +15,7 @@ import mysql.connector
 intents = discord.Intents.all()
 client = commands.Bot(command_prefix = ["!", "+", "-"], case_insensitive=True, intents= intents)
 
-db = mysql.connector.connect(
-    host = "coachcent.site.nfoservers.com",
-    user = 'coachcent',
-    passwd = 'ytpLzMANP4',
-    database = "coachcent_players"
-)
 
-mycursor = db.cursor()
 
 with open('ELOpop.json') as f:
     ELOpop = json.load(f)
@@ -665,7 +658,7 @@ async def stats(ctx, region = None):
             #print(f"logFile: {logFile}, size:{size}")
             # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
             # if we find any edge cases.
-            if((size > 300000) and (".log" in logFile)): # Rounds with logs of players and time will be big
+            if((size > 100000) and (".log" in logFile)): # Rounds with logs of players and time will be big
                 print("passed heuristic!")
                 lastTwoBigLogList.append(logFile)
                 if (len(lastTwoBigLogList) >= 2):
@@ -837,6 +830,14 @@ async def stats(ctx, region = None):
 async def bwin(ctx, team, pNumber = "None"):
     global ELOpop
     coach = await client.fetch_user(118900492607684614)
+    db = mysql.connector.connect(
+    host = "coachcent.site.nfoservers.com",
+    user = 'coachcent',
+    passwd = 'ytpLzMANP4',
+    database = "coachcent_players"
+    )
+
+    mycursor = db.cursor()
     if((ctx.name == v['pc']) or (ctx.name == 'tfc-admins') or (ctx.name == 'tfc-runners')):    
         with open('activePickups.json') as f:
             activePickups = json.load(f)
