@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 discord = "*"
 mysql-connector-python = "*"
+requests = "*"
+matplotlib = "*"
 
 [dev-packages]
 black = "*"
