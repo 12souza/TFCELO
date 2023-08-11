@@ -1,14 +1,6 @@
 import asyncio
-import threading
-from asyncio.tasks import sleep
-from asyncio import run
-from email.utils import collapse_rfc2231_value
-from http import server
 import json
-from platform import python_build, python_version
-from sre_constants import NOT_LITERAL_LOC_IGNORE
 import discord
-from discord import player
 from discord.ext import commands
 from discord.utils import get
 import matplotlib.pyplot as plt
@@ -204,8 +196,8 @@ async def dunce(ctx, player: discord.Member, reason=None):
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
 
-        if ELOpop[str(player.id)][PLAYER_MAP_DUNCE_FLAG_INDEX] == None:
-            if reason == None:
+        if ELOpop[str(player.id)][PLAYER_MAP_DUNCE_FLAG_INDEX] is None:
+            if reason is None:
                 await ctx.send("Please provide a reason!")
             else:
                 ELOpop[str(player.id)][PLAYER_MAP_DUNCE_FLAG_INDEX] = reason
