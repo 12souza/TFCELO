@@ -3176,11 +3176,15 @@ async def on_reaction_add(reaction, user):
                         if len(ready) < 8:
                             msgList = []
                             for i in playersAdded:
+                                if "norank" in ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]:
+                                    visualRank = ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
+                                else:
+                                    visualRank = getRank(i)
                                 if i in capList:
                                     msgList.append(
-                                        ELOpop[i][3]
+                                        visualRank
                                         + " "
-                                        + ELOpop[i][0]
+                                        + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
                                         + " "
                                         + v["cptimg"]
                                         + "\n"
@@ -3188,7 +3192,7 @@ async def on_reaction_add(reaction, user):
                                     # msgList.append(ELOpop[i][0] + " " + v['cptimg'] + "\n")
                                 else:
                                     msgList.append(
-                                        ELOpop[i][3] + " " + ELOpop[i][0] + "\n"
+                                        visualRank + " " + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n"
                                     )
                                     # msgList.append(ELOpop[i][0] + "\n")
                             msg = "".join(msgList)
