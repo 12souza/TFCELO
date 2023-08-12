@@ -295,11 +295,8 @@ def DePopulatePickup():
 # Populates a list of players whom have voted for a particular map
 def mapVoteOutput(mapChoice):
     global mapVotes
-    with open("ELOpop.json") as f:
-        ELOpop = json.load(f)
     whoVoted = []
     for i in mapVotes[mapChoice]:
-        # whoVoted.append(ELOpop[i][0])
         whoVoted.append(i)
     numVotes = len(whoVoted)
     whoVoted = ", ".join(whoVoted)
@@ -329,7 +326,6 @@ def PickMaps():
     global alreadyVoted
     global votePhase
     global lastFive
-    multiple = 0
     with open("mainmaps.json") as f:
         mapList = json.load(f)
 
@@ -395,8 +391,7 @@ def TeamPickPopulate():
     global eligiblePlayers
     global pickCount
     global pTotalPlayers
-    with open("ELOpop.json") as f:
-        ELOpop = json.load(f)
+
     msgList = []
     redTeamList = ["🔴 Red Team 🔴\n"]
     blueTeamList = ["🔵 Blue Team 🔵\n"]
@@ -616,7 +611,7 @@ async def addach(ctx, key, value):
 
         with open("emotes.json", "w") as cd:
             json.dump(e, cd, indent=4)
-        await ctx.send(f"value has been added to the list of achievements")
+        await ctx.send("value has been added to the list of achievements")
     finally:  # release the lock
         GLOBAL_LOCK.release()
 
@@ -688,7 +683,7 @@ async def showPickup(ctx):
             visualRank = getRank(i)  # ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
             # await ctx.send(f"{ELOpop[i][3]}")
 
-        if ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] != None:  # Is player a naughty dunce?
+        if ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] is not None:  # Is player a naughty dunce?
             ach = (
                 v["dunce"]
                 + "- Dunce cap for: "
@@ -841,8 +836,6 @@ async def pastGames(ctx):
 async def openPickups(ctx):
     with open("activePickups.json") as f:
         activePickups = json.load(f)
-    with open("ELOpop.json") as f:
-        ELOpop = json.load(f)
     msgList = []
     for i in activePickups:
         msgList.append(i + "\n")
@@ -965,21 +958,21 @@ async def startserver(ctx, server):
     try:  # Do logic under lock
         # if(ctx.channel.name == v['pc']):
         if server.lower() == "west":
-            r = requests.get(
+            requests.get(
                 "https://us-west1-coachoffice-332119.cloudfunctions.net/startWest"
             )
         # elif(server.lower() == 'central'):
         # r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
         elif server.lower() == "east":
-            r = requests.get(
+            requests.get(
                 "https://us-east4-coachoffice-332119.cloudfunctions.net/startEast"
             )
         elif server.lower() == "latam":
-            r = requests.get(
+            requests.get(
                 "https://southamerica-east1-coachoffice-332119.cloudfunctions.net/startLATAM"
             )
         elif server.lower() == "eu":
-            r = requests.get(
+            requests.get(
                 "https://europe-west3-coachoffice-332119.cloudfunctions.net/startEU"
             )
         await ctx.send(server + " is starting up..")
@@ -997,21 +990,21 @@ async def stopserver(ctx, server):
     try:  # Do logic under lock
         # if(ctx.channel.name == v['pc']):
         if server == "west":
-            r = requests.get(
+            requests.get(
                 "https://us-west1-coachoffice-332119.cloudfunctions.net/stopWest"
             )
         # elif(server == 'central'):
         # r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/stopCentral-2")
         elif server == "east":
-            r = requests.get(
+            requests.get(
                 "https://us-east4-coachoffice-332119.cloudfunctions.net/stopEast"
             )
         elif server.lower() == "latam":
-            r = requests.get(
+            requests.get(
                 "https://southamerica-east1-coachoffice-332119.cloudfunctions.net/stopLATAM"
             )
         elif server.lower() == "eu":
-            r = requests.get(
+            requests.get(
                 "https://europe-west3-coachoffice-332119.cloudfunctions.net/stopEU"
             )
         await ctx.send(server + " is shutting down..")
@@ -1131,8 +1124,6 @@ def savePickup():
             activePickups = json.load(f)
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
-
-        serial = random.randint(0, 100000)
 
         pSerial = random.randint(0, 10000000)
         while pSerial in list(activePickups):
@@ -1270,7 +1261,7 @@ async def addplayer(ctx, player: discord.Member):
             playerID = str(player.id)
             playerDisplayName = player.display_name
             print("Adding player: %s, %s" % (playerID, playerDisplayName))
-            retVal = addplayerImpl(playerID, playerDisplayName, None)
+            addplayerImpl(playerID, playerDisplayName, None)
 
             await showPickup(ctx)
 
@@ -1288,13 +1279,13 @@ async def test7(ctx):
     try:  # Do logic under lock
         if ctx.channel.name == v["pc"]:
             cancelImpl()  # Clear out any existing pickup
-            retVal = addplayerImpl("704204162958753892", "sandro702", None)
-            retVal = addplayerImpl("303845825476558859", "dougtck", None)
-            retVal = addplayerImpl("270636499190546432", "CheeseFromGPT", None)
-            retVal = addplayerImpl("291754504158838784", "AUTHENTIC", None)
-            retVal = addplayerImpl("194276343540613121", "climax", None)
-            retVal = addplayerImpl("596225454721990676", "botch", None)
-            retVal = addplayerImpl("173619058657198082", "Moreno", None)
+            addplayerImpl("704204162958753892", "sandro702", None)
+            addplayerImpl("303845825476558859", "dougtck", None)
+            addplayerImpl("270636499190546432", "CheeseFromGPT", None)
+            addplayerImpl("291754504158838784", "AUTHENTIC", None)
+            addplayerImpl("194276343540613121", "climax", None)
+            addplayerImpl("596225454721990676", "botch", None)
+            addplayerImpl("173619058657198082", "Moreno", None)
             # retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
             # retVal = addplayerImpl("311769927432404994", "Nemsy", None)
             await showPickup(ctx)
@@ -1434,8 +1425,6 @@ async def doteams(channel2, playerCount=4):
                     eligiblePlayers = playersAdded
                 else:
                     eligiblePlayers = playersAdded[0 : playerCount * 2]
-                counter = 0
-                teamsPicked = 0
 
                 combos = list(
                     itertools.combinations(
@@ -1584,8 +1573,6 @@ async def teams(ctx, playerCount=4):
             ready = []
             oMsg = None
             DMList = []
-            channel2 = client.fetch_channel(v["pID"])
-            print("test1")
             if len(playersAdded) >= int(playerCount * 2):
                 print("test2")
                 if inVote == 0:
@@ -1598,8 +1585,6 @@ async def teams(ctx, playerCount=4):
                             eligiblePlayers = playersAdded
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
-                        counter = 0
-                        teamsPicked = 0
 
                         combos = list(
                             itertools.combinations(
@@ -1991,9 +1976,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                 eligiblePlayers.append(str(playerinid))
                 # eligiblePlayers.remove(str(playerout.id))
-                playerCount = len(eligiblePlayers)
-                counter = 0
-                teamsPicked = 0
+                len(eligiblePlayers)
                 # print(eligiblePlayers)
 
                 combos = list(
@@ -2077,9 +2060,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                 # eligiblePlayers.append(str(playerin.id))
                 # eligiblePlayers.remove(str(playerout.id))
-                playerCount = len(eligiblePlayers)
-                counter = 0
-                teamsPicked = 0
+                len(eligiblePlayers)
                 # print(eligiblePlayers)
                 combos = list(
                     itertools.combinations(
@@ -2203,7 +2184,7 @@ async def draw(ctx, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2223,7 +2204,7 @@ async def draw(ctx, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2331,7 +2312,7 @@ async def win(ctx, team, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2358,7 +2339,7 @@ async def win(ctx, team, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2683,7 +2664,7 @@ async def forceVote(channel):
             print("executed")
             winningMap = None
             with open("activePickups.json") as f:
-                activePickups = json.load(f)
+                json.load(f)
             alreadyVoted = []
             if serverVote == 1:
                 votes = [
@@ -2694,7 +2675,7 @@ async def forceVote(channel):
                 windex = votes.index(max(votes))
                 if windex == 0:
                     await channel.send("West (Las Vegas) server is being launched..")
-                    r = requests.get(
+                    requests.get(
                         "https://us-west1-coachoffice-332119.cloudfunctions.net/startWest"
                     )
                     winningIP = "NONE"
@@ -2836,7 +2817,7 @@ async def shufflee(ctx, idx=None, game="None"):
     try:  # Do logic under lock
         # global sMsg
         # if(ctx.channel.name == v['pc']):
-        if idx == None:
+        if idx is None:
             idx = random.randint(1, 11)
         with open("activePickups.json") as f:
             activePickups = json.load(f)
@@ -2876,9 +2857,7 @@ async def shufflee(ctx, idx=None, game="None"):
             for i in nredTeam:
                 neligiblePlayers.append(i)
 
-            playerCount = len(neligiblePlayers)
-            counter = 0
-            teamsPicked = 0
+            len(neligiblePlayers)
 
             combos = list(
                 itertools.combinations(neligiblePlayers, int(len(neligiblePlayers) / 2))
@@ -2892,7 +2871,6 @@ async def shufflee(ctx, idx=None, game="None"):
             blueRank = 0
             totalRank = 0
             half = 0
-            diff = 0
             for j in neligiblePlayers:
                 totalRank += int(ELOpop[j][1])
             half = int(totalRank / 2)
@@ -2947,7 +2925,7 @@ async def shuffle(ctx, idx=None, game="None"):
     try:  # Do logic under lock
         # rankedOrder = []
         if ctx.channel.name == v["pc"]:
-            if idx == None:
+            if idx is None:
                 idx = random.randint(1, 11)
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
@@ -2981,9 +2959,7 @@ async def shuffle(ctx, idx=None, game="None"):
                 for i in nredTeam:
                     neligiblePlayers.append(i)
 
-                playerCount = len(neligiblePlayers)
-                counter = 0
-                teamsPicked = 0
+                len(neligiblePlayers)
 
                 combos = list(
                     itertools.combinations(
@@ -2999,7 +2975,6 @@ async def shuffle(ctx, idx=None, game="None"):
                 blueRank = 0
                 totalRank = 0
                 half = 0
-                diff = 0
                 for j in neligiblePlayers:
                     totalRank += int(ELOpop[j][1])
                 half = int(totalRank / 2)
@@ -3235,8 +3210,7 @@ async def on_reaction_add(reaction, user):
                             ELOpop = json.load(f)
                         playerCount = len(eligiblePlayers)
                         userID = str(user.id)
-                        forceResults = 0
-                        channel = await client.fetch_channel(
+                        await client.fetch_channel(
                             reaction.message.channel.id
                         )
                         playerName = ELOpop[str(userID)][0]
