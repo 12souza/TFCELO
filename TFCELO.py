@@ -683,7 +683,9 @@ async def showPickup(ctx):
             visualRank = getRank(i)  # ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
             # await ctx.send(f"{ELOpop[i][3]}")
 
-        if ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] is not None:  # Is player a naughty dunce?
+        if (
+            ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] is not None
+        ):  # Is player a naughty dunce?
             ach = (
                 v["dunce"]
                 + "- Dunce cap for: "
@@ -3167,7 +3169,10 @@ async def on_reaction_add(reaction, user):
                                     # msgList.append(ELOpop[i][0] + " " + v['cptimg'] + "\n")
                                 else:
                                     msgList.append(
-                                        visualRank + " " + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n"
+                                        visualRank
+                                        + " "
+                                        + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
+                                        + "\n"
                                     )
                                     # msgList.append(ELOpop[i][0] + "\n")
                             msg = "".join(msgList)
@@ -3210,9 +3215,7 @@ async def on_reaction_add(reaction, user):
                             ELOpop = json.load(f)
                         playerCount = len(eligiblePlayers)
                         userID = str(user.id)
-                        await client.fetch_channel(
-                            reaction.message.channel.id
-                        )
+                        await client.fetch_channel(reaction.message.channel.id)
                         playerName = ELOpop[str(userID)][0]
                         if inVote == 1:
                             # print(eligiblePlayers)
