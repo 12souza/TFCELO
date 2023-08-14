@@ -12,6 +12,7 @@ import time
 import requests
 import mysql.connector
 
+
 db = mysql.connector.connect(
     host="coachcent.site.nfoservers.com",
     user="coachcent",
@@ -20,19 +21,12 @@ db = mysql.connector.connect(
 )
 
 mycursor = db.cursor()
-# from discord import app_commands
-# from discord_slash import SlashCommand
 
-
-# print(discord.__version__)
 intents = discord.Intents.all()
 client = commands.Bot(
     command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents
 )
 client.remove_command("help")
-# slash = SlashCommand(client)
-
-# print(python_build)
 
 # Load in ELO configuration
 with open("ELOpop.json") as f:
@@ -56,6 +50,8 @@ PLAYER_MAP_VISUAL_RANK_INDEX = 3  # current visual rank icon
 PLAYER_MAP_ACHIEVEMENT_INDEX = 7  # list of achievement icons
 PLAYER_MAP_DUNCE_FLAG_INDEX = 8  # Is this player a dunce or not?
 PLAYER_MAP_NUM_ENTRIES = 9  # Note: Bump this when adding another player map entry
+LOCAL_DEV_ENABLED = bool(os.getenv('TFCELO_LOCAL_DEV')) is True
+DEV_TESTING_CHANNEL = 1139762727275995166
 
 cap1 = None
 cap1Name = None
@@ -114,16 +110,20 @@ with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
 
-# Allow users with the "rater" role to check ELO for players manually via a simple search
-# Example: !search kix
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def search(ctx, searchkey):
+    """
+    Allow users with "rater" role to search for a player's ELO
+
+    Example usage: "!search kix" in the #tfc-ratings channel
+    ctx: Discord context object
+    searchkey: string to search for in list of players
+    """
     global GLOBAL_LOCK
     await GLOBAL_LOCK.acquire()
     try:  # Do logic under lock
-        # print('test')
-        if ctx.channel.name == "tfc-ratings":
+        if (ctx.channel.name == "tfc-ratings") or (LOCAL_DEV_ENABLED and ctx.channel.name == 'test-zero'):
             with open("ELOpop.json") as f:
                 ELOpop = json.load(f)
             searchList = []
@@ -1426,7 +1426,7 @@ async def doteams(channel2, playerCount=4):
                 if len(playersAdded) == playerCount:
                     eligiblePlayers = playersAdded
                 else:
-                    eligiblePlayers = playersAdded[0 : playerCount * 2]
+                    eligiblePlayers = playersAdded[0:playerCount * 2]
 
                 combos = list(
                     itertools.combinations(
@@ -1529,7 +1529,7 @@ async def doteams(channel2, playerCount=4):
                 if len(playersAdded) == playerCount:
                     eligiblePlayers = playersAdded
                 else:
-                    eligiblePlayers = playersAdded[0 : playerCount * 2]
+                    eligiblePlayers = playersAdded[0:playerCount * 2]
                 captMode = 1
                 DMList = []
                 for i in eligiblePlayers:
@@ -1586,7 +1586,7 @@ async def teams(ctx, playerCount=4):
                         if len(playersAdded) == playerCount:
                             eligiblePlayers = playersAdded
                         else:
-                            eligiblePlayers = playersAdded[0 : playerCount * 2]
+                            eligiblePlayers = playersAdded[0:playerCount * 2]
 
                         combos = list(
                             itertools.combinations(
@@ -1689,7 +1689,7 @@ async def teams(ctx, playerCount=4):
                         if len(playersAdded) == playerCount:
                             eligiblePlayers = playersAdded
                         else:
-                            eligiblePlayers = playersAdded[0 : playerCount * 2]
+                            eligiblePlayers = playersAdded[0:playerCount * 2]
                         captMode = 1
                         DMList = []
                         for i in eligiblePlayers:
@@ -1716,111 +1716,6 @@ async def teams(ctx, playerCount=4):
 
     finally:  # release the lock
         GLOBAL_LOCK.release()
-
-
-"""@client.command(pass_context=True)
-@commands.has_role(v['runner'])
-async def teams(ctx, playerCount = 4):
-    if(ctx.channel.name == v['pc']):    
-        global playersAdded
-        global capList
-        global inVote
-        global blueTeam
-        global redTeam
-        global inVote
-        global eligiblePlayers
-        global fTimer
-        global captMode
-        global serverVote
-
-        if(len(playersAdded) >= int(playerCount * 2)):
-            if(inVote == 0):
-                if(len(capList) < 2):    
-                    with open('ELOpop.json') as f:
-                        ELOpop = json.load(f)    
-                    playerCount = int(playerCount)
-                    if(len(playersAdded) == playerCount):
-                        eligiblePlayers = playersAdded
-                    else:    
-                        eligiblePlayers = playersAdded[0:playerCount * 2]
-                    counter = 0
-                    teamsPicked = 0
-                    
-                    combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
-                    random.shuffle(combos)
-                    
-                    for i in eligiblePlayers:
-                        if i in playersAdded:
-                            playersAdded.remove(i)
-                    #print(playersAdded)
-                    while teamsPicked == 0:
-                        blueTeam = []
-                        redTeam = [] 
-                        redRank = 0
-                        blueRank = 0
-                        totalRank = 0
-                        half = 0
-                        diff = 0   
-                        for i in range(len(combos)):
-                            for j in eligiblePlayers:
-                                totalRank += int(ELOpop[j][1])
-                            half = int(totalRank / 2)
-                            blueTeam = list(combos[i])
-                            for j in eligiblePlayers:
-                                if(j not in blueTeam):
-                                    redTeam.append(j)
-
-                            for j in blueTeam:
-                                blueRank += int(ELOpop[j][1])
-                            for j in redTeam:
-                                redRank += int(ELOpop[j][1])    
-                            
-                            diff = abs(blueRank - half)
-                            if(diff <= counter):
-                                if((len(blueTeam) == playerCount) and (len(redTeam) == playerCount)):
-                                    #print(blueTeam, blueRank)
-                                    #print(redTeam, redRank)
-                                    teamsPicked = 1
-                                    break
-                            else:
-                                blueTeam.clear()
-                                redTeam.clear()
-                                redRank = 0
-                                blueRank = 0
-                                totalRank = 0
-                        if(playerCount * 2 <= 8):    
-                            counter += 2
-                        else:
-                            counter += 20
-                    
-                    team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
-                    team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
-                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-                    await ctx.send("Please react to the server you want to play on..")
-                    serverVote = 1
-                    await voteSetup()
-                    fTimer = 5
-                    fVCoolDown.start()
-                    inVote = 1
-                
-                elif(len(capList) >= 2):
-                    #print("will use capts")
-                    with open('ELOpop.json') as f:
-                        ELOpop = json.load(f)    
-                    playerCount = int(playerCount)
-                    if(len(playersAdded) == playerCount):
-                        eligiblePlayers = playersAdded
-                    else:    
-                        eligiblePlayers = playersAdded[0:playerCount * 2]
-                    captMode = 1
-                    await ctx.send("Please react to the server you want to play on..")
-                    serverVote = 1
-                    await voteSetup()
-                    fTimer = 5
-                    fVCoolDown.start()
-                    inVote = 1
-        else:
-            await ctx.send("you dont have enough people for that game size..")"""
 
 
 @client.command(pass_context=True)
