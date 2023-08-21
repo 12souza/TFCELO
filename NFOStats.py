@@ -69,7 +69,7 @@ async def on_ready():
                     #[MATCH RESULT] DRAW at <0>
                     await pChannel.send(f"**AUTO-REPORTING** DRAW at {losingScore}")
                 print(region)
-                await pChannel.send(f"!stats {region.lower() {reported_match} {winningScore} {losingScore}}")
+                await pChannel.send(f"!stats {region.lower()} {reported_match} {winningScore} {losingScore}")
         
 client.run(v['TOKEN'])
 #client.run("NzMyMzcyMTcwMzY5NTMxOTc4.GPL0pm.iRN9voORDs1haOXvmlhZu26tWOtS-e7Xpmf7LM")
