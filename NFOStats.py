@@ -7,7 +7,8 @@ from discord.ext import commands
 import json
 from datetime import datetime
 
-client = commands.Bot(command_prefix = "!")
+intents = discord.Intents.all()
+client = commands.Bot(command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents)
 UDP_IP_ADDRESS = "0.0.0.0"
 UDP_PORT_NO = 6789
 serverSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
