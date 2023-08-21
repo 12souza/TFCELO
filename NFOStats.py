@@ -52,7 +52,9 @@ async def on_ready():
             begin = string.find(')') + 2
             end = string.find('\n') - 6
             region = string[begin:end]
+            reported_match = list(activePickups)[-1]
             if(len(activePickups) > 0):
+                await pChannel.send(f"**AUTO-REPORTING** Reporting for game {reported_match}")
                 if("Team 1 Wins" in (str(data))):
                     #team 1 wins
                     await pChannel.send("!win 1")
@@ -67,7 +69,7 @@ async def on_ready():
                     #[MATCH RESULT] DRAW at <0>
                     await pChannel.send(f"**AUTO-REPORTING** DRAW at {losingScore}")
                 print(region)
-                await pChannel.send(f"!stats {region.lower()}")
+                await pChannel.send(f"!stats {region.lower() {reported_match} {winningScore} {losingScore}}")
         
 client.run(v['TOKEN'])
 #client.run("NzMyMzcyMTcwMzY5NTMxOTc4.GPL0pm.iRN9voORDs1haOXvmlhZu26tWOtS-e7Xpmf7LM")

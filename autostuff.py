@@ -633,7 +633,7 @@ async def reg(ctx, steamid):
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
-async def stats(ctx, region = None):
+async def stats(ctx, region = None, match_number=None, winning_score=None, losing_score=None):
     with open('login.json') as f:
         logins = json.load(f)
     schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
@@ -792,7 +792,7 @@ async def stats(ctx, region = None):
 
         if("nginx" not in output3):
             if(newfile == None):
-                await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+                await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
             elif(newfile != None):
                 await schannel.send(file = discord.File(newfile), content=f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
                 os.remove(HLTVToZip1)
@@ -800,7 +800,7 @@ async def stats(ctx, region = None):
                 os.remove(newfile)
         else: 
             if(newfile == None):
-                await schannel.send(f"**Blarghalyzer:** {site} {pMap} {pDate} {region}")
+                await schannel.send(f"**Blarghalyzer:** {site} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
             elif(newfile != None):
                 await schannel.send(file = discord.File(newfile), content=f"**Blarghalyzer:** {site} {pMap} {pDate} {region}")
 
