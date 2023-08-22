@@ -633,7 +633,7 @@ async def reg(ctx, steamid):
 
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
-async def stats(ctx, region = None, match_number=None, winning_score=None, losing_score=None):
+async def stats(ctx, region=None, match_number=None, winning_score=None, losing_score=None):
     with open('login.json') as f:
         logins = json.load(f)
     schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
@@ -952,10 +952,15 @@ async def on_message(message):
     if("!stats" in message.content):
         user = await client.fetch_user(message.author.id)
         if(user.bot):
-            content = str(message.content)
-            content = content[7:]
-            await stats(channel, content.lower())
-            
+            #!stats {region.lower()} {reported_match} {winningScore} {losingScore}
+            split_message = str(message.content).split(' ')
+            try:
+                _, region, match_number, winning_score, losing_score = str(message.content).split(' ')
+            except IndexError:
+                _, region, match_number, winning_score, losing_score = str(message.content).split(' ')[1], 'UNKNOWN_MATCH_NUMBER', 'MISSING SCORE', 'MISSING SCORE'
+            # content = str(message.content)
+            # content = content[7:]
+            await stats(channel, region, match_number, winning_score, losing_score)
 
 
     await client.process_commands(message)
