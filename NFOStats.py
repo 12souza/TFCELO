@@ -7,7 +7,8 @@ from discord.ext import commands
 import json
 from datetime import datetime
 
-client = commands.Bot(command_prefix = "!")
+intents = discord.Intents.all()
+client = commands.Bot(command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents)
 UDP_IP_ADDRESS = "0.0.0.0"
 UDP_PORT_NO = 6789
 serverSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -52,22 +53,25 @@ async def on_ready():
             begin = string.find(')') + 2
             end = string.find('\n') - 6
             region = string[begin:end]
-            if(len(activePickups) > 0):
-                if("Team 1 Wins" in (str(data))):
+            reported_match = list(activePickups)[-1]
+            if (len(activePickups) > 0):
+                await pChannel.send(f"**AUTO-REPORTING** Reporting for game {reported_match}")
+                if ("Team 1 Wins" in (str(data))):
                     #team 1 wins
                     await pChannel.send("!win 1")
                     #[MATCH RESULT] Team 1 Wins <10> (0)
                     await pChannel.send(f'**AUTO-REPORTING** Team 1 wins {winningScore} to {losingScore}')
-                elif("Team 2 Wins" in (str(data))):
+                    await pChannel.send(f"!stats {region.lower()} {reported_match} {winningScore} {losingScore}")
+                elif ("Team 2 Wins" in (str(data))):
                     await pChannel.send("!win 2")
                     #[MATCH RESULT] Team 2 Wins <10> (0)
                     await pChannel.send(f'**AUTO-REPORTING** Team 2 wins {winningScore} to {losingScore}')
-                elif("DRAW" in (str(data))):
+                    await pChannel.send(f"!stats {region.lower()} {reported_match} {winningScore} {losingScore}")
+                elif ("DRAW" in (str(data))):
                     await pChannel.send("!draw")
                     #[MATCH RESULT] DRAW at <0>
                     await pChannel.send(f"**AUTO-REPORTING** DRAW at {losingScore}")
-                print(region)
-                await pChannel.send(f"!stats {region.lower()}")
-        
+                    await pChannel.send(f"!stats {region.lower()} {reported_match} {losingScore}")
+
 client.run(v['TOKEN'])
 #client.run("NzMyMzcyMTcwMzY5NTMxOTc4.GPL0pm.iRN9voORDs1haOXvmlhZu26tWOtS-e7Xpmf7LM")
