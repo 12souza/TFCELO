@@ -12,7 +12,6 @@ import time
 import requests
 import mysql.connector
 
-
 db = mysql.connector.connect(
     host="coachcent.site.nfoservers.com",
     user="coachcent",
@@ -110,6 +109,15 @@ with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
 
+@client.event
+async def on_ready():
+    global GLOBAL_LOCK
+    print("on_ready!")
+    # Remake the global lock to try to get it compatible with the bot's event loop
+    # TODO: I don't fully understand why or if this helps exactly.
+    GLOBAL_LOCK = asyncio.Lock()
+
+
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def search(ctx, searchkey):
@@ -120,9 +128,7 @@ async def search(ctx, searchkey):
     ctx: Discord context object
     searchkey: string to search for in list of players
     """
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if (ctx.channel.name == "tfc-ratings") or (LOCAL_DEV_ENABLED and ctx.channel.name == 'test-zero'):
             with open("ELOpop.json") as f:
                 ELOpop = json.load(f)
@@ -152,8 +158,6 @@ async def search(ctx, searchkey):
                 await ctx.send(content="```\n" + mMsg + "```")
             else:
                 await ctx.send("No results with that search string..")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Allow all players to toggle their rank being private or hidden
@@ -161,9 +165,7 @@ async def search(ctx, searchkey):
 @client.command(pass_context=True)
 async def private(ctx):
     global ELOpop
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
 
@@ -179,8 +181,6 @@ async def private(ctx):
         with open("ELOpop.json", "w") as cd:
             json.dump(ELOpop, cd, indent=4)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Toggle the "dunce" on a player (for being naughty) at admin discretion
@@ -189,9 +189,7 @@ async def private(ctx):
 @commands.has_role(v["admin"])
 async def dunce(ctx, player: discord.Member, reason=None):
     global PLAYER_MAP_DUNCE_FLAG_INDEX
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         # Open ELO database
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
@@ -212,8 +210,6 @@ async def dunce(ctx, player: discord.Member, reason=None):
         # Write ELO database changes out
         with open("ELOpop.json", "w") as cd:
             json.dump(ELOpop, cd, indent=4)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Resets pickup upon a completed vote or !cancel
@@ -295,8 +291,11 @@ def DePopulatePickup():
 # Populates a list of players whom have voted for a particular map
 def mapVoteOutput(mapChoice):
     global mapVotes
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
     whoVoted = []
     for i in mapVotes[mapChoice]:
+        # whoVoted.append(ELOpop[i][0])
         whoVoted.append(i)
     numVotes = len(whoVoted)
     whoVoted = ", ".join(whoVoted)
@@ -326,6 +325,7 @@ def PickMaps():
     global alreadyVoted
     global votePhase
     global lastFive
+    multiple = 0
     with open("mainmaps.json") as f:
         mapList = json.load(f)
 
@@ -391,7 +391,8 @@ def TeamPickPopulate():
     global eligiblePlayers
     global pickCount
     global pTotalPlayers
-
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
     msgList = []
     redTeamList = ["🔴 Red Team 🔴\n"]
     blueTeamList = ["🔵 Blue Team 🔵\n"]
@@ -601,9 +602,7 @@ async def voteSetup():
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def addach(ctx, key, value):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         with open("emotes.json") as f:
             e = json.load(f)
 
@@ -611,9 +610,7 @@ async def addach(ctx, key, value):
 
         with open("emotes.json", "w") as cd:
             json.dump(e, cd, indent=4)
-        await ctx.send("value has been added to the list of achievements")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
+        await ctx.send(f"value has been added to the list of achievements")
 
 
 # will pick a random map
@@ -637,9 +634,7 @@ async def pickRandomMap(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def ach(ctx, player: discord.Member, ach):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
         with open("emotes.json") as f:
@@ -656,8 +651,6 @@ async def ach(ctx, player: discord.Member, ach):
         await channel.send(
             f"Congratulations {player.display_name} for completing the {e[ach]} achievement!"
         )
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Utility function for showing the pickup
@@ -683,9 +676,7 @@ async def showPickup(ctx):
             visualRank = getRank(i)  # ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
             # await ctx.send(f"{ELOpop[i][3]}")
 
-        if (
-            ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] is not None
-        ):  # Is player a naughty dunce?
+        if ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] != None:  # Is player a naughty dunce?
             ach = (
                 v["dunce"]
                 + "- Dunce cap for: "
@@ -838,6 +829,8 @@ async def pastGames(ctx):
 async def openPickups(ctx):
     with open("activePickups.json") as f:
         activePickups = json.load(f)
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
     msgList = []
     for i in activePickups:
         msgList.append(i + "\n")
@@ -904,9 +897,7 @@ def newRank(ID):
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def avatar(ctx, player: discord.Member, emote):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
 
@@ -916,16 +907,12 @@ async def avatar(ctx, player: discord.Member, emote):
 
         with open("ELOpop.json", "w") as cd:
             json.dump(ELOpop, cd, indent=4)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def adjustELO(ctx, player, ELO):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["ratingsChannel"]:
             with open("ELOpop.json") as f:
                 ELOpop = json.load(f)
@@ -941,8 +928,6 @@ async def adjustELO(ctx, player, ELO):
 
             with open("ELOpop.json", "w") as cd:
                 json.dump(ELOpop, cd, indent=4)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
@@ -955,64 +940,56 @@ async def hello(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def startserver(ctx, server):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         # if(ctx.channel.name == v['pc']):
         if server.lower() == "west":
-            requests.get(
+            r = requests.get(
                 "https://us-west1-coachoffice-332119.cloudfunctions.net/startWest"
             )
         # elif(server.lower() == 'central'):
         # r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/startCentral-1")
         elif server.lower() == "east":
-            requests.get(
+            r = requests.get(
                 "https://us-east4-coachoffice-332119.cloudfunctions.net/startEast"
             )
         elif server.lower() == "latam":
-            requests.get(
+            r = requests.get(
                 "https://southamerica-east1-coachoffice-332119.cloudfunctions.net/startLATAM"
             )
         elif server.lower() == "eu":
-            requests.get(
+            r = requests.get(
                 "https://europe-west3-coachoffice-332119.cloudfunctions.net/startEU"
             )
         await ctx.send(server + " is starting up..")
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Old GCP stuff for stopping a server manually.
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def stopserver(ctx, server):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         # if(ctx.channel.name == v['pc']):
         if server == "west":
-            requests.get(
+            r = requests.get(
                 "https://us-west1-coachoffice-332119.cloudfunctions.net/stopWest"
             )
         # elif(server == 'central'):
         # r = requests.get("https://us-central1-coachoffice-332119.cloudfunctions.net/stopCentral-2")
         elif server == "east":
-            requests.get(
+            r = requests.get(
                 "https://us-east4-coachoffice-332119.cloudfunctions.net/stopEast"
             )
         elif server.lower() == "latam":
-            requests.get(
+            r = requests.get(
                 "https://southamerica-east1-coachoffice-332119.cloudfunctions.net/stopLATAM"
             )
         elif server.lower() == "eu":
-            requests.get(
+            r = requests.get(
                 "https://europe-west3-coachoffice-332119.cloudfunctions.net/stopEU"
             )
         await ctx.send(server + " is shutting down..")
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # can swap teams.. this will work as !swap @playerout @playerin and optionally a 3 parameter for if a pickup has already started
@@ -1022,9 +999,7 @@ async def stopserver(ctx, server):
 async def swapteam(
     ctx, player1: discord.Member, player2: discord.Member, number="None"
 ):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             if number == "None":
                 global redTeam
@@ -1108,8 +1083,6 @@ async def swapteam(
                     json.dump(activePickups, cd, indent=4)
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Saves the pickup into the activepickups json which can be seen with !games
@@ -1126,6 +1099,8 @@ def savePickup():
             activePickups = json.load(f)
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
+
+        serial = random.randint(0, 100000)
 
         pSerial = random.randint(0, 10000000)
         while pSerial in list(activePickups):
@@ -1233,9 +1208,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
 @client.command(pass_context=True, aliases=["+"])
 @commands.has_role(v["tfc"])
 async def add(ctx, cap=None):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         try:
             if ctx.channel.name == v["pc"]:
                 playerID = str(ctx.author.id)
@@ -1249,26 +1222,20 @@ async def add(ctx, cap=None):
                 await showPickup(ctx)
         except Exception as e:
             await ctx.send(e)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def addplayer(ctx, player: discord.Member):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(player.id)
             playerDisplayName = player.display_name
             print("Adding player: %s, %s" % (playerID, playerDisplayName))
-            addplayerImpl(playerID, playerDisplayName, None)
+            retVal = addplayerImpl(playerID, playerDisplayName, None)
 
             await showPickup(ctx)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Convenience command for testing bot behavior with 7 people added
@@ -1276,24 +1243,20 @@ async def addplayer(ctx, player: discord.Member):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def test7(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             cancelImpl()  # Clear out any existing pickup
-            addplayerImpl("704204162958753892", "sandro702", None)
-            addplayerImpl("303845825476558859", "dougtck", None)
-            addplayerImpl("270636499190546432", "CheeseFromGPT", None)
-            addplayerImpl("291754504158838784", "AUTHENTIC", None)
-            addplayerImpl("194276343540613121", "climax", None)
-            addplayerImpl("596225454721990676", "botch", None)
-            addplayerImpl("173619058657198082", "Moreno", None)
+            retVal = addplayerImpl("704204162958753892", "sandro702", None)
+            retVal = addplayerImpl("303845825476558859", "dougtck", None)
+            retVal = addplayerImpl("270636499190546432", "CheeseFromGPT", None)
+            retVal = addplayerImpl("291754504158838784", "AUTHENTIC", None)
+            retVal = addplayerImpl("194276343540613121", "climax", None)
+            retVal = addplayerImpl("596225454721990676", "botch", None)
+            retVal = addplayerImpl("173619058657198082", "Moreno", None)
             # retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
             # retVal = addplayerImpl("311769927432404994", "Nemsy", None)
             await showPickup(ctx)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Adding player: 704204162958753892, sandro702
@@ -1312,17 +1275,13 @@ async def test7(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def testMultithreading1(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         await ctx.send("testMultithreading1 sleeping for 10 seconds async")
 
         # block for a moment
         await asyncio.sleep(10)
         # report a message
         await ctx.send("testMultithreading1 finished")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Convenience multi-threading test function 2.
@@ -1331,19 +1290,13 @@ async def testMultithreading1(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def testMultithreading2(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         await ctx.send("testMultithreading2 done")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True, aliases=["-"])
 async def remove(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global playersAdded
             global capList
@@ -1354,16 +1307,12 @@ async def remove(ctx):
                     capList.remove(playerID)
 
             await showPickup(ctx)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def kick(ctx, player: discord.Member):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global playersAdded
             global capList
@@ -1373,17 +1322,13 @@ async def kick(ctx, player: discord.Member):
                 if playerID in capList:
                     capList.remove(playerID)
             await showPickup(ctx)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def noELO(ctx):
     global vnoELO
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         print(vnoELO)
         if vnoELO == 0:
             vnoELO = 1
@@ -1391,8 +1336,6 @@ async def noELO(ctx):
         elif vnoELO == 1:
             vnoELO = 0
             await ctx.send("ELO has been turned **ON** for this game.")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 async def doteams(channel2, playerCount=4):
@@ -1426,7 +1369,9 @@ async def doteams(channel2, playerCount=4):
                 if len(playersAdded) == playerCount:
                     eligiblePlayers = playersAdded
                 else:
-                    eligiblePlayers = playersAdded[0:playerCount * 2]
+                    eligiblePlayers = playersAdded[0 : playerCount * 2]
+                counter = 0
+                teamsPicked = 0
 
                 combos = list(
                     itertools.combinations(
@@ -1529,7 +1474,7 @@ async def doteams(channel2, playerCount=4):
                 if len(playersAdded) == playerCount:
                     eligiblePlayers = playersAdded
                 else:
-                    eligiblePlayers = playersAdded[0:playerCount * 2]
+                    eligiblePlayers = playersAdded[0 : playerCount * 2]
                 captMode = 1
                 DMList = []
                 for i in eligiblePlayers:
@@ -1554,9 +1499,7 @@ async def doteams(channel2, playerCount=4):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def teams(ctx, playerCount=4):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global playersAdded
             global capList
@@ -1575,6 +1518,8 @@ async def teams(ctx, playerCount=4):
             ready = []
             oMsg = None
             DMList = []
+            channel2 = client.fetch_channel(v["pID"])
+            print("test1")
             if len(playersAdded) >= int(playerCount * 2):
                 print("test2")
                 if inVote == 0:
@@ -1586,7 +1531,9 @@ async def teams(ctx, playerCount=4):
                         if len(playersAdded) == playerCount:
                             eligiblePlayers = playersAdded
                         else:
-                            eligiblePlayers = playersAdded[0:playerCount * 2]
+                            eligiblePlayers = playersAdded[0 : playerCount * 2]
+                        counter = 0
+                        teamsPicked = 0
 
                         combos = list(
                             itertools.combinations(
@@ -1689,7 +1636,7 @@ async def teams(ctx, playerCount=4):
                         if len(playersAdded) == playerCount:
                             eligiblePlayers = playersAdded
                         else:
-                            eligiblePlayers = playersAdded[0:playerCount * 2]
+                            eligiblePlayers = playersAdded[0 : playerCount * 2]
                         captMode = 1
                         DMList = []
                         for i in eligiblePlayers:
@@ -1714,16 +1661,117 @@ async def teams(ctx, playerCount=4):
             else:
                 await ctx.send("you dont have enough people for that game size..")
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
+
+
+"""@client.command(pass_context=True)
+@commands.has_role(v['runner'])
+async def teams(ctx, playerCount = 4):
+    if(ctx.channel.name == v['pc']):    
+        global playersAdded
+        global capList
+        global inVote
+        global blueTeam
+        global redTeam
+        global inVote
+        global eligiblePlayers
+        global fTimer
+        global captMode
+        global serverVote
+
+        if(len(playersAdded) >= int(playerCount * 2)):
+            if(inVote == 0):
+                if(len(capList) < 2):    
+                    with open('ELOpop.json') as f:
+                        ELOpop = json.load(f)    
+                    playerCount = int(playerCount)
+                    if(len(playersAdded) == playerCount):
+                        eligiblePlayers = playersAdded
+                    else:    
+                        eligiblePlayers = playersAdded[0:playerCount * 2]
+                    counter = 0
+                    teamsPicked = 0
+                    
+                    combos = list(itertools.combinations(eligiblePlayers, int(len(eligiblePlayers) / 2)))
+                    random.shuffle(combos)
+                    
+                    for i in eligiblePlayers:
+                        if i in playersAdded:
+                            playersAdded.remove(i)
+                    #print(playersAdded)
+                    while teamsPicked == 0:
+                        blueTeam = []
+                        redTeam = [] 
+                        redRank = 0
+                        blueRank = 0
+                        totalRank = 0
+                        half = 0
+                        diff = 0   
+                        for i in range(len(combos)):
+                            for j in eligiblePlayers:
+                                totalRank += int(ELOpop[j][1])
+                            half = int(totalRank / 2)
+                            blueTeam = list(combos[i])
+                            for j in eligiblePlayers:
+                                if(j not in blueTeam):
+                                    redTeam.append(j)
+
+                            for j in blueTeam:
+                                blueRank += int(ELOpop[j][1])
+                            for j in redTeam:
+                                redRank += int(ELOpop[j][1])    
+                            
+                            diff = abs(blueRank - half)
+                            if(diff <= counter):
+                                if((len(blueTeam) == playerCount) and (len(redTeam) == playerCount)):
+                                    #print(blueTeam, blueRank)
+                                    #print(redTeam, redRank)
+                                    teamsPicked = 1
+                                    break
+                            else:
+                                blueTeam.clear()
+                                redTeam.clear()
+                                redRank = 0
+                                blueRank = 0
+                                totalRank = 0
+                        if(playerCount * 2 <= 8):    
+                            counter += 2
+                        else:
+                            counter += 20
+                    
+                    team1prob = round(1/(1+10**((redRank - blueRank)/400)), 2)
+                    team2prob = round(1/(1+10**((blueRank - redRank)/400)), 2)
+                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                    await ctx.send("Please react to the server you want to play on..")
+                    serverVote = 1
+                    await voteSetup()
+                    fTimer = 5
+                    fVCoolDown.start()
+                    inVote = 1
+                
+                elif(len(capList) >= 2):
+                    #print("will use capts")
+                    with open('ELOpop.json') as f:
+                        ELOpop = json.load(f)    
+                    playerCount = int(playerCount)
+                    if(len(playersAdded) == playerCount):
+                        eligiblePlayers = playersAdded
+                    else:    
+                        eligiblePlayers = playersAdded[0:playerCount * 2]
+                    captMode = 1
+                    await ctx.send("Please react to the server you want to play on..")
+                    serverVote = 1
+                    await voteSetup()
+                    fTimer = 5
+                    fVCoolDown.start()
+                    inVote = 1
+        else:
+            await ctx.send("you dont have enough people for that game size..")"""
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def addp(ctx, number):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global playersAdded
             global capList
@@ -1738,27 +1786,19 @@ async def addp(ctx, number):
 
             await showPickup(ctx)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 async def status(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             await showPickup(ctx)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def next(ctx, player: discord.Member):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global blueTeam
             global redTeam
@@ -1831,16 +1871,12 @@ async def next(ctx, player: discord.Member):
             team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
             await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number="None"):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
@@ -1873,7 +1909,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                 eligiblePlayers.append(str(playerinid))
                 # eligiblePlayers.remove(str(playerout.id))
-                len(eligiblePlayers)
+                playerCount = len(eligiblePlayers)
+                counter = 0
+                teamsPicked = 0
                 # print(eligiblePlayers)
 
                 combos = list(
@@ -1957,7 +1995,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                 # eligiblePlayers.append(str(playerin.id))
                 # eligiblePlayers.remove(str(playerout.id))
-                len(eligiblePlayers)
+                playerCount = len(eligiblePlayers)
+                counter = 0
+                teamsPicked = 0
                 # print(eligiblePlayers)
                 combos = list(
                     itertools.combinations(
@@ -2022,8 +2062,6 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     json.dump(activePickups, cd, indent=4)
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
@@ -2039,9 +2077,7 @@ async def draw(ctx, pNumber="None"):
     )
 
     mycursor = db.cursor()
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
@@ -2081,7 +2117,7 @@ async def draw(ctx, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2101,7 +2137,7 @@ async def draw(ctx, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2139,8 +2175,6 @@ async def draw(ctx, pNumber="None"):
 
             await ctx.send("Match reported.. thank you!")
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
@@ -2156,9 +2190,7 @@ async def win(ctx, team, pNumber="None"):
     )
 
     mycursor = db.cursor()
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
             or (ctx.channel.name == "tfc-admins")
@@ -2209,7 +2241,7 @@ async def win(ctx, team, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2236,7 +2268,7 @@ async def win(ctx, team, pNumber="None"):
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
@@ -2282,8 +2314,6 @@ async def win(ctx, team, pNumber="None"):
 
             await ctx.send("Match reported.. thank you!")
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
@@ -2300,9 +2330,7 @@ async def tfc(ctx, person: discord.Member):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def undo(ctx, pNumber="None"):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         with open("pastten.json") as f:
             pastTen = json.load(f)
         with open("ELOpop.json") as f:
@@ -2377,45 +2405,33 @@ async def undo(ctx, pNumber="None"):
         with open("pastten.json", "w") as cd:
             json.dump(pastTen, cd, indent=4)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 async def games(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
             or (ctx.channel.name == "tfc-admins")
             or (ctx.channel.name == "tfc-runners")
         ):
             await openPickups(ctx)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 async def recent(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
             or (ctx.channel.name == "tfc-admins")
             or (ctx.channel.name == "tfc-runners")
         ):
             await pastGames(ctx)
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 async def checkgame(ctx, number):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
             or (ctx.channel.name == "tfc-admins")
@@ -2446,8 +2462,6 @@ async def checkgame(ctx, number):
             )
             await ctx.send(embed=embed)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # Remove a game that you no longer wish to complete or count for ELO.  Use !games to get a
@@ -2456,9 +2470,7 @@ async def checkgame(ctx, number):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def removegame(ctx, number):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
@@ -2469,8 +2481,6 @@ async def removegame(ctx, number):
                 json.dump(activePickups, cd, indent=4)
 
             await ctx.send("Game has been removed..")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 def cancelImpl():
@@ -2484,14 +2494,10 @@ def cancelImpl():
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def cancel(ctx):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             cancelImpl()
             await ctx.send("Queue has been cancelled..")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
@@ -2500,9 +2506,7 @@ async def requeue(ctx):
     global blueTeam
     global redTeam
     global playersAdded
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if captMode == 1:
             print(blueTeam, redTeam, eligiblePlayers)
             neligibleplayers = eligiblePlayers
@@ -2519,8 +2523,6 @@ async def requeue(ctx):
             # print(playersAdded)
             await showPickup(ctx)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
@@ -2530,9 +2532,7 @@ async def requeue(ctx):
 @commands.cooldown(1, 3, commands.BucketType.default)
 @commands.has_role(v["runner"])
 async def forceVote(channel):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
             global mapVotes
@@ -2561,7 +2561,7 @@ async def forceVote(channel):
             print("executed")
             winningMap = None
             with open("activePickups.json") as f:
-                json.load(f)
+                activePickups = json.load(f)
             alreadyVoted = []
             if serverVote == 1:
                 votes = [
@@ -2572,7 +2572,7 @@ async def forceVote(channel):
                 windex = votes.index(max(votes))
                 if windex == 0:
                     await channel.send("West (Las Vegas) server is being launched..")
-                    requests.get(
+                    r = requests.get(
                         "https://us-west1-coachoffice-332119.cloudfunctions.net/startWest"
                     )
                     winningIP = "NONE"
@@ -2702,19 +2702,15 @@ async def forceVote(channel):
                 await pMsg.add_reaction("5️⃣")
                 await pMsg.add_reaction("6️⃣")
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def shufflee(ctx, idx=None, game="None"):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         # global sMsg
         # if(ctx.channel.name == v['pc']):
-        if idx is None:
+        if idx == None:
             idx = random.randint(1, 11)
         with open("activePickups.json") as f:
             activePickups = json.load(f)
@@ -2754,7 +2750,9 @@ async def shufflee(ctx, idx=None, game="None"):
             for i in nredTeam:
                 neligiblePlayers.append(i)
 
-            len(neligiblePlayers)
+            playerCount = len(neligiblePlayers)
+            counter = 0
+            teamsPicked = 0
 
             combos = list(
                 itertools.combinations(neligiblePlayers, int(len(neligiblePlayers) / 2))
@@ -2768,6 +2766,7 @@ async def shufflee(ctx, idx=None, game="None"):
             blueRank = 0
             totalRank = 0
             half = 0
+            diff = 0
             for j in neligiblePlayers:
                 totalRank += int(ELOpop[j][1])
             half = int(totalRank / 2)
@@ -2801,8 +2800,6 @@ async def shufflee(ctx, idx=None, game="None"):
             with open("activepickups.json", "w") as cd:
                 json.dump(activePickups, cd, indent=4)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
@@ -2817,12 +2814,10 @@ async def shuffle(ctx, idx=None, game="None"):
     global blueRank
     global redRank
     global tMsg
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         # rankedOrder = []
         if ctx.channel.name == v["pc"]:
-            if idx is None:
+            if idx == None:
                 idx = random.randint(1, 11)
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
@@ -2856,7 +2851,9 @@ async def shuffle(ctx, idx=None, game="None"):
                 for i in nredTeam:
                     neligiblePlayers.append(i)
 
-                len(neligiblePlayers)
+                playerCount = len(neligiblePlayers)
+                counter = 0
+                teamsPicked = 0
 
                 combos = list(
                     itertools.combinations(
@@ -2872,6 +2869,7 @@ async def shuffle(ctx, idx=None, game="None"):
                 blueRank = 0
                 totalRank = 0
                 half = 0
+                diff = 0
                 for j in neligiblePlayers:
                     totalRank += int(ELOpop[j][1])
                 half = int(totalRank / 2)
@@ -2905,24 +2903,18 @@ async def shuffle(ctx, idx=None, game="None"):
                 with open("activepickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.command(pass_context=True)
 @commands.cooldown(1, 300, commands.BucketType.default)
 async def notice(ctx, anumber=8):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global playersAdded
             number = len(list(playersAdded))
             role = discord.utils.get(ctx.guild.roles, id=v["TFCPlayer"])
 
         await ctx.send(f"{role.mention} {number}/{anumber}")
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 """@slash.slash(name="slap")
@@ -2932,9 +2924,7 @@ async def slap(ctx, player: discord.Member):
 
 @client.event
 async def on_reaction_add(reaction, user):
-    global GLOBAL_LOCK
-    await GLOBAL_LOCK.acquire()
-    try:  # Do logic under lock
+    async with GLOBAL_LOCK:
         if not user.bot:
             global vMsg
             global mapVotes
@@ -3064,10 +3054,7 @@ async def on_reaction_add(reaction, user):
                                     # msgList.append(ELOpop[i][0] + " " + v['cptimg'] + "\n")
                                 else:
                                     msgList.append(
-                                        visualRank
-                                        + " "
-                                        + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
-                                        + "\n"
+                                        visualRank + " " + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n"
                                     )
                                     # msgList.append(ELOpop[i][0] + "\n")
                             msg = "".join(msgList)
@@ -3110,7 +3097,10 @@ async def on_reaction_add(reaction, user):
                             ELOpop = json.load(f)
                         playerCount = len(eligiblePlayers)
                         userID = str(user.id)
-                        await client.fetch_channel(reaction.message.channel.id)
+                        forceResults = 0
+                        channel = await client.fetch_channel(
+                            reaction.message.channel.id
+                        )
                         playerName = ELOpop[str(userID)][0]
                         if inVote == 1:
                             # print(eligiblePlayers)
@@ -3248,8 +3238,6 @@ async def on_reaction_add(reaction, user):
                     else:
                         await reaction.message.remove_reaction(reaction, user)
 
-    finally:  # release the lock
-        GLOBAL_LOCK.release()
 
 
 @client.event
@@ -3264,7 +3252,6 @@ async def on_message(message):
     global mapChoice2
     global mapChoice3
     global mapChoice4
-    global GLOBAL_LOCK
 
     if message.content == "elo":
         with open("ELOpop.json") as f:
