@@ -655,7 +655,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
         lastTwoBigLogList = []
         for logFile in logListNameDesc:
             size = (ftp.size(logFile))
-            #print(f"logFile: {logFile}, size:{size}")
+            print(f"logFile: {logFile}, size:{size}")
             # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
             # if we find any edge cases.
             if((size > 100000) and (".log" in logFile)): # Rounds with logs of players and time will be big
@@ -719,6 +719,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
             
         os.remove(logToParse1)
         os.remove(logToParse2)
+        newfile = None
         try:
             '''ftp = FTP(logins[region][3])
             ftp.login(user= logins[region][4], passwd=logins[region][5])
@@ -750,29 +751,29 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
                     if (len(lastTwoBigHLTVList) >= 2):
                         break
                     
-            HLTVToZip1 = lastTwoBigHLTVList[1]
-            HLTVToZip2 = lastTwoBigHLTVList[0]
-            print(f"testing HLTV Assignment {HLTVToZip1} {HLTVToZip2}")
-            '''try:
-                ftp.retrbinary("RETR " + HLTVToZip1 ,open(HLTVToZip1, 'wb').write)
-                ftp.retrbinary("RETR " + HLTVToZip2 ,open(HLTVToZip2, 'wb').write)
-            except:
-                print("Error")'''
+            if (len(lastTwoBigHLTVList) >= 2):
+                HLTVToZip1 = lastTwoBigHLTVList[1]
+                HLTVToZip2 = lastTwoBigHLTVList[0]
+                print(f"testing HLTV Assignment {HLTVToZip1} {HLTVToZip2}")
+                '''try:
+                    ftp.retrbinary("RETR " + HLTVToZip1 ,open(HLTVToZip1, 'wb').write)
+                    ftp.retrbinary("RETR " + HLTVToZip2 ,open(HLTVToZip2, 'wb').write)
+                except:
+                    print("Error")'''
 
-            #zip file stuff.. get rid of slashes so we dont error.
-            dDate = pDate.replace("/", "")
-            try:
-                import zlib
-                mode= zipfile.ZIP_DEFLATED
-            except:
-                mode= zipfile.ZIP_STORED
-            newfile = pMap + "-" + dDate + ".zip"
-            zip= zipfile.ZipFile(newfile, 'w', mode)
-            zip.write(HLTVToZip1)
-            zip.write(HLTVToZip2)
-            zip.close()
+                #zip file stuff.. get rid of slashes so we dont error.
+                dDate = pDate.replace("/", "")
+                try:
+                    import zlib
+                    mode= zipfile.ZIP_DEFLATED
+                except:
+                    mode= zipfile.ZIP_STORED
+                newfile = pMap + "-" + dDate + ".zip"
+                zip= zipfile.ZipFile(newfile, 'w', mode)
+                zip.write(HLTVToZip1)
+                zip.write(HLTVToZip2)
+                zip.close()
 
-            try:
                 ftp = FTP("coach.site.nfoservers.com")
                 ftp.login(user= "coachcent", passwd="YA75SRHwF6")
 
@@ -780,15 +781,12 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
                 ftp.cwd("demos")
 
                 ftp.storbinary(f'STOR {newfile}', newfile)
-                ftp.close()
-            except Exception as e:
-                print(f"couldnt upload zip file for demos {e}")
-                
+                ftp.close()    
         except Exception as e:
+            print(traceback.format_exc())
             print(f"error here. {e}")
             newfile = None
-
-        
+    
 
         if("nginx" not in output3):
             if(newfile == None):
@@ -821,7 +819,8 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
         os.chdir("..")
         os.chdir("TFCELO")
       #gives more info on error.
-        exec(open("htmlfinal.py").read())
+        # exec(open("htmlfinal.py").read())
+        os.system("python3 htmlfinal.py")
       except ZeroDivisionError:
             print(traceback.format_exc())
 
