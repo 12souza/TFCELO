@@ -953,10 +953,22 @@ async def on_message(message):
         if(user.bot):
             #!stats {region.lower()} {reported_match} {winningScore} {losingScore}
             split_message = str(message.content).split(' ')
-            try:
-                _, region, match_number, winning_score, losing_score = str(message.content).split(' ')
-            except IndexError:
-                _, region, match_number, winning_score, losing_score = str(message.content).split(' ')[1], 'UNKNOWN_MATCH_NUMBER', 'MISSING SCORE', 'MISSING SCORE'
+
+            l = len(split_message)
+            print("len: " + str(l))
+            if (len(split_message) == 5):
+                tokens = str(message.content).split(' ')
+                region = tokens[1]
+                match_number = tokens[2]
+                winning_score = tokens[3]
+                losing_score = tokens[4]
+            else: # Assume 4
+                tokens = str(message.content).split(' ')
+                region = tokens[1]
+                match_number = tokens[2]
+                winning_score = tokens[3]
+                losing_score = winning_score
+
             # content = str(message.content)
             # content = content[7:]
             await stats(channel, region, match_number, winning_score, losing_score)

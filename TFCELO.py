@@ -819,7 +819,7 @@ async def pastGames(ctx):
 
     await ctx.send(embed=embed)
 
-    await pMsg.add_reaction("1️⃣")
+    # await pMsg.add_reaction("1️⃣")
 
 
 async def openPickups(ctx):
