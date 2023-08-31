@@ -58,6 +58,8 @@ PLAYER_MAP_NUM_ENTRIES = 9  # Note: Bump this when adding another player map ent
 LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
 
+MAP_VOTE_FIRST = True
+
 cap1 = None
 cap1Name = None
 cap2 = None
@@ -650,7 +652,7 @@ async def ach(ctx, player: discord.Member, ach):
 
 
 # Utility function for showing the pickup
-async def showPickup(ctx):
+async def showPickup(ctx, showReact=False):
     global playersAdded
     global capList
     global oMsg
@@ -749,11 +751,13 @@ async def showPickup(ctx):
 
         oMsg = await ctx.send(embed=embed)
 
-        await oMsg.add_reaction("👍")
+        if (showReact == True):
+            await oMsg.add_reaction("👍")
         notiflist = []
         for i in playersAdded[0:8]:
             notiflist.append(f"<@{i}> ")
-        notiflist.append("... React with 👍 when ready to teams if no runner available.")
+        if (showReact == True):
+            notiflist.append("... React with 👍 when ready to teams if no runner available.")
         msg = "".join(notiflist)
         await ctx.send(msg)
 
@@ -1171,6 +1175,26 @@ async def test7(ctx):
             # retVal = addplayerImpl("311769927432404994", "Nemsy", None)
             await showPickup(ctx)
 
+# Convenience command for testing bot behavior with 8 people added
+# Example: !test8
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def test8(ctx):
+    async with GLOBAL_LOCK:
+        if ctx.channel.name == v["pc"]:
+            cancelImpl()  # Clear out any existing pickup
+            addplayerImpl("704204162958753892", "sandro702", None)
+            addplayerImpl("303845825476558859", "dougtck", None)
+            addplayerImpl("270636499190546432", "CheeseFromGPT", None)
+            addplayerImpl("291754504158838784", "AUTHENTIC", None)
+            addplayerImpl("194276343540613121", "climax", None)
+            addplayerImpl("596225454721990676", "botch", None)
+            addplayerImpl("173619058657198082", "Moreno", None)
+            # retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
+            addplayerImpl("311769927432404994", "Nemsy", None)
+            await showPickup(ctx)
+
+
 
 # Adding player: 704204162958753892, sandro702
 # Adding player: 270636499190546432, CheeseFromGPT
@@ -1270,6 +1294,7 @@ async def doteams(channel2, playerCount=4):
     oMsg = None
     DMList = []
     channel2 = await client.fetch_channel(v["pID"])
+    logging.info(f"doteams => playersAdded: {playersAdded}, playerCount: {playerCount}")
     if len(playersAdded) >= int(playerCount * 2):
         if inVote == 0:
             if len(capList) < 2:
@@ -1375,13 +1400,17 @@ async def doteams(channel2, playerCount=4):
 
                 dmMsg = "".join(DMList)
                 await channel2.send(dmMsg)
-                # await ctx.send("Please react to the map you want to play on..")
-                await channel2.send("Please react to the server you want to play on..")
-                serverVote = 1
-                await voteSetup()
-                fTimer = 5
-                fVCoolDown.start()
-                inVote = 1
+
+                if (MAP_VOTE_FIRST == False):
+                    # We aren't map voting before teams, so we start the voting after
+                    # team are created.
+                    # await ctx.send("Please react to the map you want to play on..")
+                    await channel2.send("Please react to the server you want to play on..")
+                    serverVote = 1
+                    await voteSetup()
+                    fTimer = 5
+                    fVCoolDown.start()
+                    inVote = 1
 
             elif len(capList) >= 2:
                 with open("ELOpop.json") as f:
@@ -1437,101 +1466,104 @@ async def teams(ctx, playerCount=4):
             if len(playersAdded) >= int(playerCount * 2):
                 if inVote == 0:
                     if len(capList) < 2:
-                        with open("ELOpop.json") as f:
-                            ELOpop = json.load(f)
                         playerCount = int(playerCount)
                         if len(playersAdded) == playerCount:
                             eligiblePlayers = playersAdded
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
 
-                        combos = list(
-                            itertools.combinations(
-                                eligiblePlayers, int(len(eligiblePlayers) / 2)
+                        if (MAP_VOTE_FIRST == False):
+                            with open("ELOpop.json") as f:
+                                ELOpop = json.load(f)
+
+                            combos = list(
+                                itertools.combinations(
+                                    eligiblePlayers, int(len(eligiblePlayers) / 2)
+                                )
                             )
-                        )
-                        random.shuffle(combos)
+                            random.shuffle(combos)
 
-                        for i in eligiblePlayers:
-                            if i in playersAdded:
-                                playersAdded.remove(i)
-                        blueTeam = []
-                        redTeam = []
-                        rankedOrder = []
-                        redRank = 0
-                        blueRank = 0
-                        totalRank = 0
-                        half = 0
-                        for j in eligiblePlayers:
-                            totalRank += int(ELOpop[j][1])
-                        half = int(totalRank / 2)
+                            for i in eligiblePlayers:
+                                if i in playersAdded:
+                                    playersAdded.remove(i)
+                            blueTeam = []
+                            redTeam = []
+                            rankedOrder = []
+                            redRank = 0
+                            blueRank = 0
+                            totalRank = 0
+                            half = 0
+                            for j in eligiblePlayers:
+                                totalRank += int(ELOpop[j][1])
+                            half = int(totalRank / 2)
 
-                        if playerCount <= 8:
-                            for i in list(combos):
-                                blueRank = 0
-                                for j in list(i):
-                                    blueRank += int(ELOpop[j][1])
-                                rankedOrder.append((list(i), abs(blueRank - half)))
-                            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-                        elif playerCount > 8:
-                            teamList = []
-                            for i in range(100):
-                                rTeam = random.choice(combos)
-                                teamList.append(rTeam)
-                                combos.remove(rTeam)
-                            for i in list(teamList):
-                                blueRank = 0
-                                for j in list(i):
-                                    blueRank += int(ELOpop[j][1])
-                                rankedOrder.append((list(i), abs(blueRank - half)))
-                            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                            if playerCount <= 8:
+                                for i in list(combos):
+                                    blueRank = 0
+                                    for j in list(i):
+                                        blueRank += int(ELOpop[j][1])
+                                    rankedOrder.append((list(i), abs(blueRank - half)))
+                                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                            elif playerCount > 8:
+                                teamList = []
+                                for i in range(100):
+                                    rTeam = random.choice(combos)
+                                    teamList.append(rTeam)
+                                    combos.remove(rTeam)
+                                for i in list(teamList):
+                                    blueRank = 0
+                                    for j in list(i):
+                                        blueRank += int(ELOpop[j][1])
+                                    rankedOrder.append((list(i), abs(blueRank - half)))
+                                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
 
-                        #logging.info("Printing players in ranked order")
-                        #for i in rankedOrder:
-                        #    logging.info(i)
-                        blueTeam = list(rankedOrder[0][0])
+                            #logging.info("Printing players in ranked order")
+                            #for i in rankedOrder:
+                            #    logging.info(i)
+                            blueTeam = list(rankedOrder[0][0])
 
-                        for j in eligiblePlayers:
-                            if j not in blueTeam:
-                                redTeam.append(j)
-                        blueRank = 0
-                        for j in blueTeam:
-                            blueRank += int(ELOpop[j][1])
-                        diff = abs(blueRank - half)
-                        for j in redTeam:
-                            redRank += int(ELOpop[j][1])
-                        diff = abs(redRank - half)
+                            for j in eligiblePlayers:
+                                if j not in blueTeam:
+                                    redTeam.append(j)
+                            blueRank = 0
+                            for j in blueTeam:
+                                blueRank += int(ELOpop[j][1])
+                            diff = abs(blueRank - half)
+                            for j in redTeam:
+                                redRank += int(ELOpop[j][1])
+                            diff = abs(redRank - half)
 
-                        # Make blue team the favored team as it allows them to be lenient on defense
-                        # if desired/needed for sportsmanship.
-                        if (redRank > blueRank):
-                            logging.info("Swapping team colors so blue is favored")
-                            tempTeam = blueTeam
-                            tempRank = blueRank
-                            blueTeam = redTeam
-                            blueRank = redRank
-                            redTeam = tempTeam
-                            redRank = tempRank
+                            # Make blue team the favored team as it allows them to be lenient on defense
+                            # if desired/needed for sportsmanship.
+                            if (redRank > blueRank):
+                                logging.info("Swapping team colors so blue is favored")
+                                tempTeam = blueTeam
+                                tempRank = blueRank
+                                blueTeam = redTeam
+                                blueRank = redRank
+                                redTeam = tempTeam
+                                redRank = tempRank
 
-                        logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
-                        logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
+                            logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
+                            logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
 
-                        team1prob = round(
-                            1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2
-                        )
-                        team2prob = round(
-                            1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
-                        )
-                        await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-                        for i in eligiblePlayers:
-                            DMList.append(f"<@{i}> ")
+                            team1prob = round(
+                                1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2
+                            )
+                            team2prob = round(
+                                1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
+                            )
+                            await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                            for i in eligiblePlayers:
+                                DMList.append(f"<@{i}> ")
 
-                        dmMsg = "".join(DMList)
-                        await ctx.send(dmMsg)
-                        # await ctx.send("Please react to the map you want to play on..")
-                        await ctx.send(
-                            "Please react to the server you want to play on.."
-                        )
+                            dmMsg = "".join(DMList)
+                            await ctx.send(dmMsg)
+                            # await ctx.send("Please react to the map you want to play on..")
+                            await ctx.send(
+                                "Please react to the server you want to play on.."
+                            )
+                        
                         serverVote = 1
                         await voteSetup()
                         fTimer = 5
@@ -1687,88 +1719,107 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 global playersAdded
                 playeroutid = None
                 playerinid = None
-                eligiblePlayers = []
-                if str(playerone.id) in blueTeam or str(playerone.id) in redTeam:
-                    playeroutid = playerone.id
-                    playerinid = playertwo.id
-                elif str(playertwo.id) in blueTeam or str(playertwo.id) in redTeam:
-                    playeroutid = playertwo.id
-                    playerinid = playerone.id
-                logging.info(f"Subbing player {playerinid} for player {playeroutid}")
-                for i in blueTeam:
-                    if i != str(playeroutid):
-                        eligiblePlayers.append(i)
 
-                for i in redTeam:
-                    if i != str(playeroutid):
-                        eligiblePlayers.append(i)
+                if (MAP_VOTE_FIRST == False):
+                    eligiblePlayers = []
+                    if str(playerone.id) in blueTeam or str(playerone.id) in redTeam:
+                        playeroutid = playerone.id
+                        playerinid = playertwo.id
+                    elif str(playertwo.id) in blueTeam or str(playertwo.id) in redTeam:
+                        playeroutid = playertwo.id
+                        playerinid = playerone.id
+                    logging.info(f"Subbing player {playerinid} for player {playeroutid}")
+                    for i in blueTeam:
+                        if i != str(playeroutid):
+                            eligiblePlayers.append(i)
+                    for i in redTeam:
+                        if i != str(playeroutid):
+                            eligiblePlayers.append(i)  
+                    eligiblePlayers.append(str(playerinid))
+                else: # (MAP_VOTE_FIRST == True):
+                    # Map voting first, so no teams yet
+                    if str(playerone.id) in playersAdded:
+                        playeroutid = playerone.id
+                        playerinid = playertwo.id
+                    elif str(playertwo.id) in playersAdded:
+                        playeroutid = playertwo.id
+                        playerinid = playerone.id
+                    logging.info(f"Subbing player {playerinid} for player {playeroutid}")
+                    playersAddedNew = []
+                    playersAddedNew.append(str(playerinid))
+                    for i in playersAdded:
+                        if i != str(playeroutid):
+                            playersAddedNew.append(i)
+                    playersAdded = playersAddedNew
+                    eligiblePlayers = playersAdded
+                    await showPickup(ctx, False)
 
-                eligiblePlayers.append(str(playerinid))
-
-                combos = list(
-                    itertools.combinations(
-                        eligiblePlayers, int(len(eligiblePlayers) / 2)
+                if (MAP_VOTE_FIRST == False):
+                    # Subbing only needs to re-generate teams we aren't map voting first
+                    combos = list(
+                        itertools.combinations(
+                            eligiblePlayers, int(len(eligiblePlayers) / 2)
+                        )
                     )
-                )
-                random.shuffle(combos)
+                    random.shuffle(combos)
 
-                if str(playerinid) in playersAdded:
-                    playersAdded.remove(str(playerinid))
+                    if str(playerinid) in playersAdded:
+                        playersAdded.remove(str(playerinid))
 
-                for i in eligiblePlayers:
-                    if i in playersAdded:
-                        playersAdded.remove(i)
-                blueTeam = []
-                redTeam = []
-                rankedOrder = []
-                redRank = 0
-                blueRank = 0
-                totalRank = 0
-                half = 0
-                logging.info(eligiblePlayers)
-                for j in eligiblePlayers:
-                    totalRank += int(ELOpop[j][1])
-                half = int(totalRank / 2)
-
-                for i in list(combos):
+                    for i in eligiblePlayers:
+                        if i in playersAdded:
+                            playersAdded.remove(i)
+                    blueTeam = []
+                    redTeam = []
+                    rankedOrder = []
+                    redRank = 0
                     blueRank = 0
-                    for j in list(i):
+                    totalRank = 0
+                    half = 0
+                    logging.info(eligiblePlayers)
+                    for j in eligiblePlayers:
+                        totalRank += int(ELOpop[j][1])
+                    half = int(totalRank / 2)
+
+                    for i in list(combos):
+                        blueRank = 0
+                        for j in list(i):
+                            blueRank += int(ELOpop[j][1])
+                        rankedOrder.append((list(i), abs(blueRank - half)))
+                    rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+                    #logging.info("Printing players in ranked order")
+                    #for i in rankedOrder:
+                    #    logging.info(i)
+                    blueTeam = list(rankedOrder[0][0])
+
+                    for j in eligiblePlayers:
+                        if j not in blueTeam:
+                            redTeam.append(j)
+                    blueRank = 0
+                    for j in blueTeam:
                         blueRank += int(ELOpop[j][1])
-                    rankedOrder.append((list(i), abs(blueRank - half)))
-                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-                #logging.info("Printing players in ranked order")
-                #for i in rankedOrder:
-                #    logging.info(i)
-                blueTeam = list(rankedOrder[0][0])
+                    diff = abs(blueRank - half)
+                    for j in redTeam:
+                        redRank += int(ELOpop[j][1])
+                    diff = abs(redRank - half)
 
-                for j in eligiblePlayers:
-                    if j not in blueTeam:
-                        redTeam.append(j)
-                blueRank = 0
-                for j in blueTeam:
-                    blueRank += int(ELOpop[j][1])
-                diff = abs(blueRank - half)
-                for j in redTeam:
-                    redRank += int(ELOpop[j][1])
-                diff = abs(redRank - half)
+                    # Make blue team the favored team as it allows them to be lenient on defense
+                    # if desired/needed for sportsmanship.
+                    if (redRank > blueRank):
+                        logging.info("Swapping team colors so blue is favored")
+                        tempTeam = blueTeam
+                        tempRank = blueRank
+                        blueTeam = redTeam
+                        blueRank = redRank
+                        redTeam = tempTeam
+                        redRank = tempRank
 
-                # Make blue team the favored team as it allows them to be lenient on defense
-                # if desired/needed for sportsmanship.
-                if (redRank > blueRank):
-                    logging.info("Swapping team colors so blue is favored")
-                    tempTeam = blueTeam
-                    tempRank = blueRank
-                    blueTeam = redTeam
-                    blueRank = redRank
-                    redTeam = tempTeam
-                    redRank = tempRank
+                    logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
+                    logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
 
-                logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
-                logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
-
-                team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-                team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                    team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
+                    team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
+                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
             elif number != "None":
                 eligiblePlayers = []
                 playerIn = None
@@ -2347,11 +2398,14 @@ async def forceVote(channel):
                 if windex == 1:
                     winningIP = "https://tinyurl.com/tfpcentral"
                     winningServer = "Central (Chi)"
-                    serverVote = 0
                 elif windex == 2:
                     winningIP = "https://tinyurl.com/tfpEast1"
                     winningServer = "East (NY)"
-                    serverVote = 0
+                else:
+                    # Just pick one so things aren't completely broken
+                    winningIP = "https://tinyurl.com/tfpcentral"
+                    winningServer = "Central (Chi)"
+                serverVote = 0
                 fTimer = 3
                 await voteSetup()
             elif serverVote == 0:
@@ -2400,6 +2454,12 @@ async def forceVote(channel):
                         f"maxVoteCount: {maxVoteCount}, candidateMapNames: {candidateMapNames}"
                     )
 
+                    if captMode == 0:
+                        if (MAP_VOTE_FIRST == True):
+                            # Create the teams after the map vote
+                            inVote = 0
+                            await doteams(channel)
+
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
                     if "Bot's Choice" in winningMap:
@@ -2421,6 +2481,7 @@ async def forceVote(channel):
                         lastFive.append(wMap)
                     elif "Bot's Choice" not in winningMap:
                         lastFive.append(winningMap)
+
                     if captMode == 0:
                         savePickup()
                         DePopulatePickup()
@@ -2869,7 +2930,7 @@ async def on_reaction_add(reaction, user):
                                     mapList2 = json.load(f)
                                 if serverVote == 1:
                                     await vMsg.edit(
-                                        content="```Vote for your server!  Be quick, you only have 45 seconds to vote..\n\n"
+                                        content="```Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
                                         + "1️⃣ "
                                         + mapChoice1
                                         + " " * (70 - len(mapChoice1))
