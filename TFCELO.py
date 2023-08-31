@@ -1695,7 +1695,6 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     playeroutid = playertwo.id
                     playerinid = playerone.id
                 logging.info(f"Subbing player {playerinid} for player {playeroutid}")
-                logging.info(playerinid, playeroutid)
                 for i in blueTeam:
                     if i != str(playeroutid):
                         eligiblePlayers.append(i)
@@ -1749,11 +1748,24 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 for j in blueTeam:
                     blueRank += int(ELOpop[j][1])
                 diff = abs(blueRank - half)
-                logging.info(blueTeam, diff)
                 for j in redTeam:
                     redRank += int(ELOpop[j][1])
                 diff = abs(redRank - half)
-                logging.info(redTeam, diff)
+
+                # Make blue team the favored team as it allows them to be lenient on defense
+                # if desired/needed for sportsmanship.
+                if (redRank > blueRank):
+                    logging.info("Swapping team colors so blue is favored")
+                    tempTeam = blueTeam
+                    tempRank = blueRank
+                    blueTeam = redTeam
+                    blueRank = redRank
+                    redTeam = tempTeam
+                    redRank = tempRank
+
+                logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
+                logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
+
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
