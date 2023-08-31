@@ -1349,11 +1349,24 @@ async def doteams(channel2, playerCount=4):
                 for j in blueTeam:
                     blueRank += int(ELOpop[j][1])
                 diff = abs(blueRank - half)
-                logging.info(blueTeam, diff)
                 for j in redTeam:
                     redRank += int(ELOpop[j][1])
                 diff = abs(redRank - half)
-                logging.info(redTeam, diff)
+
+                # Make blue team the favored team as it allows them to be lenient on defense
+                # if desired/needed for sportsmanship.
+                if (redRank > blueRank):
+                    logging.info("Swapping team colors so blue is favored")
+                    tempTeam = blueTeam
+                    tempRank = blueRank
+                    blueTeam = redTeam
+                    blueRank = redRank
+                    redTeam = tempTeam
+                    redRank = tempRank
+
+                logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
+                logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
+
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
                 await teamsDisplay(channel2, blueTeam, redTeam, team1prob, team2prob)
@@ -1473,9 +1486,9 @@ async def teams(ctx, playerCount=4):
                                 rankedOrder.append((list(i), abs(blueRank - half)))
                             rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
 
-                        logging.info("Printing players in ranked order")
-                        for i in rankedOrder:
-                            logging.info(i)
+                        #logging.info("Printing players in ranked order")
+                        #for i in rankedOrder:
+                        #    logging.info(i)
                         blueTeam = list(rankedOrder[0][0])
 
                         for j in eligiblePlayers:
@@ -1485,11 +1498,24 @@ async def teams(ctx, playerCount=4):
                         for j in blueTeam:
                             blueRank += int(ELOpop[j][1])
                         diff = abs(blueRank - half)
-                        logging.info(blueTeam, diff)
                         for j in redTeam:
                             redRank += int(ELOpop[j][1])
                         diff = abs(redRank - half)
-                        logging.info(redTeam, diff)
+
+                        # Make blue team the favored team as it allows them to be lenient on defense
+                        # if desired/needed for sportsmanship.
+                        if (redRank > blueRank):
+                            logging.info("Swapping team colors so blue is favored")
+                            tempTeam = blueTeam
+                            tempRank = blueRank
+                            blueTeam = redTeam
+                            blueRank = redRank
+                            redTeam = tempTeam
+                            redRank = tempRank
+
+                        logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
+                        logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
+
                         team1prob = round(
                             1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2
                         )
@@ -1711,9 +1737,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         blueRank += int(ELOpop[j][1])
                     rankedOrder.append((list(i), abs(blueRank - half)))
                 rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-                logging.info("Printing players in ranked order")
-                for i in rankedOrder:
-                    logging.info(i)
+                #logging.info("Printing players in ranked order")
+                #for i in rankedOrder:
+                #    logging.info(i)
                 blueTeam = list(rankedOrder[0][0])
 
                 for j in eligiblePlayers:
