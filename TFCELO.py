@@ -660,7 +660,7 @@ async def ach(ctx, player: discord.Member, ach):
 
 
 # Utility function for showing the pickup
-async def showPickup(ctx, showReact=False):
+async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
     global playersAdded
     global capList
     global oMsg
@@ -668,9 +668,12 @@ async def showPickup(ctx, showReact=False):
     global PLAYER_MAP_DUNCE_FLAG_INDEX
     global PLAYER_MAP_VISUAL_NAME_INDEX
     global PLAYER_MAP_VISUAL_RANK_INDEX
-
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
+
+    isMapVoteFirstPickupStarted = False
+    if ((inVote == 1 or mapVoteFirstPickupStarted) and MAP_VOTE_FIRST == True):
+        isMapVoteFirstPickupStarted = True
 
     msgList = []
     msgListLight = []
@@ -742,12 +745,21 @@ async def showPickup(ctx, showReact=False):
         readyMsg = "".join(readyList)
 
         # Create the emebd
-        embed = discord.Embed(title="Pickup Has 8 or more Players")
+        embed = None
+        if (isMapVoteFirstPickupStarted == True):
+            embed = discord.Embed(title="Pickup Voting Phase!")
+        else:
+            embed = discord.Embed(title="Pickup Has 8 or more Players")
 
         if len(playersAdded) > 0:
-            embed.add_field(
-                name=f"Players Added - {len(playersAdded)} Queued", value=msg
-            )
+            if (isMapVoteFirstPickupStarted == True):
+                embed.add_field(
+                    name=f"Players Selected (Please Vote!)", value=msg
+                )
+            else:
+                embed.add_field(
+                    name=f"Players Added - {len(playersAdded)} Queued", value=msg
+                )
         elif len(playersAdded) == 0:
             embed.add_field(name="Players Added", value="PUG IS EMPTY!")
 
@@ -1494,7 +1506,7 @@ async def teams(ctx, playerCount=4):
                         if (MAP_VOTE_FIRST == True):
                             # Prune down the players added
                             playersAdded = eligiblePlayers
-                            await showPickup(ctx)
+                            await showPickup(ctx, False, True)
 
                         if (MAP_VOTE_FIRST == False):
                             with open("ELOpop.json") as f:
