@@ -414,6 +414,14 @@ def TeamPickPopulate():
         msg = "🔵 Blue Team 🔵 picks!\n\n" + msg + "\n" + blueMsg + "\n" + redMsg
     return msg
 
+@client.command(pass_context=True)
+async def testVote(ctx):
+    async with GLOBAL_LOCK:
+        channel = await client.fetch_channel(v["pID"])
+        if channel.name == v["pc"]:
+            global vMsg
+            await vMsg.reply("Click the link above to go the current vote!")
+            # await channel.send(vMsg)
 
 # Sets up voting and manages the voting process
 async def voteSetup():
@@ -448,7 +456,7 @@ async def voteSetup():
             toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
 
         vMsg = await channel.send(
-            "```Vote for your server!  Be quick, you only have 45 seconds to vote..\n\n"
+            "````Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
             + "1️⃣ "
             + mapChoice1
             + " " * (70 - len(mapChoice1))
@@ -771,6 +779,9 @@ async def showPickup(ctx, showReact=False):
         elif len(playersAdded) == 0:
             embed.add_field(name="Players Added", value="PUG IS EMPTY!")
         await ctx.send(embed=embed)
+    
+    if (inVote == 1 and vMsg != None):
+        await vMsg.reply("Click the link above to go the current vote!")
 
 
 async def teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob):
@@ -1144,7 +1155,8 @@ async def add(ctx, cap=None):
                     await ctx.author.send(
                         "you are already added to this pickup.."
                     )  # Send PM to player
-                await showPickup(ctx)
+                if retVal == 0:  # Successfully added
+                    await showPickup(ctx)
         except Exception as e:
             logging.error(e)
             await ctx.send(e)
@@ -1158,9 +1170,9 @@ async def addplayer(ctx, player: discord.Member):
             playerID = str(player.id)
             playerDisplayName = player.display_name
             logging.info("Adding player: %s, %s" % (playerID, playerDisplayName))
-            addplayerImpl(playerID, playerDisplayName, None)
-
-            await showPickup(ctx)
+            retVal = addplayerImpl(playerID, playerDisplayName, None)
+            if retVal == 0:  # Successfully added
+                await showPickup(ctx)
 
 
 # Convenience command for testing bot behavior with 7 people added
@@ -1482,6 +1494,7 @@ async def teams(ctx, playerCount=4):
                         if (MAP_VOTE_FIRST == True):
                             # Prune down the players added
                             playersAdded = eligiblePlayers
+                            await showPickup(ctx)
 
                         if (MAP_VOTE_FIRST == False):
                             with open("ELOpop.json") as f:
