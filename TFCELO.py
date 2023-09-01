@@ -1088,6 +1088,13 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
     global playersAdded
     global capList
     global ELOpop
+
+    # For simplicity, don't let players add if we are map voting first
+    # and still in voting stage.
+    if (MAP_VOTE_FIRST == True):
+        if (inVote == 1):
+            return 2
+
     if len(playersAdded) <= 19:
         if playerID not in playersAdded:
             if playerID not in list(
@@ -1471,6 +1478,10 @@ async def teams(ctx, playerCount=4):
                             eligiblePlayers = playersAdded
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
+
+                        if (MAP_VOTE_FIRST == True):
+                            # Prune down the players added
+                            playersAdded = eligiblePlayers
 
                         if (MAP_VOTE_FIRST == False):
                             with open("ELOpop.json") as f:
@@ -1885,11 +1896,24 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 for j in blueTeam:
                     blueRank += int(ELOpop[j][1])
                 diff = abs(blueRank - half)
-                logging.info(blueTeam, diff)
                 for j in redTeam:
                     redRank += int(ELOpop[j][1])
                 diff = abs(redRank - half)
-                logging.info(redTeam, diff)
+
+                # Make blue team the favored team as it allows them to be lenient on defense
+                # if desired/needed for sportsmanship.
+                if (redRank > blueRank):
+                    logging.info("Swapping team colors so blue is favored")
+                    tempTeam = blueTeam
+                    tempRank = blueRank
+                    blueTeam = redTeam
+                    blueRank = redRank
+                    redTeam = tempTeam
+                    redRank = tempRank
+
+                logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
+                logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
+
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
                 activePickups[number] = [
