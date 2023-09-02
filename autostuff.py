@@ -772,9 +772,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
                 zip= zipfile.ZipFile(newfile, 'w', mode)
                 zip.write(HLTVToZip1)
                 zip.write(HLTVToZip2)
-                zip.close()
-
-                    
+                zip.close()            
         except Exception as e:
             print(traceback.format_exc())
             print(f"error here. {e}")
@@ -785,7 +783,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
             if(newfile == None):
                 await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
             elif(newfile != None):
-                await schannel.send(file = discord.File(newfile), content=f"**Hampalyzer:** {hampa} {pMap} {pDate} {region}")
+                await schannel.send(file = discord.File(newfile), content=f"**Hampalyzer:** {hampa} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
                 os.remove(HLTVToZip1)
                 os.remove(HLTVToZip2)
                 os.remove(newfile)
@@ -793,7 +791,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
             if(newfile == None):
                 await schannel.send(f"**Blarghalyzer:** {site} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
             elif(newfile != None):
-                await schannel.send(file = discord.File(newfile), content=f"**Blarghalyzer:** {site} {pMap} {pDate} {region}")
+                await schannel.send(file = discord.File(newfile), content=f"**Blarghalyzer:** {site} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
 
                 os.remove(HLTVToZip1)
                 os.remove(HLTVToZip2)
