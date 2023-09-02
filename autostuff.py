@@ -774,14 +774,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
                 zip.write(HLTVToZip2)
                 zip.close()
 
-                ftp = FTP("coach.site.nfoservers.com")
-                ftp.login(user= "coachcent", passwd="YA75SRHwF6")
-
-                ftp.cwd("public")
-                ftp.cwd("demos")
-
-                ftp.storbinary(f'STOR {newfile}', newfile)
-                ftp.close()    
+                    
         except Exception as e:
             print(traceback.format_exc())
             print(f"error here. {e}")
