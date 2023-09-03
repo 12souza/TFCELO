@@ -1262,34 +1262,36 @@ async def testMultithreading2(ctx):
         await ctx.send("testMultithreading2 done")
 
 
+# Utility function for showing the pickup
+async def removePlayerImpl(ctx, playerID):
+    global playersAdded
+    global capList
+
+    # For simplicity, don't let players remove if we are map voting first
+    # and still in voting stage.
+    if (MAP_VOTE_FIRST == True and inVote == 1):
+        return
+    if playerID in playersAdded:
+        playersAdded.remove(playerID)
+        if playerID in capList:
+            capList.remove(playerID)
+        await showPickup(ctx)
+        return
+
 @client.command(pass_context=True, aliases=["-"])
 async def remove(ctx):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
-            global playersAdded
-            global capList
             playerID = str(ctx.author.id)
-            if playerID in playersAdded:
-                playersAdded.remove(playerID)
-                if playerID in capList:
-                    capList.remove(playerID)
-
-            await showPickup(ctx)
-
+            await removePlayerImpl(ctx, playerID)
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def kick(ctx, player: discord.Member):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
-            global playersAdded
-            global capList
             playerID = str(player.id)
-            if playerID in playersAdded:
-                playersAdded.remove(playerID)
-                if playerID in capList:
-                    capList.remove(playerID)
-            await showPickup(ctx)
+            await removePlayerImpl(ctx, playerID)
 
 
 @client.command(pass_context=True)
