@@ -828,15 +828,15 @@ async def bwin(ctx, team, pNumber = "None"):
     )
 
     mycursor = db.cursor()
-    if((ctx.name == v['pc']) or (ctx.name == 'tfc-admins') or (ctx.name == 'tfc-runners')):    
+    if ((ctx.name == v['pc']) or (ctx.name == 'tfc-admins') or (ctx.name == 'tfc-runners')):    
         with open('activePickups.json') as f:
             activePickups = json.load(f)
         with open('ELOpop.json') as f:
             ELOpop = json.load(f)
         with open('pastten.json') as f:
             pastTen = json.load(f)
-        if(pNumber == "None"):
-            pNumber = list(activePickups)[-1]
+        if (pNumber == "None"):
+            pNumber = list(activePickups)[0]
 
         #print(activePickups[pNumber][2])
         blueTeam = activePickups[pNumber][2]
