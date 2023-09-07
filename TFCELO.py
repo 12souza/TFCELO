@@ -55,6 +55,10 @@ PLAYER_MAP_VISUAL_RANK_INDEX = 3  # current visual rank icon
 PLAYER_MAP_ACHIEVEMENT_INDEX = 7  # list of achievement icons
 PLAYER_MAP_DUNCE_FLAG_INDEX = 8  # Is this player a dunce or not?
 PLAYER_MAP_NUM_ENTRIES = 9  # Note: Bump this when adding another player map entry
+PAST_TEN_BLUE_TEAM_INDEX = 0
+PAST_TEN_RED_TEAM_INDEX = 4
+PAST_TEN_MATCH_OUTCOME_INDEX = 8
+PAST_TEN_MAP_INDEX = 9
 LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
 
@@ -819,34 +823,18 @@ async def teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob):
 
 async def pastGames(ctx):
     with open("pastten.json") as f:
-        pastTen = json.load(f)
+        past_ten_matches = json.load(f)
     msgList = []
-    for i in pastTen:
-        msgList.append(i + "\n")
+    for i in past_ten_matches:
+        match_outcome_string = "Team " + str(past_ten_matches[i][PAST_TEN_MATCH_OUTCOME_INDEX])
+        msgList.append(f'{i:.<8}|{match_outcome_string:.^10}|{past_ten_matches[i][PAST_TEN_MAP_INDEX]:.>25}\n')
     msg = "".join(msgList)
-    timeList = []
-    for i in pastTen:
-        if i != 0:
-            timeList.append("Team " + str(pastTen[i][8]) + "\n")
-        elif i == 0:
-            timeList.append("DRAW" + str(pastTen[i][8]) + "\n")
-
-    tMsg = "".join(timeList)
-    mapList = []
-    for i in pastTen:
-        mapList.append(pastTen[i][9] + "\n")
-    mMsg = "".join(mapList)
-    embed = discord.Embed(title="Active Pickups")
-    if len(pastTen) > 0:
-        embed.add_field(name="Pickup #", value=msg, inline=True)
-        embed.add_field(name="Winner:", value=tMsg, inline=True)
-        embed.add_field(name="Pickup Map", value=mMsg, inline=True)
-    elif len(pastTen) == 0:
-        embed.add_field(name="#", value="No unreported pickups!!", inline=True)
-
+    embed = discord.Embed(title="Last 10 Games")
+    if len(past_ten_matches) > 0:
+        embed.add_field(name="Pickup # | Winner | Map", value=msg, inline=True)
+    elif len(past_ten_matches) == 0:
+        embed.add_field(name="#", value="Somehow, no last 10 games?", inline=True)
     await ctx.send(embed=embed)
-
-    # await pMsg.add_reaction("1️⃣")
 
 
 async def openPickups(ctx):
@@ -2308,6 +2296,7 @@ async def recent(ctx):
             (ctx.channel.name == v["pc"])
             or (ctx.channel.name == "tfc-admins")
             or (ctx.channel.name == "tfc-runners")
+            or (ctx.channel.id == DEV_TESTING_CHANNEL)
         ):
             await pastGames(ctx)
 
@@ -2319,14 +2308,26 @@ async def checkgame(ctx, number):
             (ctx.channel.name == v["pc"])
             or (ctx.channel.name == "tfc-admins")
             or (ctx.channel.name == "tfc-runners")
+            or (ctx.channel.id == DEV_TESTING_CHANNEL)
         ):
+            with open("pastten.json") as f:
+                past_ten = json.load(f)
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
             with open("ELOpop.json") as f:
                 ELOpop = json.load(f)
             msgList = []
-            blueTeam = activePickups[number][2]
-            redTeam = activePickups[number][5]
+            if number in activePickups:
+                blueTeam = activePickups[number][2]
+                redTeam = activePickups[number][5]
+                match_outcome_string = 'Active Game (unreported!)'
+            elif number in past_ten:
+                blueTeam = past_ten[number][PAST_TEN_BLUE_TEAM_INDEX]
+                redTeam = past_ten[number][PAST_TEN_RED_TEAM_INDEX]
+                match_outcome_string = "Team " + str(past_ten[number][PAST_TEN_MATCH_OUTCOME_INDEX])
+            else:
+                await ctx.send(f'Issue finding game number {number} in past 10 or active pickups - check for typo?')
+                return
 
             for i in blueTeam:
                 msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
@@ -2335,13 +2336,13 @@ async def checkgame(ctx, number):
             for i in redTeam:
                 msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
             rMsg = "".join(msgList)
-            embed = discord.Embed(title="Teams Sorted!")
+            embed = discord.Embed(title=f"Game Number - {number} - Outcome - {match_outcome_string}")
             embed.add_field(
-                name="Blue Team <:blueLogo:971294076676763699>", value=bMsg, inline=True
+                name="Blue Team " + v["t1img"], value=bMsg, inline=True
             )
             embed.add_field(name="\u200b", value="\u200b")
             embed.add_field(
-                name="Red Team <:redLogo:971296302803587082>", value=rMsg, inline=True
+                name="Red Team " + v["t2img"], value=rMsg, inline=True
             )
             await ctx.send(embed=embed)
 
