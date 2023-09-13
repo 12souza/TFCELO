@@ -1029,7 +1029,7 @@ async def swapteam(
                     activePickups[number][7],
                     activePickups[number][8],
                 ]
-                with open("activepickups.json", "w") as cd:
+                with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
@@ -2656,7 +2656,7 @@ async def shufflee(ctx, idx=None, game="None"):
             activePickups[game][4] = redRank
             activePickups[game][5] = redTeam
 
-            with open("activepickups.json", "w") as cd:
+            with open("activePickups.json", "w") as cd:
                 json.dump(activePickups, cd, indent=4)
 
 
@@ -2751,7 +2751,7 @@ async def shuffle(ctx, idx=None, game="None"):
                 activePickups[game][4] = redRank
                 activePickups[game][5] = redTeam
 
-                with open("activepickups.json", "w") as cd:
+                with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
 
 
