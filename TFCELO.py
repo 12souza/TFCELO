@@ -2448,10 +2448,10 @@ async def forceVote(channel):
                 ]
                 windex = votes.index(max(votes))
                 if windex == 1:
-                    winningIP = "https://tinyurl.com/tfpcentral"
+                    winningIP = "https://tinyurl.com/tfpcentral - connect coachcent.game.nfoservers.com; password letsplay!"
                     winningServer = "Central (Chi)"
                 elif windex == 2:
-                    winningIP = "https://tinyurl.com/tfpEast1"
+                    winningIP = "https://tinyurl.com/tfpEast1 - connect coach.game.nfoservers.com; password letsplay!"
                     winningServer = "East (NY)"
                 else:
                     # Just pick one so things aren't completely broken
