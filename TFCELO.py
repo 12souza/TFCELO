@@ -868,6 +868,10 @@ def getRank(ID):
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
 
+    # TODO: Put this in variables.json
+    if len(ELOpop[ID][2]) <= 10:
+        return "<:questionMark:972369805359337532>"
+
     if ELOpop[ID][1] < 220:  # 1
         return v["rank1"]
     elif ELOpop[ID][1] < 450:  # 2
@@ -2156,7 +2160,7 @@ async def win(ctx, team, pNumber="None"):
                 if team == "draw":
                     ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
-                    logging.info(i)
+                    newRank(i)
 
             if len(list(pastTen)) >= 10:
                 while len(list(pastTen)) > 9:
@@ -2330,11 +2334,11 @@ async def checkgame(ctx, number):
                 return
 
             for i in blueTeam:
-                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+                msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
             bMsg = "".join(msgList)
             msgList.clear()
             for i in redTeam:
-                msgList.append(ELOpop[i][3] + " " + ELOpop[i][0] + "\n")
+                msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
             rMsg = "".join(msgList)
             embed = discord.Embed(title=f"Game Number - {number} - Outcome - {match_outcome_string}")
             embed.add_field(
