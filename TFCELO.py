@@ -52,6 +52,9 @@ GLOBAL_LOCK = asyncio.Lock()
 PLAYER_MAP_VISUAL_NAME_INDEX = 0  # Player's visual name
 PLAYER_MAP_CURRENT_ELO_INDEX = 1  # Player's current ELO number
 PLAYER_MAP_VISUAL_RANK_INDEX = 3  # current visual rank icon
+PLAYER_MAP_WIN_INDEX = 4
+PLAYER_MAP_LOSS_INDEX = 5
+PLAYER_MAP_DRAW_INDEX = 6
 PLAYER_MAP_ACHIEVEMENT_INDEX = 7  # list of achievement icons
 PLAYER_MAP_DUNCE_FLAG_INDEX = 8  # Is this player a dunce or not?
 PLAYER_MAP_NUM_ENTRIES = 9  # Note: Bump this when adding another player map entry
@@ -869,7 +872,7 @@ def getRank(ID):
         ELOpop = json.load(f)
 
     # TODO: Put this in variables.json
-    if len(ELOpop[ID][2]) <= 10:
+    if (ELOpop[ID][PLAYER_MAP_WIN_INDEX] + ELOpop[ID][PLAYER_MAP_LOSS_INDEX] + ELOpop[ID][PLAYER_MAP_DRAW_INDEX]) <= 10:
         return "<:questionMark:972369805359337532>"
 
     if ELOpop[ID][1] < 220:  # 1
