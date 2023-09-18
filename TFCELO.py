@@ -18,15 +18,6 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
 
-db = mysql.connector.connect(
-    host="coachcent.site.nfoservers.com",
-    user="coachcent",
-    passwd="ytpLzMANP4",
-    database="coachcent_players",
-)
-
-mycursor = db.cursor()
-
 intents = discord.Intents.all()
 client = commands.Bot(
     command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents
@@ -40,6 +31,11 @@ with open("ELOpop.json") as f:
 # Load in main script configuration
 with open("variables.json") as f:
     v = json.load(f)
+
+# TODO: Update login to work differently..
+
+with open("login.json") as f:
+    logins = json.load(f)
 
 # =====================================
 # =========== DEFINE GLOBALS ==========
@@ -64,7 +60,6 @@ PAST_TEN_MATCH_OUTCOME_INDEX = 8
 PAST_TEN_MAP_INDEX = 9
 LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
-
 MAP_VOTE_FIRST = True
 
 cap1 = None
@@ -1960,10 +1955,10 @@ async def draw(ctx, pNumber="None"):
     global ELOpop
     coach = await client.fetch_user(118900492607684614)
     db = mysql.connector.connect(
-        host="coachcent.site.nfoservers.com",
-        user="coachcent",
-        passwd="ytpLzMANP4",
-        database="coachcent_players",
+        host=logins['mysql']['host'],
+        user=logins['mysql']['user'],
+        passwd=logins['mysql']['passwd'],
+        database=logins['mysql']['database'],
     )
 
     mycursor = db.cursor()
@@ -2068,10 +2063,10 @@ async def win(ctx, team, pNumber="None"):
     global ELOpop
     coach = await client.fetch_user(118900492607684614)
     db = mysql.connector.connect(
-        host="coachcent.site.nfoservers.com",
-        user="coachcent",
-        passwd="ytpLzMANP4",
-        database="coachcent_players",
+        host=logins['mysql']['host'],
+        user=logins['mysql']['user'],
+        passwd=logins['mysql']['passwd'],
+        database=logins['mysql']['database'],
     )
 
     mycursor = db.cursor()
@@ -2217,10 +2212,10 @@ async def undo(ctx, pNumber="None"):
         with open("activePickups.json") as f:
             activePickups = json.load(f)
         db = mysql.connector.connect(
-            host="coachcent.site.nfoservers.com",
-            user="coachcent",
-            passwd="ytpLzMANP4",
-            database="coachcent_players",
+            host=logins['mysql']['host'],
+            user=logins['mysql']['user'],
+            passwd=logins['mysql']['passwd'],
+            database=logins['mysql']['database'],
         )
 
         mycursor = db.cursor()
@@ -3107,12 +3102,12 @@ async def on_message(message):
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
         user = await client.fetch_user(message.author.id)
-        coach = await client.fetch_user(118900492607684614)
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         db = mysql.connector.connect(
-            host="coachcent.site.nfoservers.com",
-            user="coachcent",
-            passwd="ytpLzMANP4",
-            database="coachcent_players",
+            host=logins['mysql']['host'],
+            user=logins['mysql']['user'],
+            passwd=logins['mysql']['passwd'],
+            database=logins['mysql']['database'],
         )
 
         mycursor = db.cursor()
@@ -3127,22 +3122,40 @@ async def on_message(message):
                 plt.plot(plotList)
                 plt.savefig(message.author.display_name + ".png")
 
-                """mycursor.execute(f"SELECT currentELO, W, L, D FROM Players WHERE DiscordID = {user.id}")
+                mycursor.execute(
+                    f"""
+                        with elo_row_numbered as (
+                        select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
+                        )
 
-                for x in mycursor:
-                    ELO = int(x[0])
-                    W = int(x[1])
-                    L = int(x[2]) 
-                    D = int(x[3])"""
-                await message.author.send(
-                    file=discord.File(message.author.display_name + ".png"),
-                    content=f"Your ELO is currently {ELOpop[str(user.id)][1]} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}",
+                        select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{user.id}'
+                        order by player_elos desc;"""
                 )
+
+                if mycursor.rowcount is None:
+                    logging.warning('Had to fall-back to local elo file - check for issue query')
+                    logging.warning(f"""
+                        with elo_row_numbered as (
+                        select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
+                        )
+
+                        select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{user.id}'
+                        order by player_elos desc;""")
+                    await message.author.send(
+                        file=discord.File(message.author.display_name + ".png"),
+                        content=f"Your ELO is currently {ELOpop[str(user.id)][1]} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}",
+                    )
+                else:
+                    current_elo = int(mycursor.fetchone()[0])
+                    await message.author.send(
+                        file=discord.File(message.author.display_name + ".png"),
+                        content=f"Your ELO is currently {current_elo} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}",
+                    )
                 os.remove(message.author.display_name + ".png")
                 plt.clf()
         except Exception as e:
-            await message.author.send("Sending error to coach")
-            await coach.send(e)
+            await message.author.send("Command failed - Sending error to admins")
+            await dev_channel.send(e)
 
     await client.process_commands(message)
 
