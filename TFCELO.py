@@ -194,6 +194,57 @@ async def private(ctx):
             json.dump(ELOpop, cd, indent=4)
 
 
+@client.command(pass_context=True)
+async def top15(ctx):
+    """"
+    Show the list of top, non-private players in the discord
+
+    Example usage: "!top15"
+    ctx: Discord context object
+    """
+    global ELOpop
+    async with GLOBAL_LOCK:
+        with open("ELOpop.json") as f:
+            ELOpop = json.load(f)
+
+        db = mysql.connector.connect(
+            host=logins['mysql']['host'],
+            user=logins['mysql']['user'],
+            passwd=logins['mysql']['passwd'],
+            database=logins['mysql']['database'],
+        )
+        mycursor = db.cursor()
+
+        try:
+            mycursor.execute(
+                    """
+                    with elo_row_numbered as (
+                        select player_name, discord_id, player_elos, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
+                    )
+
+                    select player_name, discord_id, player_elos from elo_row_numbered where row_num = 1
+                    order by player_elos desc;""")
+            top_15 = []
+
+            for row in mycursor:
+                print(row)
+                discord_id = str(row[1])
+                if ELOpop[discord_id][PLAYER_MAP_VISUAL_RANK_INDEX] != "<:norank:1001265843683987487>" and getRank(discord_id) != "<:questionMark:972369805359337532>":
+                    top_15.append(getRank(discord_id) + " " + ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
+                if len(top_15) == 15:
+                    break
+
+            message_formatted = "".join(top_15)
+            embed = discord.Embed(title="Top 15 Non-Private Players")
+            embed.add_field(
+                name="Player List", value=message_formatted, inline=True
+            )
+            await ctx.send(embed=embed)
+        except Exception as e:
+            logging.error(e)
+            await ctx.send(e)
+
+
 # Toggle the "dunce" on a player (for being naughty) at admin discretion
 # Example: !dunce @MILOS chopping
 @client.command(pass_context=True)
