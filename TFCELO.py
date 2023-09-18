@@ -872,7 +872,7 @@ def getRank(ID):
         ELOpop = json.load(f)
 
     # TODO: Put this in variables.json
-    if (ELOpop[ID][PLAYER_MAP_WIN_INDEX] + ELOpop[ID][PLAYER_MAP_LOSS_INDEX] + ELOpop[ID][PLAYER_MAP_DRAW_INDEX]) <= 10:
+    if (ELOpop[ID][PLAYER_MAP_WIN_INDEX] + ELOpop[ID][PLAYER_MAP_LOSS_INDEX] + ELOpop[ID][PLAYER_MAP_DRAW_INDEX]) < 10:
         return "<:questionMark:972369805359337532>"
 
     if ELOpop[ID][1] < 220:  # 1
