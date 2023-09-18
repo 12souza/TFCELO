@@ -10,7 +10,13 @@ TFCELO.py - The main "Bot" that handles pickups and matchmaking
 timeout.py - Handles putting people on push-to-talk only, allow runners to timeout people
 
 # Running in Production
+`ps aux | grep python` will show all the running scripts
+`pkill -9 -f nameofscript.py` will kill the process of the running script
 
+In the `~/TFCELO/` directory...
+./autostuff.sh
+./nfostats.sh
+./TFCELO.sh
 
 # How to run the project locally
 
