@@ -11,10 +11,16 @@ import os
 import traceback
 import zipfile
 import mysql.connector
+import logging
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 
 intents = discord.Intents.all()
 client = commands.Bot(command_prefix = ["!", "+", "-"], case_insensitive=True, intents= intents)
-
+DEV_TESTING_CHANNEL = 1139762727275995166
 
 
 with open('ELOpop.json') as f:
@@ -820,11 +826,14 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
 async def bwin(ctx, team, pNumber = "None"):
     global ELOpop
     coach = await client.fetch_user(118900492607684614)
+    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+    with open('login.json') as f:
+        logins = json.load(f)
     db = mysql.connector.connect(
-    host = "coachcent.site.nfoservers.com",
-    user = 'coachcent',
-    passwd = 'ytpLzMANP4',
-    database = "coachcent_players"
+            host=logins['mysql']['host'],
+            user=logins['mysql']['user'],
+            passwd=logins['mysql']['passwd'],
+            database=logins['mysql']['database'],
     )
 
     mycursor = db.cursor()
@@ -872,9 +881,12 @@ async def bwin(ctx, team, pNumber = "None"):
                 ELOpop[i][1] = 0    
             #ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
             try:
+                input_query = f"AUTO REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                logging.info(input_query)
                 mycursor.execute(f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)", (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
             except Exception as e:
-                await coach.send(f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}")
+                await dev_channel.send(f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}")
+                await dev_channel.send(input_query)
             if(team == "1"):
                 ELOpop[i][4] += 1
             if(team == "2"):
@@ -894,9 +906,12 @@ async def bwin(ctx, team, pNumber = "None"):
                 ELOpop[i][1] = 0
             #ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
             try:
+                input_query = f"AUTO REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                logging.info(input_query)
                 mycursor.execute(f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)", (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
             except Exception as e:
-                await coach.send(f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}")
+                await dev_channel.send(f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}")
+                await dev_channel.send(input_query)
             if(team == "1"):
                 ELOpop[i][5] += 1
             if(team == "2"):

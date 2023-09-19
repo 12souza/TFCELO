@@ -2004,7 +2004,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 @commands.has_role(v["runner"])
 async def draw(ctx, pNumber="None"):
     global ELOpop
-    coach = await client.fetch_user(118900492607684614)
+    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
     db = mysql.connector.connect(
         host=logins['mysql']['host'],
         user=logins['mysql']['user'],
@@ -2051,12 +2051,15 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
+                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
-                    await coach.send(f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]} {e}")
+                    await dev_channel.send(f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]} {e}")
+                    await dev_channel.send(input_query)
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
@@ -2068,14 +2071,17 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
+                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
-                    await coach.send(
+                    await dev_channel.send(
                         f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
                     )
+                    await dev_channel.send(input_query)
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
@@ -2112,7 +2118,7 @@ async def draw(ctx, pNumber="None"):
 @commands.has_role(v["runner"])
 async def win(ctx, team, pNumber="None"):
     global ELOpop
-    coach = await client.fetch_user(118900492607684614)
+    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
     db = mysql.connector.connect(
         host=logins['mysql']['host'],
         user=logins['mysql']['user'],
@@ -2170,14 +2176,17 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
+                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
-                    await coach.send(
+                    await dev_channel.send(
                         f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
                     )
+                    await dev_channel.send(input_query)
                 if team == "1":
                     ELOpop[i][4] += 1
                 if team == "2":
@@ -2194,14 +2203,17 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
+                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
                 except Exception as e:
-                    await coach.send(
+                    await dev_channel.send(
                         f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
                     )
+                    await dev_channel.send(input_query)
                 if team == "1":
                     ELOpop[i][5] += 1
                 if team == "2":
