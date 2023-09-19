@@ -67,6 +67,7 @@ cap1Name = None
 cap2 = None
 cap2Name = None
 playersAdded = []
+playersAbstained = []
 capList = []
 blueTeam = []
 redTeam = []
@@ -488,6 +489,7 @@ async def voteSetup():
     global alreadyVoted
     global vMsg
     global votable
+    global playersAbstained
 
     channel = await client.fetch_channel(v["pID"])
     with open("ELOpop.json") as f:
@@ -2832,6 +2834,26 @@ async def notice(ctx, anumber=8):
         await ctx.send(f"{role.mention} {number}/{anumber}")
 
 
+@client.command(pass_context=True)
+@commands.cooldown(1, 300, commands.BucketType.default)
+async def vote(ctx):
+    """
+    Nagging message to get people to vote who haven't picked their server or map choice yet
+    """
+    async with GLOBAL_LOCK:
+        if ctx.channel.name == v["pc"] or ctx.channel.id == DEV_TESTING_CHANNEL:
+            global playersAbstained
+            if len(playersAbstained) >= 1:
+                nag_message = (
+                                            "\n💩 "
+                                            + ", ".join(playersAbstained)
+                                            + " need to vote 💩```"
+                )
+                await ctx.send(nag_message)
+            else:
+                await ctx.author.send("No active vote is happening!")
+
+
 """@slash.slash(name="slap")
 async def slap(ctx, player: discord.Member):
     await ctx.send(f"{ctx.author.display_name} slapped {player.display_name} around a bit with a large trout")"""
@@ -2864,6 +2886,7 @@ async def on_reaction_add(reaction, user):
             global blueTeam
             global redTeam
             global alreadyVoted
+            global playersAbstained
             global msg
 
             if reaction.message == pMsg:
