@@ -2844,11 +2844,10 @@ async def vote(ctx):
         if ctx.channel.name == v["pc"] or ctx.channel.id == DEV_TESTING_CHANNEL:
             global playersAbstained
             if len(playersAbstained) >= 1:
-                nag_message = (
-                                            "\n💩 "
-                                            + ", ".join(playersAbstained)
-                                            + " need to vote 💩```"
-                )
+                nag_list = playersAbstained
+                for index, item in enumerate(nag_list):
+                    nag_list[index] = f'<@{item}>'
+                nag_message = ("\n💩 " + ", ".join(nag_list) + " need to vote 💩")
                 await ctx.send(nag_message)
             else:
                 await ctx.author.send("No active vote is happening!")
