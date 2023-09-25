@@ -68,6 +68,7 @@ cap2 = None
 cap2Name = None
 playersAdded = []
 playersAbstained = []
+players_abstained_discord_id = []
 capList = []
 blueTeam = []
 redTeam = []
@@ -511,6 +512,7 @@ async def voteSetup():
     global vMsg
     global votable
     global playersAbstained
+    global players_abstained_discord_id
 
     channel = await client.fetch_channel(v["pID"])
     with open("ELOpop.json") as f:
@@ -524,9 +526,11 @@ async def voteSetup():
         mapVotes[mapChoice1] = []
 
         playersAbstained = []
+        players_abstained_discord_id = []
         for i in eligiblePlayers:
             if i not in alreadyVoted:
                 playersAbstained.append(ELOpop[i][0])
+                players_abstained_discord_id.append(i)
         toVoteString = "```"
         if len(playersAbstained) != 0:
             toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
@@ -566,9 +570,11 @@ async def voteSetup():
         mapVotes[mapChoice4] = []
 
         playersAbstained = []
+        players_abstained_discord_id = []
         for i in eligiblePlayers:
             if i not in alreadyVoted:
                 playersAbstained.append(ELOpop[i][0])
+                players_abstained_discord_id.append(i)
         toVoteString = "```"
         if len(playersAbstained) != 0:
             toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
@@ -628,9 +634,11 @@ async def voteSetup():
         mapVotes[mapChoice4] = []
 
         playersAbstained = []
+        players_abstained_discord_id = []
         for i in eligiblePlayers:
             if i not in alreadyVoted:
                 playersAbstained.append(ELOpop[i][0])
+                players_abstained_discord_id.append(i)
         toVoteString = "```"
         if len(playersAbstained) != 0:
             toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
@@ -2536,14 +2544,14 @@ async def forceVote(channel):
                 ]
                 windex = votes.index(max(votes))
                 if windex == 1:
-                    winningIP = "https://tinyurl.com/tfpcentral - connect coachcent.game.nfoservers.com; password letsplay!"
+                    winningIP = "https://tinyurl.com/tfcpugscentral - connect coachcent.game.nfoservers.com; password letsplay!"
                     winningServer = "Central (Chi)"
                 elif windex == 2:
-                    winningIP = "https://tinyurl.com/tfpEast1 - connect coach.game.nfoservers.com; password letsplay!"
+                    winningIP = "https://tinyurl.com/tfcpugseast - connect coach.game.nfoservers.com; password letsplay!"
                     winningServer = "East (NY)"
                 else:
                     # Just pick one so things aren't completely broken
-                    winningIP = "https://tinyurl.com/tfpcentral"
+                    winningIP = "https://tinyurl.com/tfcpugscentral"
                     winningServer = "Central (Chi)"
                 serverVote = 0
                 fTimer = 3
@@ -2863,13 +2871,12 @@ async def vote(ctx):
     """
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"] or ctx.channel.id == DEV_TESTING_CHANNEL:
-            global playersAbstained
-            if len(playersAbstained) >= 1:
-                nag_message = (
-                                            "\n💩 "
-                                            + ", ".join(playersAbstained)
-                                            + " need to vote 💩```"
-                )
+            global players_abstained_discord_id
+            if len(players_abstained_discord_id) >= 1:
+                nag_list = players_abstained_discord_id
+                for index, item in enumerate(nag_list):
+                    nag_list[index] = f'<@{item}>'
+                nag_message = ("\n💩 " + ", ".join(nag_list) + " need to vote 💩")
                 await ctx.send(nag_message)
             else:
                 await ctx.author.send("No active vote is happening!")
@@ -2908,6 +2915,7 @@ async def on_reaction_add(reaction, user):
             global redTeam
             global alreadyVoted
             global playersAbstained
+            global players_abstained_discord_id
             global msg
 
             if reaction.message == pMsg:
@@ -3074,9 +3082,11 @@ async def on_reaction_add(reaction, user):
                                     alreadyVoted.append(userID)
 
                                 playersAbstained = []
+                                players_abstained_discord_id = []
                                 for i in eligiblePlayers:
                                     if i not in alreadyVoted:
                                         playersAbstained.append(ELOpop[str(i)][0])
+                                        players_abstained_discord_id.append(i)
                                 toVoteString = "```"
                                 if len(playersAbstained) != 0:
                                     toVoteString = (
