@@ -1,17 +1,19 @@
 {
-    "phantom" : "2",
-    "openfire_lowgrens": "2",
-    "schtop": "2",
-    "siege": "1",
+    "hammer2_b3": "1",
+    "mastodon_b4": "1",
+    "catharsis_b1": "1",
     "fry_baked_lg": "1",
-    "monkey_lg": "1",
-    "raiden6": "1",
-    "shutdown2_lg": "0",
+    "raiden8": "1",
     "stormz2_lg": "2",
     "blutopia": "2",
     "alchimy_l2": "2",
     "siden": "2",
+    "prolifique2_b7": "1",
     "turbo_b10": "1",
     "cranked": "2",
-    "mortality_l": "1"
+    "mortality_l": "1",
+    "2kfort5": "0",
+    "demolish": "1",
+    "stowaway2_lg": "0",
+    "chimkey_l": "0"
 }
