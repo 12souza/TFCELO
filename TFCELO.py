@@ -392,6 +392,19 @@ def PickMaps():
     mapVotes = {}
     alreadyVoted = []
     mapPick = []
+    if len(lastFive) == 0:
+        # Seed lastFive from the last 5 pickups played so that this value is never empty
+        with open("pastten.json") as f:
+            past_ten = json.load(f)
+            print(past_ten)
+            past_ten_keys_list = list(past_ten.keys())
+            past_ten_keys_list.reverse()
+            for match in past_ten_keys_list:
+                map = past_ten[match][PAST_TEN_MAP_INDEX].replace("Bot's Choice - ", '')
+                lastFive.append(map)
+                if len(lastFive) == 5:
+                    break
+
     for i in list(mapList):
         if i not in mapSelected:
             if (i not in lastFive) and (i not in hateMaps):
@@ -440,6 +453,14 @@ def PickMaps():
         mapPick2.remove(mapChoice3)
     mapVotes[mapChoice3] = []
     mapSelected.append(mapChoice3)
+
+
+# function for testing visualizing map choices without needing a full game
+# !pick_maps_test
+@client.command(pass_context=True, aliases=["pmtest"])
+@commands.has_role(v["admin"])
+async def pick_maps_test(ctx):
+    PickMaps()
 
 
 # This function manages the captain's mode.
@@ -2591,8 +2612,9 @@ async def forceVote(channel):
                     winningMap = random.choice(candidateMapNames)
                     if "Bot's Choice" in winningMap:
                         wMap = await pickRandomMap(channel)
+                        winningMap = "Bot's Choice - " + wMap
                         await channel.send(
-                            f"The winning map is **{wMap}** and will be played at {winningIP}"
+                            f"BOT'S CHOICE! The winning map is **{wMap}** and will be played at {winningIP}"
                         )
                     else:
                         await channel.send(
@@ -2601,7 +2623,6 @@ async def forceVote(channel):
                     fVCoolDown.stop()
 
                     inVote = 0
-                    winningMap = winningMap
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
                     if "Bot's Choice" in winningMap:
