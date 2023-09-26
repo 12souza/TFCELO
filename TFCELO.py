@@ -32,6 +32,9 @@ with open("ELOpop.json") as f:
 with open("variables.json") as f:
     v = json.load(f)
 
+with open("emotes.json") as f:
+    emotes_global = json.load(f)
+
 # TODO: Update login to work differently..
 
 with open("login.json") as f:
@@ -103,6 +106,7 @@ msg = None
 pTotalPlayers = []
 winningMap = None
 winningServer = None
+
 # =====================================
 # =====================================
 # =====================================
@@ -778,12 +782,16 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
                 + ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX]
             )  # Achievements get wiped and replaced with the dunce cap
             visualRank = getRank(i)  # Always show the rank of the dunce as a punishment
+            win_emblem = '' # Dunces don't get an emblem to show off
         else:
             ach = "".join(achList)  # Not a dunce, use their real achievements
+            win_emblem = get_win_emblem(i)
 
         if i in capList:
             msgList.append(
                 visualRank
+                + " "
+                + win_emblem
                 + " "
                 + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
                 + " "
@@ -803,6 +811,8 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         else:
             msgList.append(
                 visualRank
+                + " "
+                + win_emblem
                 + " "
                 + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
                 + " "
@@ -943,6 +953,33 @@ async def openPickups(ctx):
     await ctx.send(embed=embed)
 
 
+def get_win_emblem(discord_id):
+    """Return the corresponding emblem for a player given their win count"""
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+
+    if ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 10:
+        return emotes_global['civilian']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 25:
+        return emotes_global['scout']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 50:
+        return emotes_global['pyro']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 75:
+        return emotes_global['medic']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 100:
+        return emotes_global['spy']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 250:
+        return emotes_global['sniper']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 500:
+        return emotes_global['engineer']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 750:
+        return emotes_global['soldier']
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 1000:
+        return emotes_global['demoman']
+    else:
+        return emotes_global['hwguy']
+
+
 # Utility function for retrieving the cosmetic ranking number based on ELO for a player ID
 def getRank(ID):
     with open("ELOpop.json") as f:
@@ -1031,7 +1068,7 @@ async def hello(ctx):
 
 # can swap teams.. this will work as !swap @playerout @playerin and optionally a 3 parameter for if a pickup has already started
 # Should reset the ELO points for each team and odds
-@client.command(pass_context=True)
+@client.command(pass_context=True, aliases=["swap"])
 @commands.has_role(v["runner"])
 async def swapteam(
     ctx, player1: discord.Member, player2: discord.Member, number="None"
@@ -3253,6 +3290,12 @@ async def on_message(message):
                     logging.warning('Had to fall-back to local elo file - check for issue query')
                     logging.warning(f"""
                         with elo_row_numbered as (
+                        select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
+                        )
+
+                        select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{user.id}'
+                        order by player_elos desc;""")
+                    await dev_channel.send(f"""Query failed for ELO for some reason - check mysql db - with elo_row_numbered as (
                         select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
                         )
 
