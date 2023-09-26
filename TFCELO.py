@@ -32,9 +32,6 @@ with open("ELOpop.json") as f:
 with open("variables.json") as f:
     v = json.load(f)
 
-with open("emotes.json") as f:
-    emotes_global = json.load(f)
-
 # TODO: Update login to work differently..
 
 with open("login.json") as f:
@@ -785,7 +782,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
             win_emblem = '' # Dunces don't get an emblem to show off
         else:
             ach = "".join(achList)  # Not a dunce, use their real achievements
-            win_emblem = get_win_emblem(i)
+            win_emblem = str(get_win_emblem(ctx, i))
 
         if i in capList:
             msgList.append(
@@ -953,31 +950,31 @@ async def openPickups(ctx):
     await ctx.send(embed=embed)
 
 
-def get_win_emblem(discord_id):
+def get_win_emblem(ctx, discord_id):
     """Return the corresponding emblem for a player given their win count"""
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
 
     if ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 10:
-        return emotes_global['civilian']
+        return get(ctx.message.guild.emojis, name="we0") # Civilian
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 25:
-        return emotes_global['scout']
+        return get(ctx.message.guild.emojis, name="we1") # Scout
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 50:
-        return emotes_global['pyro']
+        return get(ctx.message.guild.emojis, name="we2") # Pyro
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 75:
-        return emotes_global['medic']
+        return get(ctx.message.guild.emojis, name="we3") # Medic
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 100:
-        return emotes_global['spy']
+        return get(ctx.message.guild.emojis, name="we4") # Spy
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 250:
-        return emotes_global['sniper']
+        return get(ctx.message.guild.emojis, name="we5") # Sniper
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 500:
-        return emotes_global['engineer']
+        return get(ctx.message.guild.emojis, name="we6") # Engineer
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 750:
-        return emotes_global['soldier']
+        return get(ctx.message.guild.emojis, name="we7") # Soldier
     elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 1000:
-        return emotes_global['demoman']
+        return get(ctx.message.guild.emojis, name="we8") # Demoman
     else:
-        return emotes_global['hwguy']
+        return get(ctx.message.guild.emojis, name="we9") # HWGuy
 
 
 # Utility function for retrieving the cosmetic ranking number based on ELO for a player ID
@@ -3306,10 +3303,16 @@ async def on_message(message):
                         content=f"Your ELO is currently {ELOpop[str(user.id)][1]} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}",
                     )
                 else:
-                    current_elo = int(mycursor.fetchone()[0])
+                    current_elo = plotList[-1]
+                    previous_game_elo = plotList[-2]
+                    elo_difference = current_elo - previous_game_elo
+                    if (elo_difference) < 0:
+                        elo_difference_message = f"""```diff\n-{abs(elo_difference)}```"""
+                    else:
+                        elo_difference_message = f"""```diff\n+{elo_difference}```"""
                     await message.author.send(
                         file=discord.File(message.author.display_name + ".png"),
-                        content=f"Your ELO is currently {current_elo} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}",
+                        content=f"Your ELO is currently {current_elo} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}\n Difference from previous game:{elo_difference_message}",
                     )
                 os.remove(message.author.display_name + ".png")
                 plt.clf()
