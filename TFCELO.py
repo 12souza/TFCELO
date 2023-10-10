@@ -2581,11 +2581,11 @@ async def forceVote(channel):
                     winningIP = "https://tinyurl.com/tfpugseu - connect 78.141.200.198:27015; password letsplay!"
                     winningServer = "EU (London)"
                 elif windex == 1:
-                    winningIP = "https://tinyurl.com/tfcpugseast - connect coach.game.nfoservers.com; password letsplay!"
-                    winningServer = "East (NY)"
-                elif windex == 2:
                     winningIP = "https://tinyurl.com/tfcpugscentral - connect coachcent.game.nfoservers.com; password letsplay!"
                     winningServer = "Central (Chi)"
+                elif windex == 2:
+                    winningIP = "https://tinyurl.com/tfcpugseast - connect coach.game.nfoservers.com; password letsplay!"
+                    winningServer = "East (NY)"
                 else:
                     # Just pick one so things aren't completely broken
                     winningIP = "https://tinyurl.com/tfcpugscentral - bot chose this randomly"
