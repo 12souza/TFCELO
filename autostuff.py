@@ -19,7 +19,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S')
 
 intents = discord.Intents.all()
-client = commands.Bot(command_prefix = ["!", "+", "-"], case_insensitive=True, intents= intents)
+client = commands.Bot(command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents)
 DEV_TESTING_CHANNEL = 1139762727275995166
 
 
@@ -28,68 +28,72 @@ with open('ELOpop.json') as f:
 with open('variables.json') as f:
     v = json.load(f)
 
+
 def pruneDict(dictk):   
     for i in list(dictk):
-        if(i != "totalgame"):
-            if(dictk['totalgame'] != 0):
+        if (i != "totalgame"):
+            if (dictk['totalgame'] != 0):
                 percent = dictk[i][0] / dictk['totalgame'] * 100
             else:
                 percent = 0
-            #print(f"{i} {percent}")
-            if(percent < 5.0):
+            if (percent < 5.0):
                 #print(i)
                 del dictk[i]
     return dictk
 
+
 def newRank(ID):
     global ELOpop
-    
-    if(len(ELOpop[ID][2]) > 9):
-        if(ELOpop[ID][1] < 240): #1
+
+    if (len(ELOpop[ID][2]) > 9):
+        if (ELOpop[ID][1] < 240): #1
             ELOpop[ID][3] = v['rank1']
-        if(ELOpop[ID][1] >= 240): #2
+        if (ELOpop[ID][1] >= 240): #2
             ELOpop[ID][3] = v['rank2']
-        if(ELOpop[ID][1] > 720): #3
+        if (ELOpop[ID][1] > 720): #3
             ELOpop[ID][3] = v['rank3']
-        if(ELOpop[ID][1] > 960): #4
+        if (ELOpop[ID][1] > 960): #4
             ELOpop[ID][3] = v['rank4']
-        if(ELOpop[ID][1] > 1200): #5
+        if (ELOpop[ID][1] > 1200): #5
             ELOpop[ID][3] = v['rank5']
-        if(ELOpop[ID][1] > 1440): #6
+        if (ELOpop[ID][1] > 1440): #6
             ELOpop[ID][3] = v['rank6']
-        if(ELOpop[ID][1] > 1680): #7
+        if (ELOpop[ID][1] > 1680): #7
             ELOpop[ID][3] = v['rank7']
-        if(ELOpop[ID][1] > 1920): #8
+        if (ELOpop[ID][1] > 1920): #8
             ELOpop[ID][3] = v['rank8'] 
-        if(ELOpop[ID][1] > 2160): #9
+        if (ELOpop[ID][1] > 2160): #9
             ELOpop[ID][3] = v['rank9'] 
-        if(ELOpop[ID][1] > 2300): #10
+        if (ELOpop[ID][1] > 2300): #10
             ELOpop[ID][3] = v['rank10']
-        if(ELOpop[ID][1] > 2600): #10
+        if (ELOpop[ID][1] > 2600): #10
             ELOpop[ID][3] = v['rankS']
 
     with open('ELOpop.json', 'w') as cd:
-        json.dump(ELOpop, cd,indent= 4)
+        json.dump(ELOpop, cd, indent=4)
 
-def simplifyDict(dictfrom, idx, pergame = "No"):
+
+def simplifyDict(dictfrom, idx, pergame="No"):
     newDict = {}
     for i in list(dictfrom):
-        if(i != "totalgame"):
-            if(pergame == "No"):
+        if (i != "totalgame"):
+            if (pergame == "No"):
                 newDict[i] = dictfrom[i][idx]
             else:
-                if(dictfrom[i][0] != 0):
+                if (dictfrom[i][0] != 0):
                     newDict[i] = round(dictfrom[i][idx] / dictfrom[i][0], 2)
                 else:
                     newDict[i] = 0
     return newDict
 
+
 def find(haystack, needle, n):
     start = haystack.find(needle)
     while start >= 0 and n > 1:
-        start = haystack.find(needle, start+len(needle))
+        start = haystack.find(needle, start + len(needle))
         n -= 1
     return start
+
 
 def statUpdater(log1, log2):
     with open('kills.json') as f:
@@ -107,7 +111,7 @@ def statUpdater(log1, log2):
     Lines = file1.readlines()
     file2 = open(log2, 'r')
     Lines2 = file2.readlines()
-    
+
     for line in Lines:
         try:
             if(matchbegin == 0):
@@ -637,188 +641,177 @@ async def reg(ctx, steamid):
     await ctx.send("leaderboard stats reset")
 
 
+def stat_log_file_handler(ftp, region):
+    # Note: We are taking a dependency on newer logs having a higher ascending name
+    logListNameAsc = ftp.nlst()     # Get list of logs sorted in ascending order by name.
+    logListNameDesc = reversed(logListNameAsc) # We want to evaluate most recent first for efficiency, so reverse it
+
+    lastTwoBigLogList = []
+    for logFile in logListNameDesc:
+        size = (ftp.size(logFile))
+        # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+        # if we find any edge cases.
+        if ((size > 100000) and (".log" in logFile)): # Rounds with logs of players and time will be big
+            print("passed heuristic!")
+            lastTwoBigLogList.append(logFile)
+            if (len(lastTwoBigLogList) >= 2):
+                break
+
+    logToParse1 = lastTwoBigLogList[1]
+    logToParse2 = lastTwoBigLogList[0]
+
+    try:
+        ftp.retrbinary("RETR " + logToParse1, open(logToParse1, 'wb').write)
+        ftp.retrbinary("RETR " + logToParse2, open(logToParse2, 'wb').write)
+    except Exception:
+        logging.warn(f"Issue Downloading logfiles from FTP - {Exception}")
+
+    os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
+    os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
+
+    logToParse1 = f"{logToParse1[0:-4]}-coach{region}.log"
+    logToParse2 = f"{logToParse2[0:-4]}-coach{region}.log"
+    f = open(logToParse1)
+    pickup_date = None
+    pickup_map = None
+    for line in f:
+        if ("Loading map" in line):
+            mapstart = line.find('map "') + 5
+            mapend = line.find('"', mapstart)
+            datestart = line.find('L ') + 2
+            dateend = line.find('-', datestart)
+            pickup_date = line[datestart:dateend]
+            pickup_map = line[mapstart:mapend]
+    f.close()
+    ftp.close()
+    blarghalyzer_fallback = None
+    hampalyzer_output = None
+    newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
+    output3 = os.popen(newCMD).read()
+    if ("nginx" not in output3 or output3 is None):
+        hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
+    else:
+        #newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        newCMD = 'curl -v -m 5 -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        output = os.popen(newCMD).read()
+        #newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        newCMD = 'curl -v -m 5 -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        output2 = os.popen(newCMD).read()
+        blarghalyzer_fallback = "**Round 1:** https://blarghalyzer.com/parsedlogs/" + logToParse1[:-4].lower() + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/" + logToParse2[:-4].lower() + "/"
+        
+    #Uses the same alg as cheese put in for logs... except now for HLTVs.  Things have been renamed for HLTV
+    try:
+        statUpdater(logToParse1, logToParse2)
+    except Exception as e:
+        logging.warn('stat updater failed', e)
+
+    os.remove(logToParse1)
+    os.remove(logToParse2)
+    return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
+
+
 @client.command(pass_context=True)
 @commands.has_role(v['runner'])
 async def stats(ctx, region=None, match_number=None, winning_score=None, losing_score=None):
     with open('login.json') as f:
         logins = json.load(f)
     schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
-    if(region.lower() == "none"):
+    if (region.lower() == "none"):
         await ctx.send("please specify region..")
-    elif(region.lower() == 'east' or region.lower() == 'central'):
-      try:
-        ftp = FTP(logins[region][0])
-        ftp.login(user= logins[region][1], passwd=logins[region][2])
-        
-        # Switch working directory to the tfc/logs directory
-        ftp.cwd('tfc')
-        ftp.cwd('logs')
-
-        # Note: We are taking a dependency on newer logs having a higher ascending name
-        logListNameAsc = ftp.nlst()     # Get list of logs sorted in ascending order by name.
-        logListNameDesc = reversed(logListNameAsc) # We want to evaluate most recent first for efficiency, so reverse it
-
-        lastTwoBigLogList = []
-        for logFile in logListNameDesc:
-            size = (ftp.size(logFile))
-            print(f"logFile: {logFile}, size:{size}")
-            # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
-            # if we find any edge cases.
-            if((size > 100000) and (".log" in logFile)): # Rounds with logs of players and time will be big
-                print("passed heuristic!")
-                lastTwoBigLogList.append(logFile)
-                if (len(lastTwoBigLogList) >= 2):
-                    break
-                    
-        logToParse1 = lastTwoBigLogList[1]
-        logToParse2 = lastTwoBigLogList[0]
-
+    elif (region.lower() in ('east', 'eu', 'central')):
         try:
-            ftp.retrbinary("RETR " + logToParse1 ,open(logToParse1, 'wb').write)
-            ftp.retrbinary("RETR " + logToParse2 ,open(logToParse2, 'wb').write)
-        except:
-            print("Error")
+            ftp = FTP(logins[region][0])
+            ftp.login(user=logins[region][1], passwd=logins[region][2])
+            if region.lower() in ('east', 'central'):
+                # Switch working directory to the tfc/logs directory
+                ftp.cwd('tfc')
+            ftp.cwd('logs')
 
+            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = stat_log_file_handler(ftp, region)
 
-        os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
-        os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
-        
-        logToParse1 = f"{logToParse1[0:-4]}-coach{region}.log"
-        logToParse2 = f"{logToParse2[0:-4]}-coach{region}.log"
-        f = open(logToParse1)
-        pDate = None
-        pMap = None
-        for line in f:
-          if("Loading map" in line):
-            mapstart = line.find('map "') + 5
-            mapend = line.find('"', mapstart)
-            datestart = line.find('L ') + 2
-            dateend = line.find('-', datestart)
-            pDate =  line[datestart:dateend]
-            pMap = line[mapstart:mapend]
-        f.close()
-        ftp.close()
-        site = None
-        newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
-        output3 = os.popen(newCMD).read()
-        if("nginx" not in output3 or output3 == None):
-            hampa = "http://app.hampalyzer.com/" + output3[21:-3]
-        else:
-            
-            #newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-            newCMD = 'curl -v -m 5 -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-            output = os.popen(newCMD).read()
-            #newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-            newCMD = 'curl -v -m 5 -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-            output2 = os.popen(newCMD).read()
-            site = "**Round 1:** https://blarghalyzer.com/parsedlogs/" + logToParse1[:-4].lower() + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/" + logToParse2[:-4].lower() + "/"
-            
-        #Uses the same alg as cheese put in for logs... except now for HLTVs.  Things have been renamed for HLTV
-        try:
-            statUpdater(logToParse1,logToParse2)
-        except Exception as e:
-            print('su failed', e)
-        try:
-            await refreshlb(ctx)
-        except:
-            print("rlb failed")
-            
-        os.remove(logToParse1)
-        os.remove(logToParse2)
-        newfile = None
-        try:
-            '''ftp = FTP(logins[region][3])
-            ftp.login(user= logins[region][4], passwd=logins[region][5])
-
-            print(ftp)
-
-            ftp.cwd('tfc')
-            ftp.cwd('HLTV')'''
-            os.chdir("..")
-            os.chdir("steamcmd")
-            os.chdir('tfc')
-            os.chdir('tfc')
-            os.chdir(f'HLTV{region.upper()}')
-            
-            #getting lists
-            HLTVListNameAsc = sorted(filter(os.path.isfile, os.listdir('.')), key=os.path.getmtime)    # Get list of logs sorted in ascending order by name.
-            HLTVListNameDesc = list(reversed(HLTVListNameAsc)) #requires to be casted as a list for some reason.
-            print(HLTVListNameDesc)
-            #breakpoint
-            lastTwoBigHLTVList = []
-            for HLTVFile in HLTVListNameDesc:
-                size = (os.stat(HLTVFile).st_size)
-                #print(f"logFile: {HLTVFile}, size:{size}")
-                # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
-                # if we find any edge cases.
-                if((size > 11000000) and (".dem" in HLTVFile)): # Rounds with logs of players and time will be big
-                    print("passed heuristic!")
-                    lastTwoBigHLTVList.append(HLTVFile)
-                    if (len(lastTwoBigHLTVList) >= 2):
-                        break
-                    
-            if (len(lastTwoBigHLTVList) >= 2):
-                HLTVToZip1 = lastTwoBigHLTVList[1]
-                HLTVToZip2 = lastTwoBigHLTVList[0]
-                print(f"testing HLTV Assignment {HLTVToZip1} {HLTVToZip2}")
-                '''try:
-                    ftp.retrbinary("RETR " + HLTVToZip1 ,open(HLTVToZip1, 'wb').write)
-                    ftp.retrbinary("RETR " + HLTVToZip2 ,open(HLTVToZip2, 'wb').write)
-                except:
-                    print("Error")'''
-
-                #zip file stuff.. get rid of slashes so we dont error.
-                dDate = pDate.replace("/", "")
-                try:
-                    import zlib
-                    mode= zipfile.ZIP_DEFLATED
-                except:
-                    mode= zipfile.ZIP_STORED
-                newfile = pMap + "-" + dDate + ".zip"
-                zip= zipfile.ZipFile(newfile, 'w', mode)
-                zip.write(HLTVToZip1)
-                zip.write(HLTVToZip2)
-                zip.close()            
-        except Exception as e:
-            print(traceback.format_exc())
-            print(f"error here. {e}")
             newfile = None
-    
+            try:
+                if region.lower() == 'eu':
+                    # unimplemented region for HLTV
+                    await schannel.send(f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
+                    return
 
-        if("nginx" not in output3):
-            if(newfile == None):
-                await schannel.send(f"**Hampalyzer:** {hampa} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
-            elif(newfile != None):
-                await schannel.send(file = discord.File(newfile), content=f"**Hampalyzer:** {hampa} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
-                os.remove(HLTVToZip1)
-                os.remove(HLTVToZip2)
-                os.remove(newfile)
-        else: 
-            if(newfile == None):
-                await schannel.send(f"**Blarghalyzer:** {site} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
-            elif(newfile != None):
-                await schannel.send(file = discord.File(newfile), content=f"**Blarghalyzer:** {site} {pMap} {pDate} {region} {match_number} {winning_score} {losing_score}")
+                os.chdir("..")
+                os.chdir("steamcmd")
+                os.chdir('tfc')
+                os.chdir('tfc')
+                os.chdir(f'HLTV{region.upper()}')
+                #getting lists
+                HLTVListNameAsc = sorted(filter(os.path.isfile, os.listdir('.')), key=os.path.getmtime)    # Get list of logs sorted in ascending order by name.
+                HLTVListNameDesc = list(reversed(HLTVListNameAsc)) #requires to be casted as a list for some reason.
+                print(HLTVListNameDesc)
+                #breakpoint
+                lastTwoBigHLTVList = []
+                for HLTVFile in HLTVListNameDesc:
+                    size = (os.stat(HLTVFile).st_size)
+                    #print(f"logFile: {HLTVFile}, size:{size}")
+                    # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+                    # if we find any edge cases.
+                    if((size > 11000000) and (".dem" in HLTVFile)): # Rounds with logs of players and time will be big
+                        print("passed heuristic!")
+                        lastTwoBigHLTVList.append(HLTVFile)
+                        if (len(lastTwoBigHLTVList) >= 2):
+                            break
 
-                os.remove(HLTVToZip1)
-                os.remove(HLTVToZip2)
-                os.remove(newfile)
+                if (len(lastTwoBigHLTVList) >= 2):
+                    HLTVToZip1 = lastTwoBigHLTVList[1]
+                    HLTVToZip2 = lastTwoBigHLTVList[0]
+                    print(f"testing HLTV Assignment {HLTVToZip1} {HLTVToZip2}")
+                    '''try:
+                        ftp.retrbinary("RETR " + HLTVToZip1 ,open(HLTVToZip1, 'wb').write)
+                        ftp.retrbinary("RETR " + HLTVToZip2 ,open(HLTVToZip2, 'wb').write)
+                    except:
+                        print("Error")'''
 
+                    #zip file stuff.. get rid of slashes so we dont error.
+                    formatted_date = pickup_date.replace("/", "")
+                    try:
+                        import zlib
+                        mode = zipfile.ZIP_DEFLATED
+                    except:
+                        mode = zipfile.ZIP_STORED
+                    newfile = pickup_map + "-" + formatted_date + ".zip"
+                    zip = zipfile.ZipFile(newfile, 'w', mode)
+                    zip.write(HLTVToZip1)
+                    zip.write(HLTVToZip2)
+                    zip.close()            
+            except Exception as e:
+                print(traceback.format_exc())
+                print(f"error here. {e}")
+                newfile = None
 
-        
-        
-        
-        
+            if (hampalyzer_output is not None):
+                if (newfile is None):
+                    await schannel.send(f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
+                elif (newfile is not None):
+                    await schannel.send(file=discord.File(newfile), content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
+                    os.remove(HLTVToZip1)
+                    os.remove(HLTVToZip2)
+                    os.remove(newfile)
+            else: 
+                if (newfile is None):
+                    await schannel.send(f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
+                elif (newfile is not None):
+                    await schannel.send(file=discord.File(newfile), content=f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
+                    os.remove(HLTVToZip1)
+                    os.remove(HLTVToZip2)
+                    os.remove(newfile)
 
-        #gotta be a better way of doing this.. but this brings us back to the original script directory
-        os.chdir("..")
-        os.chdir("..")
-        os.chdir("..")
-        os.chdir("..")
-        os.chdir("TFCELO")
-      #gives more info on error.
-        # exec(open("htmlfinal.py").read())
-        os.system("python3 htmlfinal.py")
-      except ZeroDivisionError:
+            #gotta be a better way of doing this.. but this brings us back to the original script directory
+            os.chdir("..")
+            os.chdir("..")
+            os.chdir("..")
+            os.chdir("..")
+            os.chdir("TFCELO")
+            #gives more info on error.
+            # exec(open("htmlfinal.py").read())
+            os.system("python3 htmlfinal.py")
+        except ZeroDivisionError:
             print(traceback.format_exc())
 
 @client.command(pass_context=True)
