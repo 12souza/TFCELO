@@ -519,12 +519,12 @@ async def voteSetup():
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
     if serverVote == 1:
-        mapChoice3 = "New York - East"
-        mapVotes[mapChoice3] = []
+        mapChoice1 = "London - EU"
+        mapVotes[mapChoice1] = []
         mapChoice2 = "Chicago - Central"
         mapVotes[mapChoice2] = []
-        mapChoice1 = "None - None"
-        mapVotes[mapChoice1] = []
+        mapChoice3 = "New York - East"
+        mapVotes[mapChoice3] = []
 
         playersAbstained = []
         players_abstained_discord_id = []
@@ -2577,7 +2577,10 @@ async def forceVote(channel):
                     len(mapVotes[mapChoice3]),
                 ]
                 windex = votes.index(max(votes))
-                if windex == 1:
+                if windex == 0:
+                    winningIP = "https://tinyurl.com/tfpugseu - connect 78.141.200.198:27015; password letsplay!"
+                    winningServer = "EU (London)"
+                elif windex == 1:
                     winningIP = "https://tinyurl.com/tfcpugscentral - connect coachcent.game.nfoservers.com; password letsplay!"
                     winningServer = "Central (Chi)"
                 elif windex == 2:
@@ -2585,7 +2588,7 @@ async def forceVote(channel):
                     winningServer = "East (NY)"
                 else:
                     # Just pick one so things aren't completely broken
-                    winningIP = "https://tinyurl.com/tfcpugscentral"
+                    winningIP = "https://tinyurl.com/tfcpugscentral - bot chose this randomly"
                     winningServer = "Central (Chi)"
                 serverVote = 0
                 fTimer = 3
