@@ -3268,7 +3268,7 @@ async def on_message(message):
         try:
             if message.guild is None and message.author != client.user:
                 mycursor.execute(
-                    f"SELECT player_elos from player_elo WHERE discord_id = {user.id}"
+                    f"SELECT player_elos from player_elo WHERE discord_id = {user.id} order by entryID"
                 )
                 plotList = []
                 for x in mycursor:
