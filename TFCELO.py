@@ -3328,7 +3328,8 @@ async def on_message(message):
                         if current_elo > elo_group:
                             continue
                         else:
-                            needed_for_next_rank = RANK_BOUNDARIES_LIST[index - 1] - current_elo
+                            needed_for_next_rank = RANK_BOUNDARIES_LIST[index] - current_elo
+                            break
                     embed.add_field(
                         name="Amount of ELO needed for next rank", value=needed_for_next_rank
                     )
