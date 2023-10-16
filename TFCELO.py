@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from discord.utils import get
 import matplotlib.pyplot as plt
+import mplcyberpunk
 from discord.ext import tasks
 import os
 import random
@@ -61,6 +62,7 @@ PAST_TEN_MAP_INDEX = 9
 LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
 MAP_VOTE_FIRST = True
+RANK_BOUNDARIES_LIST = [220, 450, 690, 940, 1200, 460, 1730, 2010, 2300, 2600]
 
 cap1 = None
 cap1Name = None
@@ -986,25 +988,25 @@ def getRank(ID):
     if (ELOpop[ID][PLAYER_MAP_WIN_INDEX] + ELOpop[ID][PLAYER_MAP_LOSS_INDEX] + ELOpop[ID][PLAYER_MAP_DRAW_INDEX]) < 10:
         return "<:questionMark:972369805359337532>"
 
-    if ELOpop[ID][1] < 220:  # 1
+    if ELOpop[ID][1] < RANK_BOUNDARIES_LIST[0]:  # 1
         return v["rank1"]
-    elif ELOpop[ID][1] < 450:  # 2
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[1]:  # 2
         return v["rank2"]
-    elif ELOpop[ID][1] < 690:  # 3
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[2]:  # 3
         return v["rank3"]
-    elif ELOpop[ID][1] < 940:  # 4
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[3]:  # 4
         return v["rank4"]
-    elif ELOpop[ID][1] < 1200:  # 5
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[4]:  # 5
         return v["rank5"]
-    elif ELOpop[ID][1] < 1460:  # 6
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[5]:  # 6
         return v["rank6"]
-    elif ELOpop[ID][1] < 1730:  # 7
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[6]:  # 7
         return v["rank7"]
-    elif ELOpop[ID][1] < 2010:  # 8
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[7]:  # 8
         return v["rank8"]
-    elif ELOpop[ID][1] < 2300:  # 9
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[8]:  # 9
         return v["rank9"]
-    elif ELOpop[ID][1] < 2600:  # 10
+    elif ELOpop[ID][1] < RANK_BOUNDARIES_LIST[9]:  # 10
         return v["rank10"]
     else:  # S
         return v["rankS"]
@@ -3273,7 +3275,9 @@ async def on_message(message):
                 plotList = []
                 for x in mycursor:
                     plotList.append(int(x[0]))
+                plt.style.use("cyberpunk")
                 plt.plot(plotList)
+                mplcyberpunk.add_glow_effects()
                 plt.savefig(message.author.display_name + ".png")
 
                 mycursor.execute(
@@ -3313,11 +3317,26 @@ async def on_message(message):
                         elo_difference_message = f"""```diff\n-{abs(elo_difference)}```"""
                     else:
                         elo_difference_message = f"""```diff\n+{elo_difference}```"""
-                    await message.author.send(
-                        file=discord.File(message.author.display_name + ".png"),
-                        content=f"Your ELO is currently {current_elo} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}\n Difference from previous game:{elo_difference_message}",
+                    embed = discord.Embed(title=f"{message.author.display_name}")
+                    message_formatted = f"Your ELO is currently {current_elo} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}\n Difference from previous game:{elo_difference_message}"
+                    embed.add_field(
+                        name="ELO & Stats", value=message_formatted
                     )
-                os.remove(message.author.display_name + ".png")
+                    needed_for_next_rank = 'N/A'
+                    # TODO: Put this into a function outside of this code
+                    for index, elo_group in enumerate(RANK_BOUNDARIES_LIST):
+                        if current_elo > elo_group:
+                            continue
+                        else:
+                            needed_for_next_rank = RANK_BOUNDARIES_LIST[index - 1] - current_elo
+                    embed.add_field(
+                        name="Amount of ELO needed for next rank", value=needed_for_next_rank
+                    )
+                    # TODO: Add a field that has the past 10 games, like neatqueue
+                    filename = message.author.display_name + ".png"
+                    file = discord.File(filename)
+                    await message.author.send(embed=embed, file=file)
+                os.remove(filename)
                 plt.clf()
         except Exception as e:
             await message.author.send("Command failed - Sending error to admins")
