@@ -724,6 +724,24 @@ async def pickRandomMap(ctx):
     return rMap
 
 
+# will pick a random map
+@client.command(pass_context=True, aliases=["doubleelomap"])
+@commands.has_role(v["runner"])
+async def pick_double_elo_map(ctx):
+    with open("double_elo_maps.json") as f:
+        mapList = json.load(f)
+    global lastFive
+
+    rMap = random.choice(list(mapList))
+    channel = await client.fetch_channel(v["pID"])
+
+    while rMap in lastFive:
+        rMap = random.choice(list(mapList))
+    await channel.send(f"The map chosen is **{rMap}**")
+
+    return rMap
+
+
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def ach(ctx, player: discord.Member, ach):
@@ -2650,7 +2668,7 @@ async def forceVote(channel):
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
                     if "Bot's Choice" in winningMap:
-                        wMap = await pickRandomMap(channel)
+                        wMap = await pick_double_elo_map(channel)
                         winningMap = "Bot's Choice - " + wMap
                         await channel.send(
                             f"BOT'S CHOICE! The winning map is **{wMap}** and will be played at {winningIP}"
