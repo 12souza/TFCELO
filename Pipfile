@@ -8,6 +8,7 @@ discord = "*"
 mysql-connector-python = "*"
 requests = "*"
 matplotlib = "*"
+mplcyberpunk = "*"
 
 [dev-packages]
 black = "*"
