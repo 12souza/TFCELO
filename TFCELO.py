@@ -162,6 +162,9 @@ async def search(ctx, searchkey):
                 for j in list(ELOpop):
                     if i == ELOpop[j][0]:
                         player_id = j
+                # really stupid hack incoming to handle people who have never actually played a game
+                if (ELOpop[player_id][PLAYER_MAP_WIN_INDEX] + ELOpop[player_id][PLAYER_MAP_LOSS_INDEX] + ELOpop[player_id][PLAYER_MAP_DRAW_INDEX]) == 0:
+                    continue
                 user = await client.fetch_user(player_id)
                 file, embed = await generate_elo_chart(user)
                 await ctx.send(embed=embed, file=file)
