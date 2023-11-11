@@ -134,7 +134,7 @@ async def on_ready():
 
 
 @client.command(pass_context=True)
-@commands.has_role(v["rater"])
+@commands.has_role(v["runner"])
 async def search(ctx, searchkey):
     """
     Allow users with "rater" role to search for a player's ELO
@@ -154,27 +154,17 @@ async def search(ctx, searchkey):
                 if searchkey.lower() in ELOpop[i][0].lower():
                     searchList.append(ELOpop[i][0])
 
-            pMsgList = []
+            if len(searchList) == 0:
+                await ctx.send("No results with that search string")
+
             for i in searchList:
-                playerID = None
+                player_id = None
                 for j in list(ELOpop):
                     if i == ELOpop[j][0]:
-                        playerID = j
-                pMsgList.append(
-                    i
-                    + " " * (30 - len(i))
-                    + " ELO: "
-                    + str(ELOpop[playerID][1])
-                    + "                 1-20 rank: "
-                    + str(ELOpop[playerID][1] / 120)
-                    + f"     W:{ELOpop[playerID][4]} L:{ELOpop[playerID][5]} D:{ELOpop[playerID][6]}\n"
-                )
-            mMsg = "".join(pMsgList)
-
-            if len(searchList) > 0:
-                await ctx.send(content="```\n" + mMsg + "```")
-            else:
-                await ctx.send("No results with that search string..")
+                        player_id = j
+                user = await client.fetch_user(player_id)
+                file, embed = await generate_elo_chart(user)
+                await ctx.send(embed=embed, file=file)
 
 
 # Allow all players to toggle their rank being private or hidden
@@ -3259,6 +3249,88 @@ async def on_reaction_add(reaction, user):
                         await reaction.message.remove_reaction(reaction, user)
 
 
+async def generate_elo_chart(discord_user):
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+    db = mysql.connector.connect(
+        host=logins['mysql']['host'],
+        user=logins['mysql']['user'],
+        passwd=logins['mysql']['passwd'],
+        database=logins['mysql']['database'],
+    )
+
+    mycursor = db.cursor()
+    try:
+        mycursor.execute(
+            f"SELECT player_elos from player_elo WHERE discord_id = {discord_user.id} order by entryID"
+        )
+        plotList = []
+        for x in mycursor:
+            plotList.append(int(x[0]))
+        plt.style.use("cyberpunk")
+        plt.plot(plotList)
+        mplcyberpunk.add_glow_effects()
+        plt.savefig(discord_user.display_name + ".png")
+
+        mycursor.execute(
+                    f"""SELECT max(player_elos) from player_elo WHERE discord_id = {discord_user.id}"""
+        )
+        max_elo = mycursor.fetchone()[0]
+
+        if mycursor.rowcount is None:
+            logging.warning('Had to fall-back to local elo file - check for issue query')
+            logging.warning(f"""
+                with elo_row_numbered as (
+                select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
+                )
+
+                select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{discord_user.id}'
+                order by player_elos desc;""")
+            await dev_channel.send(f"""Query failed for ELO for some reason - check mysql db - with elo_row_numbered as (
+                select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
+                )
+
+                select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{discord_user.id}'
+                order by player_elos desc;""")
+            return discord.File(discord_user.display_name + ".png"), f"ELO is currently {ELOpop[str(discord_user.id)][1]} with a record of W: {ELOpop[str(discord_user.id)][4]} L: {ELOpop[str(discord_user.id)][5]} D: {ELOpop[str(discord_user.id)][6]}"
+        else:
+            current_elo = plotList[-1]
+            previous_game_elo = plotList[-2]
+            elo_difference = current_elo - previous_game_elo
+            if (elo_difference) < 0:
+                elo_difference_message = f"""```diff\n-{abs(elo_difference)}```"""
+            else:
+                elo_difference_message = f"""```diff\n+{elo_difference}```"""
+            embed = discord.Embed(title=f"{discord_user.display_name}")
+            message_formatted = f"Your ELO is currently {current_elo} with a record of W: {ELOpop[str(discord_user.id)][4]} L: {ELOpop[str(discord_user.id)][5]} D: {ELOpop[str(discord_user.id)][6]}\n Difference from previous game:{elo_difference_message}"
+            embed.add_field(
+                name="ELO & Stats", value=message_formatted
+            )
+            needed_for_next_rank = 'N/A'
+            # TODO: Put this into a function outside of this code
+            for index, elo_group in enumerate(RANK_BOUNDARIES_LIST):
+                if current_elo > elo_group:
+                    continue
+                else:
+                    needed_for_next_rank = RANK_BOUNDARIES_LIST[index] - current_elo
+                    break
+            embed.add_field(
+                name="Amount of ELO needed for next rank", value=needed_for_next_rank
+            )
+            embed.add_field(
+                name="Peak ELO", value=max_elo
+            )
+            # TODO: Add a field that has the past 10 games, like neatqueue
+            filename = discord_user.display_name + ".png"
+            file = discord.File(filename)
+            os.remove(filename)
+            plt.clf()
+            return file, embed
+    except Exception as e:
+        await dev_channel.send(e)
+
+
 @client.event
 async def on_message(message):
     global eligiblePlayers
@@ -3273,93 +3345,9 @@ async def on_message(message):
     global mapChoice4
 
     if message.content == "elo":
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
         user = await client.fetch_user(message.author.id)
-        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
-        db = mysql.connector.connect(
-            host=logins['mysql']['host'],
-            user=logins['mysql']['user'],
-            passwd=logins['mysql']['passwd'],
-            database=logins['mysql']['database'],
-        )
-
-        mycursor = db.cursor()
-        try:
-            if message.guild is None and message.author != client.user:
-                mycursor.execute(
-                    f"SELECT player_elos from player_elo WHERE discord_id = {user.id} order by entryID"
-                )
-                plotList = []
-                for x in mycursor:
-                    plotList.append(int(x[0]))
-                plt.style.use("cyberpunk")
-                plt.plot(plotList)
-                mplcyberpunk.add_glow_effects()
-                plt.savefig(message.author.display_name + ".png")
-
-                mycursor.execute(
-                    f"""
-                        with elo_row_numbered as (
-                        select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
-                        )
-
-                        select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{user.id}'
-                        order by player_elos desc;"""
-                )
-
-                if mycursor.rowcount is None:
-                    logging.warning('Had to fall-back to local elo file - check for issue query')
-                    logging.warning(f"""
-                        with elo_row_numbered as (
-                        select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
-                        )
-
-                        select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{user.id}'
-                        order by player_elos desc;""")
-                    await dev_channel.send(f"""Query failed for ELO for some reason - check mysql db - with elo_row_numbered as (
-                        select player_name, player_elos, discord_id, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
-                        )
-
-                        select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{user.id}'
-                        order by player_elos desc;""")
-                    await message.author.send(
-                        file=discord.File(message.author.display_name + ".png"),
-                        content=f"Your ELO is currently {ELOpop[str(user.id)][1]} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}",
-                    )
-                else:
-                    current_elo = plotList[-1]
-                    previous_game_elo = plotList[-2]
-                    elo_difference = current_elo - previous_game_elo
-                    if (elo_difference) < 0:
-                        elo_difference_message = f"""```diff\n-{abs(elo_difference)}```"""
-                    else:
-                        elo_difference_message = f"""```diff\n+{elo_difference}```"""
-                    embed = discord.Embed(title=f"{message.author.display_name}")
-                    message_formatted = f"Your ELO is currently {current_elo} with a record of W: {ELOpop[str(user.id)][4]} L: {ELOpop[str(user.id)][5]} D: {ELOpop[str(user.id)][6]}\n Difference from previous game:{elo_difference_message}"
-                    embed.add_field(
-                        name="ELO & Stats", value=message_formatted
-                    )
-                    needed_for_next_rank = 'N/A'
-                    # TODO: Put this into a function outside of this code
-                    for index, elo_group in enumerate(RANK_BOUNDARIES_LIST):
-                        if current_elo > elo_group:
-                            continue
-                        else:
-                            needed_for_next_rank = RANK_BOUNDARIES_LIST[index] - current_elo
-                            break
-                    embed.add_field(
-                        name="Amount of ELO needed for next rank", value=needed_for_next_rank
-                    )
-                    # TODO: Add a field that has the past 10 games, like neatqueue
-                    filename = message.author.display_name + ".png"
-                    file = discord.File(filename)
-                    await message.author.send(embed=embed, file=file)
-                os.remove(filename)
-                plt.clf()
-        except Exception as e:
-            await message.author.send("Command failed - Sending error to admins")
-            await dev_channel.send(e)
+        file, embed = await generate_elo_chart(user)
+        await message.author.send(embed=embed, file=file)
 
     await client.process_commands(message)
 
