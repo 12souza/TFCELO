@@ -791,7 +791,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         ELOpop = json.load(f)
 
     isMapVoteFirstPickupStarted = False
-    if ((inVote == 1 or mapVoteFirstPickupStarted) and MAP_VOTE_FIRST == True):
+    if ((inVote == 1 or mapVoteFirstPickupStarted) and MAP_VOTE_FIRST is True):
         isMapVoteFirstPickupStarted = True
 
     msgList = []
@@ -871,13 +871,13 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
 
         # Create the emebd
         embed = None
-        if (isMapVoteFirstPickupStarted == True):
+        if (isMapVoteFirstPickupStarted is True):
             embed = discord.Embed(title="Pickup Voting Phase!")
         else:
             embed = discord.Embed(title="Pickup Has 8 or more Players")
 
         if len(playersAdded) > 0:
-            if (isMapVoteFirstPickupStarted == True):
+            if (isMapVoteFirstPickupStarted is True):
                 embed.add_field(
                     name=f"Players Selected (Please Vote!)", value=msg
                 )
@@ -896,12 +896,12 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
 
         oMsg = await ctx.send(embed=embed)
 
-        if (showReact == True):
+        if (showReact is True):
             await oMsg.add_reaction("👍")
         notiflist = []
         for i in playersAdded[0:8]:
             notiflist.append(f"<@{i}> ")
-        if (showReact == True):
+        if (showReact is True):
             notiflist.append("... React with 👍 when ready to teams if no runner available.")
         msg = "".join(notiflist)
         await ctx.send(msg)
@@ -1254,7 +1254,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
 
     # For simplicity, don't let players add if we are map voting first
     # and still in voting stage.
-    if (MAP_VOTE_FIRST == True):
+    if (MAP_VOTE_FIRST is True):
         if (inVote == 1):
             return 2
 
@@ -1409,7 +1409,7 @@ async def removePlayerImpl(ctx, playerID):
 
     # For simplicity, don't let players remove if we are map voting first
     # and still in voting stage.
-    if (MAP_VOTE_FIRST == True and inVote == 1):
+    if (MAP_VOTE_FIRST is True and inVote == 1):
         return
     if playerID in playersAdded:
         playersAdded.remove(playerID)
@@ -1645,7 +1645,7 @@ async def teams(ctx, playerCount=4):
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
 
-                        if (MAP_VOTE_FIRST == True):
+                        if (MAP_VOTE_FIRST is True):
                             # Prune down the players added
                             playersAdded = eligiblePlayers
                             await showPickup(ctx, False, True)
@@ -1914,7 +1914,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         if i != str(playeroutid):
                             eligiblePlayers.append(i)  
                     eligiblePlayers.append(str(playerinid))
-                else: # (MAP_VOTE_FIRST == True):
+                else: # (MAP_VOTE_FIRST is True):
                     # Map voting first, so no teams yet
                     if str(playerone.id) in playersAdded:
                         playeroutid = playerone.id
