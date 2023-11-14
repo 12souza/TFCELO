@@ -623,7 +623,7 @@ async def voteSetup():
             + " " * 15
             + mapVoteOutput(map_choice_4)
             + "\n"
-            + "4️⃣ "
+            + "5️⃣ "
             + new_maps_choice
             + " " * (49 - len(new_maps_choice))
             + mapVoteOutput(new_maps_choice)
@@ -1267,7 +1267,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
                     ELOpop = json.load(f)
                 ELOpop[playerID] = [
                     playerDisplayName,
-                    800,
+                    400,
                     [],
                     "<:questionMark:972369805359337532>",
                     0,
@@ -2631,8 +2631,8 @@ async def forceVote(channel):
             elif serverVote == 0:
                 # We are currently in map voting round
 
-                # Tally the votes for each choice, putting map choice 4 in the first slot to give precedence for a tie, as it may be the "new maps" special
-                # slot which would trigger a new vote in the case of a tie with a real map.
+                # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
+                # This will trigger a new vote in the case of a tie with a real map.
                 votes = [
                     len(mapVotes[new_maps_choice]),
                     len(mapVotes[map_choice_1]),
@@ -2676,7 +2676,7 @@ async def forceVote(channel):
                     )
 
                     if captMode == 0:
-                        if (MAP_VOTE_FIRST == True):
+                        if (MAP_VOTE_FIRST is True):
                             # Create the teams after the map vote
                             inVote = 0
                             await doteams(channel)
