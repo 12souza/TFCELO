@@ -76,10 +76,11 @@ blueTeam = []
 redTeam = []
 votable = 0
 winner = None
-mapChoice1 = None
-mapChoice2 = None
-mapChoice3 = None
-mapChoice4 = "New Maps"
+map_choice_1 = None
+map_choice_2 = None
+map_choice_3 = None
+map_choice_4 = None
+new_maps_choice = "New Maps"
 loveMaps = []
 vnoELO = 0
 hateMaps = []
@@ -122,6 +123,101 @@ for playerIDKey, playerValues in ELOpop.items():
 # Write ELO database changes out
 with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
+
+
+def server_vote_output():
+    return ''
+
+
+def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global new_maps_choice
+    output = "Something went wrong"
+    if reVote == 0:
+        output = ("```Vote up and make sure you hydrate!\n\n"
+                  + "1️⃣ "
+                    + map_choice_1
+                    + " " * (25 - len(map_choice_1))
+                    + "   "
+                    + str(map_list[map_choice_1])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_1)
+                    + "\n"
+                    + "2️⃣ "
+                    + map_choice_2
+                    + " " * (25 - len(map_choice_2))
+                    + "   "
+                    + str(map_list[map_choice_2])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_2)
+                    + "\n"
+                    + "3️⃣ "
+                    + map_choice_3
+                    + " " * (25 - len(map_choice_3))
+                    + "   "
+                    + str(map_list_2[map_choice_3])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_3)
+                    + "\n"
+                    + "4️⃣ "
+                    + map_choice_4
+                    + " " * (25 - len(map_choice_4))
+                    + "   "
+                    + str(map_list_2[map_choice_4])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_4)
+                    + "\n"
+                    + "5️⃣ "
+                    + new_maps_choice
+                    + " " * (49 - len(new_maps_choice))
+                    + mapVoteOutput(new_maps_choice)
+                    + unvoted_string)
+    elif reVote == 1:
+        output = ("```Vote up and make sure you hydrate!\n\n"
+                  + "1️⃣ "
+                    + map_choice_1
+                    + " " * (25 - len(map_choice_1))
+                    + "   "
+                    + str(map_list[map_choice_1])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_1)
+                    + "\n"
+                    + "2️⃣ "
+                    + map_choice_2
+                    + " " * (25 - len(map_choice_2))
+                    + "   "
+                    + str(map_list[map_choice_2])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_2)
+                    + "\n"
+                    + "3️⃣ "
+                    + map_choice_3
+                    + " " * (25 - len(map_choice_3))
+                    + "   "
+                    + str(map_list_2[map_choice_3])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_3)
+                    + "\n"
+                    + "4️⃣ "
+                    + map_choice_4
+                    + " " * (25 - len(map_choice_4))
+                    + "   "
+                    + str(map_list_2[map_choice_4])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_4)
+                    + unvoted_string)
+    return output
 
 
 @client.event
@@ -283,10 +379,10 @@ def DePopulatePickup():
     global redTeam
     global winner
     global oMsg
-    global mapChoice1
-    global mapChoice2
-    global mapChoice3
-    global mapChoice4
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
     global capList
     global captMode
     global loveMaps
@@ -321,10 +417,10 @@ def DePopulatePickup():
     redTeam = []
     winner = None
     vnoELO = 0
-    mapChoice1 = None
-    mapChoice2 = None
-    mapChoice3 = None
-    mapChoice4 = "New Maps"
+    map_choice_1 = None
+    map_choice_2 = None
+    map_choice_3 = None
+    map_choice_4 = None
     loveMaps = []
     hateMaps = []
     mapVotes = {}
@@ -371,18 +467,19 @@ async def fVCoolDown():
         fTimer = fTimer - 1
 
 
-# Selects maps from two different json files.  options 1/2 are from mainmaps.json and option 3 is from specmaps.json
+# Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from winter_2023_maps.json
 def PickMaps():
-    global mapChoice1
-    global mapChoice2
-    global mapChoice3
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
     global loveMaps
     global hateMaps
     global mapVotes
     global alreadyVoted
     global votePhase
     global lastFive
-    with open("mainmaps.json") as f:
+    with open("classic_maps.json") as f:
         mapList = json.load(f)
 
     mapVotes = {}
@@ -413,7 +510,7 @@ def PickMaps():
                 else:
                     mapPick.append(i)
     mapPick2 = []
-    with open("specmaps.json") as f:
+    with open("winter_2023_maps.json") as f:
         mapList = json.load(f)
 
     for i in list(mapList):
@@ -428,27 +525,32 @@ def PickMaps():
                 else:
                     mapPick2.append(i)
 
+    map_choice_1 = random.choice(mapPick)
+    while map_choice_1 in mapPick:
+        mapPick.remove(map_choice_1)
+    mapVotes[map_choice_1] = []
+    mapSelected.append(map_choice_1)
+    map_choice_2 = random.choice(mapPick)
+    while map_choice_2 in mapPick:
+        mapPick.remove(map_choice_2)
+    mapVotes[map_choice_2] = []
+    mapSelected.append(map_choice_2)
+    map_choice_3 = random.choice(mapPick2)
+    while map_choice_3 in mapPick2:
+        mapPick2.remove(map_choice_3)
+    mapVotes[map_choice_3] = []
+    mapSelected.append(map_choice_3)
+    map_choice_4 = random.choice(mapPick2)
+    while map_choice_4 in mapPick2:
+        mapPick2.remove(map_choice_4)
+    mapVotes[map_choice_4] = []
+    mapSelected.append(map_choice_4)
+
     logging.info(f"Map Lists: {mapPick} {mapPick2}")
     logging.info(f"Maps Selected: {mapSelected}")
     logging.info(f"Love Maps: {loveMaps}")
     logging.info(f"Hate Maps: {hateMaps}")
     logging.info(f"Last Five: {lastFive}")
-
-    mapChoice1 = random.choice(mapPick)
-    while mapChoice1 in mapPick:
-        mapPick.remove(mapChoice1)
-    mapVotes[mapChoice1] = []
-    mapSelected.append(mapChoice1)
-    mapChoice2 = random.choice(mapPick)
-    while mapChoice2 in mapPick:
-        mapPick.remove(mapChoice2)
-    mapVotes[mapChoice2] = []
-    mapSelected.append(mapChoice2)
-    mapChoice3 = random.choice(mapPick2)
-    while mapChoice3 in mapPick2:
-        mapPick2.remove(mapChoice3)
-    mapVotes[mapChoice3] = []
-    mapSelected.append(mapChoice3)
 
 
 # function for testing visualizing map choices without needing a full game
@@ -495,12 +597,14 @@ async def testVote(ctx):
             await vMsg.reply("Click the link above to go the current vote!")
             # await channel.send(vMsg)
 
+
 # Sets up voting and manages the voting process
 async def voteSetup():
-    global mapChoice1
-    global mapChoice2
-    global mapChoice3
-    global mapChoice4
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global new_maps_choice
     global mapVotes
     global serverVote
     global reVote
@@ -513,171 +617,65 @@ async def voteSetup():
     channel = await client.fetch_channel(v["pID"])
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
+
+    alreadyVoted = []
+    mapVotes = {}
+    PickMaps()
+    mapVotes[new_maps_choice] = []
+
+    playersAbstained = []
+    players_abstained_discord_id = []
+    for i in eligiblePlayers:
+        if i not in alreadyVoted:
+            playersAbstained.append(ELOpop[i][0])
+            players_abstained_discord_id.append(i)
+    toVoteString = "```"
+    if len(playersAbstained) != 0:
+        toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
+    with open("classic_maps.json") as f:
+        mapList = json.load(f)
+    with open("winter_2023_maps.json") as f:
+        mapList2 = json.load(f)
+
     if serverVote == 1:
-        mapChoice1 = "London - EU"
-        mapVotes[mapChoice1] = []
-        mapChoice2 = "Chicago - Central"
-        mapVotes[mapChoice2] = []
-        mapChoice3 = "New York - East"
-        mapVotes[mapChoice3] = []
-
-        playersAbstained = []
-        players_abstained_discord_id = []
-        for i in eligiblePlayers:
-            if i not in alreadyVoted:
-                playersAbstained.append(ELOpop[i][0])
-                players_abstained_discord_id.append(i)
-        toVoteString = "```"
-        if len(playersAbstained) != 0:
-            toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
-
+        map_choice_1 = "London - EU"
+        mapVotes[map_choice_1] = []
+        map_choice_2 = "Chicago - Central"
+        mapVotes[map_choice_2] = []
+        map_choice_3 = "New York - East"
+        mapVotes[map_choice_3] = []
         vMsg = await channel.send(
             "````Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
             + "1️⃣ "
-            + mapChoice1
-            + " " * (70 - len(mapChoice1))
-            + mapVoteOutput(mapChoice1)
+            + map_choice_1
+            + " " * (70 - len(map_choice_1))
+            + mapVoteOutput(map_choice_1)
             + "\n"
             + "2️⃣ "
-            + mapChoice2
-            + " " * (70 - len(mapChoice2))
-            + mapVoteOutput(mapChoice2)
+            + map_choice_2
+            + " " * (70 - len(map_choice_2))
+            + mapVoteOutput(map_choice_2)
             + "\n"
             + "3️⃣ "
-            + mapChoice3
-            + " " * (70 - len(mapChoice3))
-            + mapVoteOutput(mapChoice3)
+            + map_choice_3
+            + " " * (70 - len(map_choice_3))
+            + mapVoteOutput(map_choice_3)
             + toVoteString
         )
-
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
         votable = 1
-
     elif (reVote == 0) and (serverVote == 0):
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-
-        alreadyVoted = []
-        mapVotes = {}
-        PickMaps()
-        mapChoice4 = "New Maps"
-        mapVotes[mapChoice4] = []
-
-        playersAbstained = []
-        players_abstained_discord_id = []
-        for i in eligiblePlayers:
-            if i not in alreadyVoted:
-                playersAbstained.append(ELOpop[i][0])
-                players_abstained_discord_id.append(i)
-        toVoteString = "```"
-        if len(playersAbstained) != 0:
-            toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
-        with open("mainmaps.json") as f:
-            mapList = json.load(f)
-        with open("specmaps.json") as f:
-            mapList2 = json.load(f)
-        vMsg = await channel.send(
-            "```Vote up and make sure you hydrate!\n\n"
-            + "1️⃣ "
-            + mapChoice1
-            + " " * (25 - len(mapChoice1))
-            + "   "
-            + str(mapList[mapChoice1])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(mapChoice1)
-            + "\n"
-            + "2️⃣ "
-            + mapChoice2
-            + " " * (25 - len(mapChoice2))
-            + "   "
-            + str(mapList[mapChoice2])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(mapChoice2)
-            + "\n"
-            + "3️⃣ "
-            + mapChoice3
-            + " " * (25 - len(mapChoice3))
-            + "   "
-            + str(mapList2[mapChoice3])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(mapChoice3)
-            + "\n"
-            + "4️⃣ "
-            + mapChoice4
-            + " " * (49 - len(mapChoice4))
-            + mapVoteOutput(mapChoice4)
-            + toVoteString
-        )
-
+        vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
         await vMsg.add_reaction("4️⃣")
+        await vMsg.add_reaction("5️⃣")
         votable = 1
-
     elif (reVote == 1) and (serverVote == 0):
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-
-        alreadyVoted = []
-        mapVotes = {}
-        PickMaps()
-        mapVotes[mapChoice4] = []
-
-        playersAbstained = []
-        players_abstained_discord_id = []
-        for i in eligiblePlayers:
-            if i not in alreadyVoted:
-                playersAbstained.append(ELOpop[i][0])
-                players_abstained_discord_id.append(i)
-        toVoteString = "```"
-        if len(playersAbstained) != 0:
-            toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
-        with open("mainmaps.json") as f:
-            mapList = json.load(f)
-        with open("specmaps.json") as f:
-            mapList2 = json.load(f)
-        vMsg = await channel.send(
-            "```Vote up and make sure you hydrate!\n\n"
-            + "1️⃣ "
-            + mapChoice1
-            + " " * (25 - len(mapChoice1))
-            + "   "
-            + str(mapList[mapChoice1])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(mapChoice1)
-            + "\n"
-            + "2️⃣ "
-            + mapChoice2
-            + " " * (25 - len(mapChoice2))
-            + "   "
-            + str(mapList[mapChoice2])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(mapChoice2)
-            + "\n"
-            + "3️⃣ "
-            + mapChoice3
-            + " " * (25 - len(mapChoice3))
-            + "   "
-            + str(mapList2[mapChoice3])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(mapChoice3)
-            + "\n"
-            + "4️⃣ "
-            + mapChoice4
-            + " " * (49 - len(mapChoice4))
-            + mapVoteOutput(mapChoice4)
-            + toVoteString
-        )
-
+        vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
@@ -703,7 +701,7 @@ async def addach(ctx, key, value):
 @client.command(pass_context=True, aliases=["map"])
 @commands.has_role(v["runner"])
 async def pickRandomMap(ctx):
-    with open("mainmaps.json") as f:
+    with open("classic_maps.json") as f:
         mapList = json.load(f)
     global lastFive
 
@@ -770,7 +768,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         ELOpop = json.load(f)
 
     isMapVoteFirstPickupStarted = False
-    if ((inVote == 1 or mapVoteFirstPickupStarted) and MAP_VOTE_FIRST == True):
+    if ((inVote == 1 or mapVoteFirstPickupStarted) and MAP_VOTE_FIRST is True):
         isMapVoteFirstPickupStarted = True
 
     msgList = []
@@ -850,15 +848,15 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
 
         # Create the emebd
         embed = None
-        if (isMapVoteFirstPickupStarted == True):
+        if (isMapVoteFirstPickupStarted is True):
             embed = discord.Embed(title="Pickup Voting Phase!")
         else:
             embed = discord.Embed(title="Pickup Has 8 or more Players")
 
         if len(playersAdded) > 0:
-            if (isMapVoteFirstPickupStarted == True):
+            if (isMapVoteFirstPickupStarted is True):
                 embed.add_field(
-                    name=f"Players Selected (Please Vote!)", value=msg
+                    name="Players Selected (Please Vote!)", value=msg
                 )
             else:
                 embed.add_field(
@@ -875,12 +873,12 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
 
         oMsg = await ctx.send(embed=embed)
 
-        if (showReact == True):
+        if (showReact is True):
             await oMsg.add_reaction("👍")
         notiflist = []
         for i in playersAdded[0:8]:
             notiflist.append(f"<@{i}> ")
-        if (showReact == True):
+        if (showReact is True):
             notiflist.append("... React with 👍 when ready to teams if no runner available.")
         msg = "".join(notiflist)
         await ctx.send(msg)
@@ -1233,7 +1231,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
 
     # For simplicity, don't let players add if we are map voting first
     # and still in voting stage.
-    if (MAP_VOTE_FIRST == True):
+    if (MAP_VOTE_FIRST is True):
         if (inVote == 1):
             return 2
 
@@ -1246,7 +1244,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
                     ELOpop = json.load(f)
                 ELOpop[playerID] = [
                     playerDisplayName,
-                    800,
+                    400,
                     [],
                     "<:questionMark:972369805359337532>",
                     0,
@@ -1388,7 +1386,7 @@ async def removePlayerImpl(ctx, playerID):
 
     # For simplicity, don't let players remove if we are map voting first
     # and still in voting stage.
-    if (MAP_VOTE_FIRST == True and inVote == 1):
+    if (MAP_VOTE_FIRST is True and inVote == 1):
         return
     if playerID in playersAdded:
         playersAdded.remove(playerID)
@@ -1624,7 +1622,7 @@ async def teams(ctx, playerCount=4):
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
 
-                        if (MAP_VOTE_FIRST == True):
+                        if (MAP_VOTE_FIRST is True):
                             # Prune down the players added
                             playersAdded = eligiblePlayers
                             await showPickup(ctx, False, True)
@@ -1893,7 +1891,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         if i != str(playeroutid):
                             eligiblePlayers.append(i)  
                     eligiblePlayers.append(str(playerinid))
-                else: # (MAP_VOTE_FIRST == True):
+                else: # (MAP_VOTE_FIRST is True):
                     # Map voting first, so no teams yet
                     if str(playerone.id) in playersAdded:
                         playeroutid = playerone.id
@@ -2550,18 +2548,19 @@ async def requeue(ctx):
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
 # Examples: !forceVote
 #           !fv
-@client.command(aliases=["fv"])
+@client.command(aliases=["fv"], pass_context=True)
 @commands.cooldown(1, 3, commands.BucketType.default)
 @commands.has_role(v["runner"])
-async def forceVote(channel):
+async def forceVote(ctx):
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
             global mapVotes
-            global mapChoice4
-            global mapChoice3
-            global mapChoice2
-            global mapChoice1
+            global map_choice_4
+            global map_choice_3
+            global map_choice_2
+            global map_choice_1
+            global new_maps_choice
             global winningIP
             global serverVote
             global eligiblePlayers
@@ -2581,13 +2580,14 @@ async def forceVote(channel):
             global lastFive
             global vMsg
             logging.info("Force Vote Called")
+            vote.reset_cooldown(ctx)
             winningMap = None
             alreadyVoted = []
             if serverVote == 1:
                 votes = [
-                    len(mapVotes[mapChoice1]),
-                    len(mapVotes[mapChoice2]),
-                    len(mapVotes[mapChoice3]),
+                    len(mapVotes[map_choice_1]),
+                    len(mapVotes[map_choice_2]),
+                    len(mapVotes[map_choice_3]),
                 ]
                 windex = votes.index(max(votes))
                 if windex == 0:
@@ -2608,34 +2608,32 @@ async def forceVote(channel):
                 await voteSetup()
             elif serverVote == 0:
                 # We are currently in map voting round
-
-                # Tally the votes for each choice, putting map choice 4 in the first slot to give precedence for a tie, as it may be the "new maps" special
-                # slot which would trigger a new vote in the case of a tie with a real map.
-                votes = [
-                    len(mapVotes[mapChoice4]),
-                    len(mapVotes[mapChoice1]),
-                    len(mapVotes[mapChoice2]),
-                    len(mapVotes[mapChoice3]),
-                ]
-                mapNames = [mapChoice4, mapChoice1, mapChoice2, mapChoice3]
-
+                if reVote == 0:
+                    # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
+                    # This will trigger a new vote in the case of a tie with a real map.
+                    votes = [
+                        len(mapVotes[new_maps_choice]),
+                        len(mapVotes[map_choice_1]),
+                        len(mapVotes[map_choice_2]),
+                        len(mapVotes[map_choice_3]),
+                        len(mapVotes[map_choice_4])
+                    ]
+                    mapNames = [new_maps_choice, map_choice_1, map_choice_2, map_choice_3, map_choice_4]
+                elif reVote == 1:
+                    votes = [
+                        len(mapVotes[map_choice_1]),
+                        len(mapVotes[map_choice_2]),
+                        len(mapVotes[map_choice_3]),
+                        len(mapVotes[map_choice_4])
+                    ]
+                    mapNames = [map_choice_1, map_choice_2, map_choice_3, map_choice_4]
                 maxVoteCount = max(votes)
                 windex = votes.index(maxVoteCount)  # winning index
 
                 # Check for special case of new maps first to trigger new voting round
-                if (windex == 0) and (mapChoice4 == "New Maps"):
+                if (windex == 0) and (new_maps_choice in mapNames):
                     # We need a new voting round
                     reVote = 1
-                    # Find the real map with the most votes by deleting the new maps entry
-                    del votes[0]  # votes now has 3 entries
-                    windex = votes.index(max(votes))
-                    if windex == 0:
-                        mapChoice4 = mapChoice1
-                    if windex == 1:
-                        mapChoice4 = mapChoice2
-                    if windex == 2:
-                        mapChoice4 = mapChoice3
-                    # alreadyVoted = []
                     await channel.send("New maps has won, now selecting new maps..")
                     fTimer = 3
                     await voteSetup()
@@ -2653,7 +2651,7 @@ async def forceVote(channel):
                     )
 
                     if captMode == 0:
-                        if (MAP_VOTE_FIRST == True):
+                        if (MAP_VOTE_FIRST is True):
                             # Create the teams after the map vote
                             inVote = 0
                             await doteams(channel)
@@ -2946,10 +2944,10 @@ async def on_reaction_add(reaction, user):
             global serverVote
             global inVote
             global eligiblePlayers
-            global mapChoice1
-            global mapChoice2
-            global mapChoice3
-            global mapChoice4
+            global map_choice_1
+            global map_choice_2
+            global map_choice_3
+            global map_choice_4
             global reVote
             global pMsg
             global votable
@@ -3109,6 +3107,7 @@ async def on_reaction_add(reaction, user):
                         or (reaction.emoji == "2️⃣")
                         or (reaction.emoji == "3️⃣")
                         or (reaction.emoji == "4️⃣")
+                        or (reaction.emoji == "5️⃣")
                     ):
                         with open("ELOpop.json") as f:
                             ELOpop = json.load(f)
@@ -3121,13 +3120,15 @@ async def on_reaction_add(reaction, user):
                                     if playerName in mapVotes[i]:
                                         mapVotes[i].remove(playerName)
                                 if reaction.emoji == "1️⃣":
-                                    mapVotes[mapChoice1].append(playerName)
+                                    mapVotes[map_choice_1].append(playerName)
                                 if reaction.emoji == "2️⃣":
-                                    mapVotes[mapChoice2].append(playerName)
+                                    mapVotes[map_choice_2].append(playerName)
                                 if reaction.emoji == "3️⃣":
-                                    mapVotes[mapChoice3].append(playerName)
+                                    mapVotes[map_choice_3].append(playerName)
                                 if reaction.emoji == "4️⃣":
-                                    mapVotes[mapChoice4].append(playerName)
+                                    mapVotes[map_choice_4].append(playerName)
+                                if reaction.emoji == "5️⃣":
+                                    mapVotes[new_maps_choice].append(playerName)
                                 if playerName not in alreadyVoted:
                                     alreadyVoted.append(userID)
 
@@ -3145,103 +3146,31 @@ async def on_reaction_add(reaction, user):
                                         + " need to vote 💩```"
                                     )
 
-                                with open("mainmaps.json") as f:
+                                with open("classic_maps.json") as f:
                                     mapList = json.load(f)
-                                with open("specmaps.json") as f:
+                                with open("winter_2023_maps.json") as f:
                                     mapList2 = json.load(f)
                                 if serverVote == 1:
                                     await vMsg.edit(
                                         content="```Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
                                         + "1️⃣ "
-                                        + mapChoice1
-                                        + " " * (70 - len(mapChoice1))
-                                        + mapVoteOutput(mapChoice1)
+                                        + map_choice_1
+                                        + " " * (70 - len(map_choice_1))
+                                        + mapVoteOutput(map_choice_1)
                                         + "\n"
                                         + "2️⃣ "
-                                        + mapChoice2
-                                        + " " * (70 - len(mapChoice2))
-                                        + mapVoteOutput(mapChoice2)
+                                        + map_choice_2
+                                        + " " * (70 - len(map_choice_2))
+                                        + mapVoteOutput(map_choice_2)
                                         + "\n"
                                         + "3️⃣ "
-                                        + mapChoice3
-                                        + " " * (70 - len(mapChoice3))
-                                        + mapVoteOutput(mapChoice3)
+                                        + map_choice_3
+                                        + " " * (70 - len(map_choice_3))
+                                        + mapVoteOutput(map_choice_3)
                                         + toVoteString
                                     )
                                 elif serverVote == 0:
-                                    if reVote == 0:
-                                        await vMsg.edit(
-                                            content="```Vote up and make sure you hydrate!\n\n"
-                                            + "1️⃣ "
-                                            + mapChoice1
-                                            + " " * (25 - len(mapChoice1))
-                                            + "   "
-                                            + str(mapList[mapChoice1])
-                                            + " mirv"
-                                            + " " * 15
-                                            + mapVoteOutput(mapChoice1)
-                                            + "\n"
-                                            + "2️⃣ "
-                                            + mapChoice2
-                                            + " " * (25 - len(mapChoice2))
-                                            + "   "
-                                            + str(mapList[mapChoice2])
-                                            + " mirv"
-                                            + " " * 15
-                                            + mapVoteOutput(mapChoice2)
-                                            + "\n"
-                                            + "3️⃣ "
-                                            + mapChoice3
-                                            + " " * (25 - len(mapChoice3))
-                                            + "   "
-                                            + str(mapList2[mapChoice3])
-                                            + " mirv"
-                                            + " " * 15
-                                            + mapVoteOutput(mapChoice3)
-                                            + "\n"
-                                            + "4️⃣ "
-                                            + mapChoice4
-                                            + " " * (49 - len(mapChoice4))
-                                            + mapVoteOutput(mapChoice4)
-                                            + toVoteString
-                                        )
-                                    elif reVote == 1:
-                                        if serverVote == 0:
-                                            await vMsg.edit(
-                                                content="```Vote up and make sure you hydrate!\n\n"
-                                                + "1️⃣ "
-                                                + mapChoice1
-                                                + " " * (25 - len(mapChoice1))
-                                                + "   "
-                                                + str(mapList[mapChoice1])
-                                                + " mirv"
-                                                + " " * 15
-                                                + mapVoteOutput(mapChoice1)
-                                                + "\n"
-                                                + "2️⃣ "
-                                                + mapChoice2
-                                                + " " * (25 - len(mapChoice2))
-                                                + "   "
-                                                + str(mapList[mapChoice2])
-                                                + " mirv"
-                                                + " " * 15
-                                                + mapVoteOutput(mapChoice2)
-                                                + "\n"
-                                                + "3️⃣ "
-                                                + mapChoice3
-                                                + " " * (25 - len(mapChoice3))
-                                                + "   "
-                                                + str(mapList2[mapChoice3])
-                                                + " mirv"
-                                                + " " * 15
-                                                + mapVoteOutput(mapChoice3)
-                                                + "\n"
-                                                + "4️⃣ "
-                                                + mapChoice4
-                                                + " " * (49 - len(mapChoice4))
-                                                + mapVoteOutput(mapChoice4)
-                                                + toVoteString
-                                            )
+                                    await vMsg.edit(content=get_map_vote_output(reVote, mapList, mapList2, toVoteString))
                                 logging.info(alreadyVoted)
                                 logging.info(mapVotes)
                                 logging.info(playerCount)
@@ -3342,10 +3271,10 @@ async def on_message(message):
     global reVote
     global vMsg
     global mapVotes
-    global mapChoice1
-    global mapChoice2
-    global mapChoice3
-    global mapChoice4
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
 
     if message.content == "elo":
         user = await client.fetch_user(message.author.id)
