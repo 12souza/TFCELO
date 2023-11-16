@@ -125,6 +125,96 @@ with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
 
+def server_vote_output():
+    return ''
+
+
+def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
+    output = "Something went wrong"
+    if reVote == 0:
+        output = "```Vote up and make sure you hydrate!\n\n"
+        + "1️⃣ "
+        + map_choice_1
+        + " " * (25 - len(map_choice_1))
+        + "   "
+        + str(map_list[map_choice_1])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_1)
+        + "\n"
+        + "2️⃣ "
+        + map_choice_2
+        + " " * (25 - len(map_choice_2))
+        + "   "
+        + str(map_list[map_choice_2])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_2)
+        + "\n"
+        + "3️⃣ "
+        + map_choice_3
+        + " " * (25 - len(map_choice_3))
+        + "   "
+        + str(map_list_2[map_choice_3])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_3)
+        + "\n"
+        + "4️⃣ "
+        + map_choice_4
+        + " " * (25 - len(map_choice_4))
+        + "   "
+        + str(map_list_2[map_choice_4])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_4)
+        + "\n"
+        + "5️⃣ "
+        + new_maps_choice
+        + " " * (49 - len(new_maps_choice))
+        + mapVoteOutput(new_maps_choice)
+        + unvoted_string
+    elif reVote == 1:
+        output = "```Vote up and make sure you hydrate!\n\n"
+        + "1️⃣ "
+        + map_choice_1
+        + " " * (25 - len(map_choice_1))
+        + "   "
+        + str(map_list[map_choice_1])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_1)
+        + "\n"
+        + "2️⃣ "
+        + map_choice_2
+        + " " * (25 - len(map_choice_2))
+        + "   "
+        + str(map_list[map_choice_2])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_2)
+        + "\n"
+        + "3️⃣ "
+        + map_choice_3
+        + " " * (25 - len(map_choice_3))
+        + "   "
+        + str(map_list_2[map_choice_3])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_3)
+        + "\n"
+        + "4️⃣ "
+        + map_choice_4
+        + " " * (25 - len(map_choice_4))
+        + "   "
+        + str(map_list_2[map_choice_4])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_4)
+        + unvoted_string
+    return output
+
+
 @client.event
 async def on_ready():
     global GLOBAL_LOCK
@@ -585,50 +675,7 @@ async def voteSetup():
             mapList = json.load(f)
         with open("winter_2023_maps.json") as f:
             mapList2 = json.load(f)
-        vMsg = await channel.send(
-            "```Vote up and make sure you hydrate!\n\n"
-            + "1️⃣ "
-            + map_choice_1
-            + " " * (25 - len(map_choice_1))
-            + "   "
-            + str(mapList[map_choice_1])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_1)
-            + "\n"
-            + "2️⃣ "
-            + map_choice_2
-            + " " * (25 - len(map_choice_2))
-            + "   "
-            + str(mapList[map_choice_2])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_2)
-            + "\n"
-            + "3️⃣ "
-            + map_choice_3
-            + " " * (25 - len(map_choice_3))
-            + "   "
-            + str(mapList2[map_choice_3])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_3)
-            + "\n"
-            + "4️⃣ "
-            + map_choice_4
-            + " " * (25 - len(map_choice_4))
-            + "   "
-            + str(mapList2[map_choice_4])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_4)
-            + "\n"
-            + "5️⃣ "
-            + new_maps_choice
-            + " " * (49 - len(new_maps_choice))
-            + mapVoteOutput(new_maps_choice)
-            + toVoteString
-        )
+        vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
 
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
@@ -659,45 +706,7 @@ async def voteSetup():
             mapList = json.load(f)
         with open("winter_2023_maps.json") as f:
             mapList2 = json.load(f)
-        vMsg = await channel.send(
-            "```Vote up and make sure you hydrate!\n\n"
-            + "1️⃣ "
-            + map_choice_1
-            + " " * (25 - len(map_choice_1))
-            + "   "
-            + str(mapList[map_choice_1])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_1)
-            + "\n"
-            + "2️⃣ "
-            + map_choice_2
-            + " " * (25 - len(map_choice_2))
-            + "   "
-            + str(mapList[map_choice_2])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_2)
-            + "\n"
-            + "3️⃣ "
-            + map_choice_3
-            + " " * (25 - len(map_choice_3))
-            + "   "
-            + str(mapList2[map_choice_3])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_3)
-            + "\n"
-            + "4️⃣ "
-            + map_choice_4
-            + " " * (25 - len(map_choice_4))
-            + "   "
-            + str(mapList2[map_choice_4])
-            + " mirv"
-            + " " * 15
-            + mapVoteOutput(map_choice_4)
-            + toVoteString
-        )
+        vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
 
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
@@ -879,7 +888,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         if len(playersAdded) > 0:
             if (isMapVoteFirstPickupStarted is True):
                 embed.add_field(
-                    name=f"Players Selected (Please Vote!)", value=msg
+                    name="Players Selected (Please Vote!)", value=msg
                 )
             else:
                 embed.add_field(
@@ -2649,16 +2658,6 @@ async def forceVote(channel):
                 if (windex == 0) and (map_choice_4 == "New Maps"):
                     # We need a new voting round
                     reVote = 1
-                    # Find the real map with the most votes by deleting the new maps entry
-                    del votes[0]  # votes now has 3 entries
-                    windex = votes.index(max(votes))
-                    if windex == 0:
-                        map_choice_4 = map_choice_1
-                    if windex == 1:
-                        map_choice_4 = map_choice_2
-                    if windex == 2:
-                        map_choice_4 = map_choice_3
-                    # alreadyVoted = []
                     await channel.send("New maps has won, now selecting new maps..")
                     fTimer = 3
                     await voteSetup()
@@ -3132,6 +3131,7 @@ async def on_reaction_add(reaction, user):
                         or (reaction.emoji == "2️⃣")
                         or (reaction.emoji == "3️⃣")
                         or (reaction.emoji == "4️⃣")
+                        or (reaction.emoji == "5️⃣")
                     ):
                         with open("ELOpop.json") as f:
                             ELOpop = json.load(f)
@@ -3151,6 +3151,8 @@ async def on_reaction_add(reaction, user):
                                     mapVotes[map_choice_3].append(playerName)
                                 if reaction.emoji == "4️⃣":
                                     mapVotes[map_choice_4].append(playerName)
+                                if reaction.emoji == "5️⃣":
+                                    mapVotes[new_maps_choice].append(playerName)
                                 if playerName not in alreadyVoted:
                                     alreadyVoted.append(userID)
 
