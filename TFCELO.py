@@ -611,6 +611,26 @@ async def voteSetup():
     channel = await client.fetch_channel(v["pID"])
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
+
+    alreadyVoted = []
+    mapVotes = {}
+    PickMaps()
+    mapVotes[new_maps_choice] = []
+
+    playersAbstained = []
+    players_abstained_discord_id = []
+    for i in eligiblePlayers:
+        if i not in alreadyVoted:
+            playersAbstained.append(ELOpop[i][0])
+            players_abstained_discord_id.append(i)
+    toVoteString = "```"
+    if len(playersAbstained) != 0:
+        toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
+    with open("classic_maps.json") as f:
+        mapList = json.load(f)
+    with open("winter_2023_maps.json") as f:
+        mapList2 = json.load(f)
+
     if serverVote == 1:
         map_choice_1 = "London - EU"
         mapVotes[map_choice_1] = []
@@ -618,17 +638,6 @@ async def voteSetup():
         mapVotes[map_choice_2] = []
         map_choice_3 = "New York - East"
         mapVotes[map_choice_3] = []
-
-        playersAbstained = []
-        players_abstained_discord_id = []
-        for i in eligiblePlayers:
-            if i not in alreadyVoted:
-                playersAbstained.append(ELOpop[i][0])
-                players_abstained_discord_id.append(i)
-        toVoteString = "```"
-        if len(playersAbstained) != 0:
-            toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
-
         vMsg = await channel.send(
             "````Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
             + "1️⃣ "
@@ -647,67 +656,20 @@ async def voteSetup():
             + mapVoteOutput(map_choice_3)
             + toVoteString
         )
-
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
         votable = 1
-
     elif (reVote == 0) and (serverVote == 0):
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-
-        alreadyVoted = []
-        mapVotes = {}
-        PickMaps()
-        mapVotes[new_maps_choice] = []
-
-        playersAbstained = []
-        players_abstained_discord_id = []
-        for i in eligiblePlayers:
-            if i not in alreadyVoted:
-                playersAbstained.append(ELOpop[i][0])
-                players_abstained_discord_id.append(i)
-        toVoteString = "```"
-        if len(playersAbstained) != 0:
-            toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
-        with open("classic_maps.json") as f:
-            mapList = json.load(f)
-        with open("winter_2023_maps.json") as f:
-            mapList2 = json.load(f)
         vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
-
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
         await vMsg.add_reaction("4️⃣")
         await vMsg.add_reaction("5️⃣")
         votable = 1
-
     elif (reVote == 1) and (serverVote == 0):
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-
-        alreadyVoted = []
-        mapVotes = {}
-        PickMaps()
-        mapVotes[new_maps_choice] = []
-
-        playersAbstained = []
-        players_abstained_discord_id = []
-        for i in eligiblePlayers:
-            if i not in alreadyVoted:
-                playersAbstained.append(ELOpop[i][0])
-                players_abstained_discord_id.append(i)
-        toVoteString = "```"
-        if len(playersAbstained) != 0:
-            toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
-        with open("classic_maps.json") as f:
-            mapList = json.load(f)
-        with open("winter_2023_maps.json") as f:
-            mapList2 = json.load(f)
         vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
-
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
@@ -3194,79 +3156,7 @@ async def on_reaction_add(reaction, user):
                                         + toVoteString
                                     )
                                 elif serverVote == 0:
-                                    if reVote == 0:
-                                        await vMsg.edit(
-                                            content="```Vote up and make sure you hydrate!\n\n"
-                                            + "1️⃣ "
-                                            + map_choice_1
-                                            + " " * (25 - len(map_choice_1))
-                                            + "   "
-                                            + str(mapList[map_choice_1])
-                                            + " mirv"
-                                            + " " * 15
-                                            + mapVoteOutput(map_choice_1)
-                                            + "\n"
-                                            + "2️⃣ "
-                                            + map_choice_2
-                                            + " " * (25 - len(map_choice_2))
-                                            + "   "
-                                            + str(mapList[map_choice_2])
-                                            + " mirv"
-                                            + " " * 15
-                                            + mapVoteOutput(map_choice_2)
-                                            + "\n"
-                                            + "3️⃣ "
-                                            + map_choice_3
-                                            + " " * (25 - len(map_choice_3))
-                                            + "   "
-                                            + str(mapList2[map_choice_3])
-                                            + " mirv"
-                                            + " " * 15
-                                            + mapVoteOutput(map_choice_3)
-                                            + "\n"
-                                            + "4️⃣ "
-                                            + map_choice_4
-                                            + " " * (49 - len(map_choice_4))
-                                            + mapVoteOutput(map_choice_4)
-                                            + toVoteString
-                                        )
-                                    elif reVote == 1:
-                                        if serverVote == 0:
-                                            await vMsg.edit(
-                                                content="```Vote up and make sure you hydrate!\n\n"
-                                                + "1️⃣ "
-                                                + map_choice_1
-                                                + " " * (25 - len(map_choice_1))
-                                                + "   "
-                                                + str(mapList[map_choice_1])
-                                                + " mirv"
-                                                + " " * 15
-                                                + mapVoteOutput(map_choice_1)
-                                                + "\n"
-                                                + "2️⃣ "
-                                                + map_choice_2
-                                                + " " * (25 - len(map_choice_2))
-                                                + "   "
-                                                + str(mapList[map_choice_2])
-                                                + " mirv"
-                                                + " " * 15
-                                                + mapVoteOutput(map_choice_2)
-                                                + "\n"
-                                                + "3️⃣ "
-                                                + map_choice_3
-                                                + " " * (25 - len(map_choice_3))
-                                                + "   "
-                                                + str(mapList2[map_choice_3])
-                                                + " mirv"
-                                                + " " * 15
-                                                + mapVoteOutput(map_choice_3)
-                                                + "\n"
-                                                + "4️⃣ "
-                                                + map_choice_4
-                                                + " " * (49 - len(map_choice_4))
-                                                + mapVoteOutput(map_choice_4)
-                                                + toVoteString
-                                            )
+                                    await vMsg.edit(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
                                 logging.info(alreadyVoted)
                                 logging.info(mapVotes)
                                 logging.info(playerCount)
