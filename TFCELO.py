@@ -2548,10 +2548,10 @@ async def requeue(ctx):
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
 # Examples: !forceVote
 #           !fv
-@client.command(aliases=["fv"])
+@client.command(aliases=["fv"], pass_context=True)
 @commands.cooldown(1, 3, commands.BucketType.default)
 @commands.has_role(v["runner"])
-async def forceVote(channel):
+async def forceVote(ctx):
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
@@ -2580,6 +2580,7 @@ async def forceVote(channel):
             global lastFive
             global vMsg
             logging.info("Force Vote Called")
+            vote.reset_cooldown(ctx)
             winningMap = None
             alreadyVoted = []
             if serverVote == 1:
@@ -2607,23 +2608,30 @@ async def forceVote(channel):
                 await voteSetup()
             elif serverVote == 0:
                 # We are currently in map voting round
-
-                # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
-                # This will trigger a new vote in the case of a tie with a real map.
-                votes = [
-                    len(mapVotes[new_maps_choice]),
-                    len(mapVotes[map_choice_1]),
-                    len(mapVotes[map_choice_2]),
-                    len(mapVotes[map_choice_3]),
-                    len(mapVotes[map_choice_4])
-                ]
-                mapNames = [new_maps_choice, map_choice_4, map_choice_1, map_choice_2, map_choice_3]
-
+                if reVote == 0:
+                    # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
+                    # This will trigger a new vote in the case of a tie with a real map.
+                    votes = [
+                        len(mapVotes[new_maps_choice]),
+                        len(mapVotes[map_choice_1]),
+                        len(mapVotes[map_choice_2]),
+                        len(mapVotes[map_choice_3]),
+                        len(mapVotes[map_choice_4])
+                    ]
+                    mapNames = [new_maps_choice, map_choice_1, map_choice_2, map_choice_3, map_choice_4]
+                elif reVote == 1:
+                    votes = [
+                        len(mapVotes[map_choice_1]),
+                        len(mapVotes[map_choice_2]),
+                        len(mapVotes[map_choice_3]),
+                        len(mapVotes[map_choice_4])
+                    ]
+                    mapNames = [map_choice_1, map_choice_2, map_choice_3, map_choice_4]
                 maxVoteCount = max(votes)
                 windex = votes.index(maxVoteCount)  # winning index
 
                 # Check for special case of new maps first to trigger new voting round
-                if (windex == 0) and (map_choice_4 == "New Maps"):
+                if (windex == 0) and (new_maps_choice in mapNames):
                     # We need a new voting round
                     reVote = 1
                     await channel.send("New maps has won, now selecting new maps..")
