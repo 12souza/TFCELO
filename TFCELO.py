@@ -130,88 +130,93 @@ def server_vote_output():
 
 
 def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global new_maps_choice
     output = "Something went wrong"
     if reVote == 0:
-        output = "```Vote up and make sure you hydrate!\n\n"
-        + "1️⃣ "
-        + map_choice_1
-        + " " * (25 - len(map_choice_1))
-        + "   "
-        + str(map_list[map_choice_1])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_1)
-        + "\n"
-        + "2️⃣ "
-        + map_choice_2
-        + " " * (25 - len(map_choice_2))
-        + "   "
-        + str(map_list[map_choice_2])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_2)
-        + "\n"
-        + "3️⃣ "
-        + map_choice_3
-        + " " * (25 - len(map_choice_3))
-        + "   "
-        + str(map_list_2[map_choice_3])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_3)
-        + "\n"
-        + "4️⃣ "
-        + map_choice_4
-        + " " * (25 - len(map_choice_4))
-        + "   "
-        + str(map_list_2[map_choice_4])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_4)
-        + "\n"
-        + "5️⃣ "
-        + new_maps_choice
-        + " " * (49 - len(new_maps_choice))
-        + mapVoteOutput(new_maps_choice)
-        + unvoted_string
+        output = ("```Vote up and make sure you hydrate!\n\n"
+                  + "1️⃣ "
+                    + map_choice_1
+                    + " " * (25 - len(map_choice_1))
+                    + "   "
+                    + str(map_list[map_choice_1])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_1)
+                    + "\n"
+                    + "2️⃣ "
+                    + map_choice_2
+                    + " " * (25 - len(map_choice_2))
+                    + "   "
+                    + str(map_list[map_choice_2])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_2)
+                    + "\n"
+                    + "3️⃣ "
+                    + map_choice_3
+                    + " " * (25 - len(map_choice_3))
+                    + "   "
+                    + str(map_list_2[map_choice_3])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_3)
+                    + "\n"
+                    + "4️⃣ "
+                    + map_choice_4
+                    + " " * (25 - len(map_choice_4))
+                    + "   "
+                    + str(map_list_2[map_choice_4])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_4)
+                    + "\n"
+                    + "5️⃣ "
+                    + new_maps_choice
+                    + " " * (49 - len(new_maps_choice))
+                    + mapVoteOutput(new_maps_choice)
+                    + unvoted_string)
     elif reVote == 1:
-        output = "```Vote up and make sure you hydrate!\n\n"
-        + "1️⃣ "
-        + map_choice_1
-        + " " * (25 - len(map_choice_1))
-        + "   "
-        + str(map_list[map_choice_1])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_1)
-        + "\n"
-        + "2️⃣ "
-        + map_choice_2
-        + " " * (25 - len(map_choice_2))
-        + "   "
-        + str(map_list[map_choice_2])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_2)
-        + "\n"
-        + "3️⃣ "
-        + map_choice_3
-        + " " * (25 - len(map_choice_3))
-        + "   "
-        + str(map_list_2[map_choice_3])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_3)
-        + "\n"
-        + "4️⃣ "
-        + map_choice_4
-        + " " * (25 - len(map_choice_4))
-        + "   "
-        + str(map_list_2[map_choice_4])
-        + " mirv"
-        + " " * 15
-        + mapVoteOutput(map_choice_4)
-        + unvoted_string
+        output = ("```Vote up and make sure you hydrate!\n\n"
+                  + "1️⃣ "
+                    + map_choice_1
+                    + " " * (25 - len(map_choice_1))
+                    + "   "
+                    + str(map_list[map_choice_1])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_1)
+                    + "\n"
+                    + "2️⃣ "
+                    + map_choice_2
+                    + " " * (25 - len(map_choice_2))
+                    + "   "
+                    + str(map_list[map_choice_2])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_2)
+                    + "\n"
+                    + "3️⃣ "
+                    + map_choice_3
+                    + " " * (25 - len(map_choice_3))
+                    + "   "
+                    + str(map_list_2[map_choice_3])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_3)
+                    + "\n"
+                    + "4️⃣ "
+                    + map_choice_4
+                    + " " * (25 - len(map_choice_4))
+                    + "   "
+                    + str(map_list_2[map_choice_4])
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_4)
+                    + unvoted_string)
     return output
 
 
@@ -535,6 +540,7 @@ def PickMaps():
         mapPick2.remove(map_choice_3)
     mapVotes[map_choice_3] = []
     mapSelected.append(map_choice_3)
+    map_choice_4 = random.choice(mapPick2)
     while map_choice_4 in mapPick2:
         mapPick2.remove(map_choice_4)
     mapVotes[map_choice_4] = []
@@ -3156,7 +3162,7 @@ async def on_reaction_add(reaction, user):
                                         + toVoteString
                                     )
                                 elif serverVote == 0:
-                                    await vMsg.edit(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
+                                    await vMsg.edit(content=get_map_vote_output(reVote, mapList, mapList2, toVoteString))
                                 logging.info(alreadyVoted)
                                 logging.info(mapVotes)
                                 logging.info(playerCount)
