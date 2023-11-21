@@ -180,6 +180,11 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
                     + mapVoteOutput(map_choice_5)
                     + unvoted_string)
     elif reVote == 1:
+        # Weird edge-case handling - need to look up mirv count for the carry-over map
+        if map_list.get(map_choice_5) is not None:
+            carryover_mirv_count = str(map_list[map_choice_5])
+        else:
+            carryover_mirv_count = str(map_list_2[map_choice_5])
         output = ("```Vote up and make sure you hydrate!\n\n"
                   + "1️⃣ "
                     + map_choice_1
@@ -219,7 +224,11 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
                     + "\n"
                     + "5️⃣ CARRYOVER - "
                     + map_choice_5
-                    + " " * (49 - len(map_choice_5))
+                    + " " * (25 - len(map_choice_5))
+                    + "   "
+                    + carryover_mirv_count
+                    + " mirv"
+                    + " " * 15
                     + mapVoteOutput(map_choice_5)
                     + unvoted_string)
     return output
