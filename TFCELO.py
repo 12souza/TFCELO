@@ -80,7 +80,7 @@ map_choice_1 = None
 map_choice_2 = None
 map_choice_3 = None
 map_choice_4 = None
-new_maps_choice = "New Maps"
+map_choice_5 = "New Maps"
 loveMaps = []
 vnoELO = 0
 hateMaps = []
@@ -134,7 +134,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
     global map_choice_2
     global map_choice_3
     global map_choice_4
-    global new_maps_choice
+    global map_choice_5
     output = "Something went wrong"
     if reVote == 0:
         output = ("```Vote up and make sure you hydrate!\n\n"
@@ -175,11 +175,16 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
                     + mapVoteOutput(map_choice_4)
                     + "\n"
                     + "5️⃣ "
-                    + new_maps_choice
-                    + " " * (49 - len(new_maps_choice))
-                    + mapVoteOutput(new_maps_choice)
+                    + map_choice_5
+                    + " " * (49 - len(map_choice_5))
+                    + mapVoteOutput(map_choice_5)
                     + unvoted_string)
     elif reVote == 1:
+        # Weird edge-case handling - need to look up mirv count for the carry-over map
+        if map_list.get(map_choice_5) is not None:
+            carryover_mirv_count = str(map_list[map_choice_5])
+        else:
+            carryover_mirv_count = str(map_list_2[map_choice_5])
         output = ("```Vote up and make sure you hydrate!\n\n"
                   + "1️⃣ "
                     + map_choice_1
@@ -216,6 +221,15 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
                     + " mirv"
                     + " " * 15
                     + mapVoteOutput(map_choice_4)
+                    + "\n"
+                    + "5️⃣ CARRYOVER - "
+                    + map_choice_5
+                    + " " * (25 - len(map_choice_5))
+                    + "   "
+                    + carryover_mirv_count
+                    + " mirv"
+                    + " " * 15
+                    + mapVoteOutput(map_choice_5)
                     + unvoted_string)
     return output
 
@@ -383,6 +397,7 @@ def DePopulatePickup():
     global map_choice_2
     global map_choice_3
     global map_choice_4
+    global map_choice_5
     global capList
     global captMode
     global loveMaps
@@ -421,6 +436,7 @@ def DePopulatePickup():
     map_choice_2 = None
     map_choice_3 = None
     map_choice_4 = None
+    map_choice_5 = "New Maps"
     loveMaps = []
     hateMaps = []
     mapVotes = {}
@@ -604,7 +620,7 @@ async def voteSetup():
     global map_choice_2
     global map_choice_3
     global map_choice_4
-    global new_maps_choice
+    global map_choice_5
     global mapVotes
     global serverVote
     global reVote
@@ -621,7 +637,7 @@ async def voteSetup():
     alreadyVoted = []
     mapVotes = {}
     PickMaps()
-    mapVotes[new_maps_choice] = []
+    mapVotes[map_choice_5] = []
 
     playersAbstained = []
     players_abstained_discord_id = []
@@ -680,6 +696,7 @@ async def voteSetup():
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
         await vMsg.add_reaction("4️⃣")
+        await vMsg.add_reaction("5️⃣")
         votable = 1
 
 
@@ -2560,7 +2577,7 @@ async def forceVote(ctx):
             global map_choice_3
             global map_choice_2
             global map_choice_1
-            global new_maps_choice
+            global map_choice_5
             global winningIP
             global serverVote
             global eligiblePlayers
@@ -2612,28 +2629,39 @@ async def forceVote(ctx):
                     # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
                     # This will trigger a new vote in the case of a tie with a real map.
                     votes = [
-                        len(mapVotes[new_maps_choice]),
+                        len(mapVotes[map_choice_5]),
                         len(mapVotes[map_choice_1]),
                         len(mapVotes[map_choice_2]),
                         len(mapVotes[map_choice_3]),
                         len(mapVotes[map_choice_4])
                     ]
-                    mapNames = [new_maps_choice, map_choice_1, map_choice_2, map_choice_3, map_choice_4]
+                    mapNames = [map_choice_5, map_choice_1, map_choice_2, map_choice_3, map_choice_4]
                 elif reVote == 1:
                     votes = [
                         len(mapVotes[map_choice_1]),
                         len(mapVotes[map_choice_2]),
                         len(mapVotes[map_choice_3]),
-                        len(mapVotes[map_choice_4])
+                        len(mapVotes[map_choice_4]),
+                        len(mapVotes[map_choice_5])
                     ]
-                    mapNames = [map_choice_1, map_choice_2, map_choice_3, map_choice_4]
+                    mapNames = [map_choice_1, map_choice_2, map_choice_3, map_choice_4, map_choice_5]
                 maxVoteCount = max(votes)
                 windex = votes.index(maxVoteCount)  # winning index
 
                 # Check for special case of new maps first to trigger new voting round
-                if (windex == 0) and (new_maps_choice in mapNames):
+                if (windex == 0) and ("New Maps" in mapNames):
                     # We need a new voting round
                     reVote = 1
+                    del votes[0]  # votes now has 4 entries
+                    windex = votes.index(max(votes))
+                    if windex == 0:
+                        map_choice_5 = map_choice_1
+                    if windex == 1:
+                        map_choice_5 = map_choice_2
+                    if windex == 2:
+                        map_choice_5 = map_choice_3
+                    if windex == 3:
+                        map_choice_5 = map_choice_4
                     await channel.send("New maps has won, now selecting new maps..")
                     fTimer = 3
                     await voteSetup()
@@ -3128,7 +3156,7 @@ async def on_reaction_add(reaction, user):
                                 if reaction.emoji == "4️⃣":
                                     mapVotes[map_choice_4].append(playerName)
                                 if reaction.emoji == "5️⃣":
-                                    mapVotes[new_maps_choice].append(playerName)
+                                    mapVotes[map_choice_5].append(playerName)
                                 if playerName not in alreadyVoted:
                                     alreadyVoted.append(userID)
 
