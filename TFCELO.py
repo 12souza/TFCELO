@@ -222,7 +222,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
                     + " " * 15
                     + mapVoteOutput(map_choice_4)
                     + "\n"
-                    + "🔄 "
+                    + "5️⃣ 🔄 "
                     + map_choice_5
                     + " " * (25 - len(map_choice_5))
                     + "   "
