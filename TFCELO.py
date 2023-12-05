@@ -509,22 +509,21 @@ def PickMaps():
             past_ten_keys_list = list(past_ten.keys())
             past_ten_keys_list.reverse()
             for match in past_ten_keys_list:
-                map = past_ten[match][PAST_TEN_MAP_INDEX].replace("Bot's Choice - ", '')
-                lastFive.append(map)
-                if len(lastFive) == 5:
+                map = past_ten[match][PAST_TEN_MAP_INDEX]
+                # Handle edge case of bot's choice being two maps in one that need to be omitted from the pool
+                if "Bot's Choice" in map:
+                    lastFive.append("Bot's Choice (Double ELO)")
+                    # Handle weird edge case of monkey_lg double elo text in a lazy way
+                    lastFive.append(past_ten[match][PAST_TEN_MAP_INDEX].replace("Bot's Choice - ", '').replace(" (no HW w/ double ELO)", ''))
+                else:
+                    lastFive.append(map)
+                if len(lastFive) >= 5:
                     break
 
     for i in list(mapList):
         if i not in mapSelected:
             if (i not in lastFive) and (i not in hateMaps):
-                if i in loveMaps:
-                    mapPick.append(i)
-                    mapPick.append(i)
-                    mapPick.append(i)
-                    mapPick.append(i)
-                    mapPick.append(i)
-                else:
-                    mapPick.append(i)
+                mapPick.append(i)
     mapPick2 = []
     with open("winter_2023_maps.json") as f:
         mapList = json.load(f)
@@ -532,14 +531,7 @@ def PickMaps():
     for i in list(mapList):
         if i not in mapSelected:
             if (i not in lastFive) and (i not in hateMaps):
-                if i in loveMaps:
-                    mapPick2.append(i)
-                    mapPick2.append(i)
-                    mapPick2.append(i)
-                    mapPick2.append(i)
-                    mapPick2.append(i)
-                else:
-                    mapPick2.append(i)
+                mapPick2.append(i)
 
     map_choice_1 = random.choice(mapPick)
     while map_choice_1 in mapPick:
@@ -2701,10 +2693,7 @@ async def forceVote(ctx):
                     inVote = 0
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
-                    if "Bot's Choice" in winningMap:
-                        lastFive.append(wMap)
-                    elif "Bot's Choice" not in winningMap:
-                        lastFive.append(winningMap)
+                    lastFive.append(winningMap)
 
                     if captMode == 0:
                         savePickup()
