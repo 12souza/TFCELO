@@ -732,15 +732,14 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
             newfile = None
             try:
                 if region.lower() == 'eu':
-                    # unimplemented region for HLTV
-                    await schannel.send(f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
-                    return
-
-                os.chdir("..")
-                os.chdir("steamcmd")
-                os.chdir('tfc')
-                os.chdir('tfc')
-                os.chdir(f'HLTV{region.upper()}')
+                    os.chdir("..")
+                    os.chdir(f'HLTV{region.upper()}')
+                else:
+                    os.chdir("..")
+                    os.chdir("steamcmd")
+                    os.chdir('tfc')
+                    os.chdir('tfc')
+                    os.chdir(f'HLTV{region.upper()}')
                 #getting lists
                 HLTVListNameAsc = sorted(filter(os.path.isfile, os.listdir('.')), key=os.path.getmtime)    # Get list of logs sorted in ascending order by name.
                 HLTVListNameDesc = list(reversed(HLTVListNameAsc)) #requires to be casted as a list for some reason.
