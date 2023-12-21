@@ -1872,11 +1872,10 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
-            """global eligiblePlayers
-            global blueTeam
-            global redTeam
-            global playersAdded"""
             if number == "None":
+                if inVote != 0:
+                    await ctx.send("ERROR: Tried calling !sub without a game number outside of voting!")
+                    return
                 global eligiblePlayers
                 global blueTeam
                 global redTeam
@@ -2540,6 +2539,9 @@ async def requeue(ctx):
     global redTeam
     global playersAdded
     async with GLOBAL_LOCK:
+        if inVote != 0:
+            await ctx.send("ERROR: Tried calling !requeue outside of mapvote!")
+            return
         if captMode == 1:
             logging.info(blueTeam, redTeam, eligiblePlayers)
             neligibleplayers = eligiblePlayers
