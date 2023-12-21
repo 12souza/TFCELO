@@ -773,6 +773,8 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
     global PLAYER_MAP_DUNCE_FLAG_INDEX
     global PLAYER_MAP_VISUAL_NAME_INDEX
     global PLAYER_MAP_VISUAL_RANK_INDEX
+    global inVote
+    global MAP_VOTE_FIRST
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
 
@@ -902,8 +904,8 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         elif len(playersAdded) == 0:
             embed.add_field(name="Players Added", value="PUG IS EMPTY!")
         await ctx.send(embed=embed)
-    
-    if (inVote == 1 and vMsg != None):
+
+    if (inVote == 1 and vMsg is not None):
         await vMsg.reply("Click the link above to go the current vote!")
 
 
@@ -1237,6 +1239,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
     global playersAdded
     global capList
     global ELOpop
+    global inVote
 
     # For simplicity, don't let players add if we are map voting first
     # and still in voting stage.
@@ -1392,6 +1395,8 @@ async def testMultithreading2(ctx):
 async def removePlayerImpl(ctx, playerID):
     global playersAdded
     global capList
+    global MAP_VOTE_FIRST
+    global inVote
 
     # For simplicity, don't let players remove if we are map voting first
     # and still in voting stage.
@@ -1440,7 +1445,6 @@ async def doteams(channel2, playerCount=4):
     global inVote
     global blueTeam
     global redTeam
-    global inVote
     global eligiblePlayers
     global fTimer
     global captMode
@@ -1560,7 +1564,7 @@ async def doteams(channel2, playerCount=4):
                 dmMsg = "".join(DMList)
                 await channel2.send(dmMsg)
 
-                if (MAP_VOTE_FIRST == False):
+                if (MAP_VOTE_FIRST is False):
                     # We aren't map voting before teams, so we start the voting after
                     # team are created.
                     # await ctx.send("Please react to the map you want to play on..")
@@ -1610,7 +1614,6 @@ async def teams(ctx, playerCount=4):
             global inVote
             global blueTeam
             global redTeam
-            global inVote
             global eligiblePlayers
             global fTimer
             global oMsg
@@ -1636,7 +1639,7 @@ async def teams(ctx, playerCount=4):
                             playersAdded = eligiblePlayers
                             await showPickup(ctx, False, True)
 
-                        if (MAP_VOTE_FIRST == False):
+                        if (MAP_VOTE_FIRST is False):
                             with open("ELOpop.json") as f:
                                 ELOpop = json.load(f)
 
@@ -1867,24 +1870,26 @@ async def next(ctx, player: discord.Member):
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
-async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number="None"):
+async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=None):
+    global inVote
+    global eligiblePlayers
+    global blueTeam
+    global redTeam
+    global playersAdded
+    global MAP_VOTE_FIRST
+
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
-            """global eligiblePlayers
-            global blueTeam
-            global redTeam
-            global playersAdded"""
-            if number == "None":
-                global eligiblePlayers
-                global blueTeam
-                global redTeam
-                global playersAdded
+            if number is None:
+                if inVote == 0:
+                    await ctx.send("ERROR: Tried calling !sub without a game number outside of voting!")
+                    return
                 playeroutid = None
                 playerinid = None
 
-                if (MAP_VOTE_FIRST == False):
+                if (MAP_VOTE_FIRST is False):
                     eligiblePlayers = []
                     if str(playerone.id) in blueTeam or str(playerone.id) in redTeam:
                         playeroutid = playerone.id
@@ -1918,7 +1923,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     eligiblePlayers = playersAdded
                     await showPickup(ctx, False)
 
-                if (MAP_VOTE_FIRST == False):
+                if (MAP_VOTE_FIRST is False):
                     # Subbing only needs to re-generate teams we aren't map voting first
                     combos = list(
                         itertools.combinations(
@@ -1984,7 +1989,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                     team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
                     await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-            elif number != "None":
+            elif number is not None:
                 eligiblePlayers = []
                 playerIn = None
                 playerOut = None
@@ -2539,7 +2544,12 @@ async def requeue(ctx):
     global blueTeam
     global redTeam
     global playersAdded
+    global inVote
+
     async with GLOBAL_LOCK:
+        if inVote == 0:
+            await ctx.send("ERROR: Tried calling !requeue outside of mapvote!")
+            return
         if captMode == 1:
             logging.info(blueTeam, redTeam, eligiblePlayers)
             neligibleplayers = eligiblePlayers
