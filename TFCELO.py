@@ -99,7 +99,7 @@ eligiblePlayers = []
 reVote = 0
 captMode = 0
 vMsg = None
-serverVote = 0
+server_vote = 0
 mapVote = 0
 pickCount = 0
 msg = None
@@ -415,7 +415,7 @@ def DePopulatePickup():
     global vnoELO
     global eligiblePlayers
     global reVote
-    global serverVote
+    global server_vote
     global mapVote
     global pickCount
     global msg
@@ -452,7 +452,7 @@ def DePopulatePickup():
     reVote = 0
     captMode = 0
     vMsg = None
-    serverVote = 0
+    server_vote = 0
     mapVote = 0
     pickCount = 0
     msg = None
@@ -614,7 +614,7 @@ async def voteSetup():
     global map_choice_4
     global map_choice_5
     global mapVotes
-    global serverVote
+    global server_vote
     global reVote
     global alreadyVoted
     global vMsg
@@ -645,13 +645,15 @@ async def voteSetup():
     with open("winter_2023_maps.json") as f:
         mapList2 = json.load(f)
 
-    if serverVote == 1:
-        map_choice_1 = "London - EU"
+    if server_vote == 1:
+        map_choice_1 = "West - Los Angeles"
         mapVotes[map_choice_1] = []
-        map_choice_2 = "Chicago - Central"
+        map_choice_2 = "Central - Chicago"
         mapVotes[map_choice_2] = []
-        map_choice_3 = "New York - East"
+        map_choice_3 = "East - New York"
         mapVotes[map_choice_3] = []
+        map_choice_4 = "South East - Miami"
+        mapVotes[map_choice_4] = []
         vMsg = await channel.send(
             "````Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
             + "1️⃣ "
@@ -668,13 +670,19 @@ async def voteSetup():
             + map_choice_3
             + " " * (70 - len(map_choice_3))
             + mapVoteOutput(map_choice_3)
+            + "\n"
+            + "4️⃣ "
+            + map_choice_4
+            + " " * (70 - len(map_choice_4))
+            + mapVoteOutput(map_choice_4)
             + toVoteString
         )
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
+        await vMsg.add_reaction("4️⃣")
         votable = 1
-    elif (reVote == 0) and (serverVote == 0):
+    elif (reVote == 0) and (server_vote == 0):
         vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
@@ -682,7 +690,7 @@ async def voteSetup():
         await vMsg.add_reaction("4️⃣")
         await vMsg.add_reaction("5️⃣")
         votable = 1
-    elif (reVote == 1) and (serverVote == 0):
+    elif (reVote == 1) and (server_vote == 0):
         vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
@@ -1448,7 +1456,7 @@ async def doteams(channel2, playerCount=4):
     global eligiblePlayers
     global fTimer
     global captMode
-    global serverVote
+    global server_vote
     global rankedOrder
     global ready
     global oMsg
@@ -1569,7 +1577,7 @@ async def doteams(channel2, playerCount=4):
                     # team are created.
                     # await ctx.send("Please react to the map you want to play on..")
                     await channel2.send("Please react to the server you want to play on..")
-                    serverVote = 1
+                    server_vote = 1
                     await voteSetup()
                     fTimer = 5
                     fVCoolDown.start()
@@ -1592,7 +1600,7 @@ async def doteams(channel2, playerCount=4):
                 await channel2.send(dmMsg)
                 # await ctx.send("Please react to the map you want to play on..")
                 await channel2.send("Please react to the server you want to play on..")
-                serverVote = 1
+                server_vote = 1
                 await voteSetup()
                 fTimer = 5
                 fVCoolDown.start()
@@ -1618,7 +1626,7 @@ async def teams(ctx, playerCount=4):
             global fTimer
             global oMsg
             global captMode
-            global serverVote
+            global server_vote
             global rankedOrder
             global ready
             # global pastTeams
@@ -1731,7 +1739,7 @@ async def teams(ctx, playerCount=4):
                                 "Please react to the server you want to play on.."
                             )
                         
-                        serverVote = 1
+                        server_vote = 1
                         await voteSetup()
                         fTimer = 5
                         fVCoolDown.start()
@@ -1760,7 +1768,7 @@ async def teams(ctx, playerCount=4):
                         await ctx.send(
                             "Please react to the server you want to play on.."
                         )
-                        serverVote = 1
+                        server_vote = 1
                         await voteSetup()
                         fTimer = 5
                         fVCoolDown.start()
@@ -2581,7 +2589,7 @@ async def forceVote(ctx):
             global map_choice_1
             global map_choice_5
             global winningIP
-            global serverVote
+            global server_vote
             global eligiblePlayers
             global pTotalPlayers
             global inVote
@@ -2602,30 +2610,35 @@ async def forceVote(ctx):
             vote.reset_cooldown(ctx)
             winningMap = None
             alreadyVoted = []
-            if serverVote == 1:
+            if server_vote == 1:
                 votes = [
                     len(mapVotes[map_choice_1]),
                     len(mapVotes[map_choice_2]),
                     len(mapVotes[map_choice_3]),
+                    len(mapVotes[map_choice_4])
                 ]
+                # TODO: Need to correctly handle ties here
                 windex = votes.index(max(votes))
                 if windex == 0:
-                    winningIP = "https://tinyurl.com/tfpugseu - connect 78.141.200.198:27015; password letsplay!"
-                    winningServer = "EU (London)"
+                    winningIP = " - connect 78.141.200.198:27015; password letsplay!"
+                    winningServer = "West (Los Angeles)"
                 elif windex == 1:
                     winningIP = "https://tinyurl.com/tfcpugscentral - connect coachcent.game.nfoservers.com; password letsplay!"
                     winningServer = "Central (Chi)"
                 elif windex == 2:
                     winningIP = "https://tinyurl.com/tfcpugseast - connect coach.game.nfoservers.com; password letsplay!"
                     winningServer = "East (NY)"
+                elif windex == 3:
+                    winningIP = " - connect 45.32.164.189:27015; password letsplay!"
+                    winningServer = "South East (Miami)"
                 else:
                     # Just pick one so things aren't completely broken
                     winningIP = "https://tinyurl.com/tfcpugscentral - bot chose this randomly"
                     winningServer = "Central (Chi)"
-                serverVote = 0
+                server_vote = 0
                 fTimer = 3
                 await voteSetup()
-            elif serverVote == 0:
+            elif server_vote == 0:
                 # We are currently in map voting round
                 if reVote == 0:
                     # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
@@ -2968,7 +2981,7 @@ async def on_reaction_add(reaction, user):
         if not user.bot:
             global vMsg
             global mapVotes
-            global serverVote
+            global server_vote
             global inVote
             global eligiblePlayers
             global map_choice_1
@@ -3177,7 +3190,7 @@ async def on_reaction_add(reaction, user):
                                     mapList = json.load(f)
                                 with open("winter_2023_maps.json") as f:
                                     mapList2 = json.load(f)
-                                if serverVote == 1:
+                                if server_vote == 1:
                                     await vMsg.edit(
                                         content="```Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
                                         + "1️⃣ "
@@ -3194,9 +3207,14 @@ async def on_reaction_add(reaction, user):
                                         + map_choice_3
                                         + " " * (70 - len(map_choice_3))
                                         + mapVoteOutput(map_choice_3)
+                                        + "\n"
+                                        + "4️⃣ "
+                                        + map_choice_4
+                                        + " " * (70 - len(map_choice_4))
+                                        + mapVoteOutput(map_choice_4)
                                         + toVoteString
                                     )
-                                elif serverVote == 0:
+                                elif server_vote == 0:
                                     await vMsg.edit(content=get_map_vote_output(reVote, mapList, mapList2, toVoteString))
                                 logging.info(alreadyVoted)
                                 logging.info(mapVotes)
@@ -3294,7 +3312,7 @@ async def generate_elo_chart(discord_user):
 async def on_message(message):
     global eligiblePlayers
     global alreadyVoted
-    global serverVote
+    global server_vote
     global reVote
     global vMsg
     global mapVotes

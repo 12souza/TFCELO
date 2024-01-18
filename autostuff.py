@@ -718,7 +718,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
     schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
     if (region.lower() == "none"):
         await ctx.send("please specify region..")
-    elif (region.lower() in ('east', 'eu', 'central')):
+    elif (region.lower() in ('east', 'eu', 'central', 'west', 'southeast')):
         try:
             ftp = FTP(logins[region][0])
             ftp.login(user=logins[region][1], passwd=logins[region][2])
@@ -731,7 +731,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
 
             newfile = None
             try:
-                if region.lower() == 'eu':
+                if region.lower() in ('eu', 'southeast', 'west'):
                     # unimplemented region for HLTV
                     await schannel.send(f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
                     return
