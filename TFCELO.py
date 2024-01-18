@@ -3207,6 +3207,11 @@ async def on_reaction_add(reaction, user):
                                         + map_choice_3
                                         + " " * (70 - len(map_choice_3))
                                         + mapVoteOutput(map_choice_3)
+                                        + "\n"
+                                        + "4️⃣ "
+                                        + map_choice_4
+                                        + " " * (70 - len(map_choice_4))
+                                        + mapVoteOutput(map_choice_4)
                                         + toVoteString
                                     )
                                 elif server_vote == 0:
