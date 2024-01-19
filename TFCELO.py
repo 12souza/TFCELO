@@ -2620,7 +2620,7 @@ async def forceVote(ctx):
                 # TODO: Need to correctly handle ties here
                 windex = votes.index(max(votes))
                 if windex == 0:
-                    winningIP = " - connect 78.141.200.198:27015; password letsplay!"
+                    winningIP = " - connect 144.202.119.125:27015; password letsplay!"
                     winningServer = "West (Los Angeles)"
                 elif windex == 1:
                     winningIP = "https://tinyurl.com/tfcpugscentral - connect coachcent.game.nfoservers.com; password letsplay!"
