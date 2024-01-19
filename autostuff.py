@@ -731,7 +731,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
 
             newfile = None
             try:
-                if region.lower() in ('eu', 'southeast', 'west'):
+                if region.lower() in ('eu', 'southeast', 'west', 'east'):
                     # unimplemented region for HLTV
                     await schannel.send(f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
                     return
