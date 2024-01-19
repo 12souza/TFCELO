@@ -722,7 +722,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
         try:
             ftp = FTP(logins[region][0])
             ftp.login(user=logins[region][1], passwd=logins[region][2])
-            if region.lower() in ('east', 'central'):
+            if region.lower() in ('central'):
                 # Switch working directory to the tfc/logs directory
                 ftp.cwd('tfc')
             ftp.cwd('logs')
