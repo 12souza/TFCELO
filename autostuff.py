@@ -664,7 +664,7 @@ def stat_log_file_handler(ftp, region):
         ftp.retrbinary("RETR " + logToParse1, open(logToParse1, 'wb').write)
         ftp.retrbinary("RETR " + logToParse2, open(logToParse2, 'wb').write)
     except Exception:
-        logging.warn(f"Issue Downloading logfiles from FTP - {Exception}")
+        logging.warning(f"Issue Downloading logfiles from FTP - {Exception}")
 
     os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
     os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
@@ -682,8 +682,6 @@ def stat_log_file_handler(ftp, region):
             dateend = line.find('-', datestart)
             pickup_date = line[datestart:dateend]
             pickup_map = line[mapstart:mapend]
-    f.close()
-    ftp.close()
     blarghalyzer_fallback = None
     hampalyzer_output = None
     newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
@@ -703,7 +701,7 @@ def stat_log_file_handler(ftp, region):
     try:
         statUpdater(logToParse1, logToParse2)
     except Exception as e:
-        logging.warn('stat updater failed', e)
+        logging.warning('stat updater failed', e)
 
     os.remove(logToParse1)
     os.remove(logToParse2)
@@ -712,16 +710,16 @@ def stat_log_file_handler(ftp, region):
 
 def hltv_file_handler(ftp, pickup_date, pickup_map):
     try:
-        output_zipfile = None
+        output_filename = None
         #getting lists
         HLTVListNameAsc = ftp.nlst()    # Get list of demos sorted in ascending order by name.
         HLTVListNameDesc = list(reversed(HLTVListNameAsc))
         lastTwoBigHLTVList = []
         for HLTVFile in HLTVListNameDesc:
-            size = (os.stat(HLTVFile).st_size)
+            size = ftp.size(HLTVFile)
             # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
             # if we find any edge cases.
-            if((size > 11000000) and (".dem" in HLTVFile)): # Rounds with logs of players and time will be big
+            if ((size > 11000000) and (".dem" in HLTVFile)): # Rounds with logs of players and time will be big
                 print("passed heuristic!")
                 lastTwoBigHLTVList.append(HLTVFile)
                 if (len(lastTwoBigHLTVList) >= 2):
@@ -733,20 +731,22 @@ def hltv_file_handler(ftp, pickup_date, pickup_map):
 
             #zip file stuff.. get rid of slashes so we dont error.
             formatted_date = pickup_date.replace("/", "")
+            ftp.retrbinary("RETR " + HLTVToZip1, open(HLTVToZip1, 'wb').write)
+            ftp.retrbinary("RETR " + HLTVToZip2, open(HLTVToZip2, 'wb').write)
             try:
                 import zlib
                 mode = zipfile.ZIP_DEFLATED
             except:
                 mode = zipfile.ZIP_STORED
-            newfile = pickup_map + "-" + formatted_date + ".zip"
-            zip = zipfile.ZipFile(newfile, 'w', mode)
+            output_filename = pickup_map + "-" + formatted_date + ".zip"
+            zip = zipfile.ZipFile(output_filename, 'w', mode)
             zip.write(HLTVToZip1)
             zip.write(HLTVToZip2)
             zip.close()
-        return output_zipfile
+        return output_filename
     except Exception as e:
-        logging.warn(traceback.format_exc())
-        logging.warn(f"error here. {e}")
+        logging.warning(traceback.format_exc())
+        logging.warning(f"error here. {e}")
         return None
 
 
@@ -765,8 +765,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
             ftp.cwd('logs')
 
             pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = stat_log_file_handler(ftp, region)
-            ftp.cwd('..')
-            ftp.cwd(f'HLTV{region}')
+            ftp.cwd(f'/HLTV{region.upper()}')
             output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
 
             if (hampalyzer_output is not None):
@@ -782,15 +781,7 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
                     await schannel.send(file=discord.File(output_zipfile), content=f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
                     os.remove(output_zipfile)
 
-            #gotta be a better way of doing this.. but this brings us back to the original script directory
-            os.chdir("..")
-            os.chdir("..")
-            os.chdir("..")
-            os.chdir("..")
-            os.chdir("TFCELO")
-            #gives more info on error.
-            # exec(open("htmlfinal.py").read())
-            os.system("python3 htmlfinal.py")
+            ftp.close()
         except ZeroDivisionError:
             print(traceback.format_exc())
 
