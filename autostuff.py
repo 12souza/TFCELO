@@ -722,16 +722,13 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
         try:
             ftp = FTP(logins[region][0])
             ftp.login(user=logins[region][1], passwd=logins[region][2])
-            if region.lower() in ('east', 'central'):
-                # Switch working directory to the tfc/logs directory
-                ftp.cwd('tfc')
             ftp.cwd('logs')
 
             pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = stat_log_file_handler(ftp, region)
 
             newfile = None
             try:
-                if region.lower() in ('eu', 'southeast', 'west'):
+                if region.lower() in ('eu', 'southeast', 'west', 'east', 'central'):
                     # unimplemented region for HLTV
                     await schannel.send(f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}")
                     return
