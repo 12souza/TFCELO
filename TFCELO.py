@@ -181,7 +181,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
                     + unvoted_string)
     elif reVote == 1:
         # Weird edge-case handling - need to look up mirv count for the carry-over map
-        if map_list.get(map_choice_5) is not None:
+        if map_list.get(map_choice_5) is not None and map_list.get(map_choice_5) != 'New Maps':
             carryover_mirv_count = str(map_list[map_choice_5])
         else:
             carryover_mirv_count = str(map_list_2[map_choice_5])
@@ -554,7 +554,6 @@ def PickMaps():
         mapPick2.remove(map_choice_4)
     mapVotes[map_choice_4] = []
     mapSelected.append(map_choice_4)
-    map_choice_5 = "New Maps"
     mapVotes[map_choice_5] = []
 
     logging.info(f"Map Lists: {mapPick} {mapPick2}")
@@ -679,7 +678,6 @@ async def voteSetup():
             + map_choice_4
             + " " * (70 - len(map_choice_4))
             + mapVoteOutput(map_choice_4)
-            + toVoteString
             + "\n"
             + "5️⃣ "
             + map_choice_5
@@ -1350,8 +1348,7 @@ async def test7(ctx):
             addplayerImpl("194276343540613121", "climax", None)
             addplayerImpl("596225454721990676", "botch", None)
             addplayerImpl("173619058657198082", "Moreno", None)
-            # retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
-            # retVal = addplayerImpl("311769927432404994", "Nemsy", None)
+            addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
             await showPickup(ctx)
 
 # Convenience command for testing bot behavior with 8 people added
@@ -1369,8 +1366,7 @@ async def test8(ctx):
             addplayerImpl("194276343540613121", "climax", None)
             addplayerImpl("596225454721990676", "botch", None)
             addplayerImpl("173619058657198082", "Moreno", None)
-            # retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
-            addplayerImpl("311769927432404994", "Nemsy", None)
+            addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
             await showPickup(ctx)
 
 
@@ -2637,13 +2633,13 @@ async def forceVote(ctx):
                 elif windex == 1:
                     winningIP = f"http://tinyurl.com/tfpcentralvultr - connect {logins['central']['server_ip']}:27015; password letsplay!"
                     winningServer = "Central (Chi)"
-                elif windex == 3:
+                elif windex == 2:
                     winningIP = f"http://tinyurl.com/tfpeastvultr - connect {logins['east']['server_ip']}:27015; password letsplay!"
                     winningServer = "East (NY)"
-                elif windex == 4:
+                elif windex == 3:
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east_aws']['server_ip']}:27015; password letsplay!"
                     winningServer = "East (North Virginia)"
-                elif windex == 5:
+                elif windex == 4:
                     winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
                     winningServer = "South East (Miami)"
                 else:
@@ -2652,6 +2648,7 @@ async def forceVote(ctx):
                     winningServer = "Central (Chi)"
                 server_vote = 0
                 fTimer = 3
+                map_choice_5 = "New Maps"
                 await voteSetup()
             elif server_vote == 0:
                 # We are currently in map voting round
@@ -3227,7 +3224,6 @@ async def on_reaction_add(reaction, user):
                                         + map_choice_4
                                         + " " * (70 - len(map_choice_4))
                                         + mapVoteOutput(map_choice_4)
-                                        + toVoteString
                                         + "\n"
                                         + "5️⃣ "
                                         + map_choice_5
