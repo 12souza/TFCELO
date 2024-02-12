@@ -756,12 +756,13 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
     with open('login.json') as f:
         logins = json.load(f)
     schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
-    if (region.lower() == "none"):
+    region_formatted = region.lower()
+    if (region_formatted == "none" or region_formatted is None):
         await ctx.send("please specify region..")
-    elif (region.lower() in ('east', 'eu', 'central', 'west', 'southeast')):
+    elif (region_formatted in ('east', 'east_aws', 'eu', 'central', 'west', 'southeast')):
         try:
-            ftp = FTP(logins[region][0])
-            ftp.login(user=logins[region][1], passwd=logins[region][2])
+            ftp = FTP(logins[region_formatted][0])
+            ftp.login(user=logins[region_formatted][1], passwd=logins[region_formatted][2])
             ftp.cwd('logs')
 
             pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = stat_log_file_handler(ftp, region)

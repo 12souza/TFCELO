@@ -80,7 +80,7 @@ map_choice_1 = None
 map_choice_2 = None
 map_choice_3 = None
 map_choice_4 = None
-map_choice_5 = "New Maps"
+map_choice_5 = None
 loveMaps = []
 vnoELO = 0
 hateMaps = []
@@ -436,7 +436,7 @@ def DePopulatePickup():
     map_choice_2 = None
     map_choice_3 = None
     map_choice_4 = None
-    map_choice_5 = "New Maps"
+    map_choice_5 = None
     loveMaps = []
     hateMaps = []
     mapVotes = {}
@@ -489,6 +489,7 @@ def PickMaps():
     global map_choice_2
     global map_choice_3
     global map_choice_4
+    global map_choice_5
     global loveMaps
     global hateMaps
     global mapVotes
@@ -553,6 +554,8 @@ def PickMaps():
         mapPick2.remove(map_choice_4)
     mapVotes[map_choice_4] = []
     mapSelected.append(map_choice_4)
+    map_choice_5 = "New Maps"
+    mapVotes[map_choice_5] = []
 
     logging.info(f"Map Lists: {mapPick} {mapPick2}")
     logging.info(f"Maps Selected: {mapSelected}")
@@ -629,7 +632,6 @@ async def voteSetup():
     alreadyVoted = []
     mapVotes = {}
     PickMaps()
-    mapVotes[map_choice_5] = []
 
     playersAbstained = []
     players_abstained_discord_id = []
@@ -650,10 +652,12 @@ async def voteSetup():
         mapVotes[map_choice_1] = []
         map_choice_2 = "Central - Chicago"
         mapVotes[map_choice_2] = []
-        map_choice_3 = "East - New York"
+        map_choice_3 = "East - New York (Vultr)"
         mapVotes[map_choice_3] = []
-        map_choice_4 = "South East - Miami"
+        map_choice_4 = "East - North Virginia (AWS)"
         mapVotes[map_choice_4] = []
+        map_choice_5 = "South East - Miami"
+        mapVotes[map_choice_5] = []
         vMsg = await channel.send(
             "````Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
             + "1️⃣ "
@@ -676,11 +680,18 @@ async def voteSetup():
             + " " * (70 - len(map_choice_4))
             + mapVoteOutput(map_choice_4)
             + toVoteString
+            + "\n"
+            + "5️⃣ "
+            + map_choice_5
+            + " " * (70 - len(map_choice_5))
+            + mapVoteOutput(map_choice_5)
+            + toVoteString
         )
         await vMsg.add_reaction("1️⃣")
         await vMsg.add_reaction("2️⃣")
         await vMsg.add_reaction("3️⃣")
         await vMsg.add_reaction("4️⃣")
+        await vMsg.add_reaction("5️⃣")
         votable = 1
     elif (reVote == 0) and (server_vote == 0):
         vMsg = await channel.send(get_map_vote_output(reVote, mapList, mapList2, toVoteString))
@@ -1277,7 +1288,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
                 with open("ELOpop.json", "w") as cd:
                     json.dump(ELOpop, cd, indent=4)
 
-            if cap == "cap":
+            if cap == "cap" and len(capList) < 2:
                 capList.append(playerID)
 
             playersAdded.append(playerID)
@@ -2615,21 +2626,25 @@ async def forceVote(ctx):
                     len(mapVotes[map_choice_1]),
                     len(mapVotes[map_choice_2]),
                     len(mapVotes[map_choice_3]),
-                    len(mapVotes[map_choice_4])
+                    len(mapVotes[map_choice_4]),
+                    len(mapVotes[map_choice_5])
                 ]
                 # TODO: Need to correctly handle ties here
                 windex = votes.index(max(votes))
                 if windex == 0:
-                    winningIP = "http://tinyurl.com/tfpwestvultr - connect 144.202.119.125:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpwestvultr - connect {logins['west']['server_ip']}:27015; password letsplay!"
                     winningServer = "West (Los Angeles)"
                 elif windex == 1:
-                    winningIP = "http://tinyurl.com/tfpcentralvultr - connect 66.42.115.240:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpcentralvultr - connect {logins['central']['server_ip']}:27015; password letsplay!"
                     winningServer = "Central (Chi)"
-                elif windex == 2:
-                    winningIP = "http://tinyurl.com/tfpeastvultr - connect 45.77.106.119:27015; password letsplay!"
-                    winningServer = "East (NY)"
                 elif windex == 3:
-                    winningIP = "http://tinyurl.com/tfpsoutheastvultr - connect 45.77.162.42:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpeastvultr - connect {logins['east']['server_ip']}:27015; password letsplay!"
+                    winningServer = "East (NY)"
+                elif windex == 4:
+                    winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east_aws']['server_ip']}:27015; password letsplay!"
+                    winningServer = "East (North Virginia)"
+                elif windex == 5:
+                    winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
                     winningServer = "South East (Miami)"
                 else:
                     # Just pick one so things aren't completely broken
@@ -3212,6 +3227,12 @@ async def on_reaction_add(reaction, user):
                                         + map_choice_4
                                         + " " * (70 - len(map_choice_4))
                                         + mapVoteOutput(map_choice_4)
+                                        + toVoteString
+                                        + "\n"
+                                        + "5️⃣ "
+                                        + map_choice_5
+                                        + " " * (70 - len(map_choice_5))
+                                        + mapVoteOutput(map_choice_5)
                                         + toVoteString
                                     )
                                 elif server_vote == 0:
