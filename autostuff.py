@@ -743,6 +743,8 @@ def hltv_file_handler(ftp, pickup_date, pickup_map):
             zip.write(HLTVToZip1)
             zip.write(HLTVToZip2)
             zip.close()
+            os.remove(HLTVToZip1)
+            os.remove(HLTVToZip2)
         return output_filename
     except Exception as e:
         logging.warning(traceback.format_exc())
@@ -757,16 +759,18 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
         logins = json.load(f)
     schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
     region_formatted = region.lower()
+    output_zipfile = None
     if (region_formatted == "none" or region_formatted is None):
         await ctx.send("please specify region..")
-    elif (region_formatted in ('east', 'east_aws', 'eu', 'central', 'west', 'southeast')):
+    elif (region_formatted in ('east', 'east2', 'eu', 'central', 'west', 'southeast')):
         try:
-            ftp = FTP(logins[region_formatted][0])
-            ftp.login(user=logins[region_formatted][1], passwd=logins[region_formatted][2])
+            ftp = FTP(logins[region_formatted]['server_ip'])
+            ftp.login(user=logins[region_formatted]['ftp_username'], passwd=logins[region_formatted]['ftp_password'])
             ftp.cwd('logs')
 
             pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = stat_log_file_handler(ftp, region)
-            ftp.cwd(f'/HLTV{region.upper()}')
+            ftp.cwd('..')
+            ftp.cwd(f'HLTV{region.upper()}')
             output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
 
             if (hampalyzer_output is not None):
