@@ -684,7 +684,7 @@ def stat_log_file_handler(ftp, region):
             pickup_map = line[mapstart:mapend]
     blarghalyzer_fallback = None
     hampalyzer_output = None
-    newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
+    newCMD = 'curl -X POST -F force=on -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
     output3 = os.popen(newCMD).read()
     if ("nginx" not in output3 or output3 is None):
         hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
