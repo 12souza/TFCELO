@@ -2465,49 +2465,44 @@ async def recent(ctx):
 
 
 @client.command(pass_context=True)
+@commands.has_role(v["runner"])
 async def checkgame(ctx, number):
     async with GLOBAL_LOCK:
-        if (
-            (ctx.channel.name == v["pc"])
-            or (ctx.channel.name == "tfc-admins")
-            or (ctx.channel.name == "tfc-runners")
-            or (ctx.channel.id == DEV_TESTING_CHANNEL)
-        ):
-            with open("pastten.json") as f:
-                past_ten = json.load(f)
-            with open("activePickups.json") as f:
-                activePickups = json.load(f)
-            with open("ELOpop.json") as f:
-                ELOpop = json.load(f)
-            msgList = []
-            if number in activePickups:
-                blueTeam = activePickups[number][2]
-                redTeam = activePickups[number][5]
-                match_outcome_string = 'Active Game (unreported!)'
-            elif number in past_ten:
-                blueTeam = past_ten[number][PAST_TEN_BLUE_TEAM_INDEX]
-                redTeam = past_ten[number][PAST_TEN_RED_TEAM_INDEX]
-                match_outcome_string = "Team " + str(past_ten[number][PAST_TEN_MATCH_OUTCOME_INDEX])
-            else:
-                await ctx.send(f'Issue finding game number {number} in past 10 or active pickups - check for typo?')
-                return
+        with open("pastten.json") as f:
+            past_ten = json.load(f)
+        with open("activePickups.json") as f:
+            activePickups = json.load(f)
+        with open("ELOpop.json") as f:
+            ELOpop = json.load(f)
+        msgList = []
+        if number in activePickups:
+            blueTeam = activePickups[number][2]
+            redTeam = activePickups[number][5]
+            match_outcome_string = 'Active Game (unreported!)'
+        elif number in past_ten:
+            blueTeam = past_ten[number][PAST_TEN_BLUE_TEAM_INDEX]
+            redTeam = past_ten[number][PAST_TEN_RED_TEAM_INDEX]
+            match_outcome_string = "Team " + str(past_ten[number][PAST_TEN_MATCH_OUTCOME_INDEX])
+        else:
+            await ctx.send(f'Issue finding game number {number} in past 10 or active pickups - check for typo?')
+            return
 
-            for i in blueTeam:
-                msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
-            bMsg = "".join(msgList)
-            msgList.clear()
-            for i in redTeam:
-                msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
-            rMsg = "".join(msgList)
-            embed = discord.Embed(title=f"Game Number - {number} - Outcome - {match_outcome_string}")
-            embed.add_field(
-                name="Blue Team " + v["t1img"], value=bMsg, inline=True
-            )
-            embed.add_field(name="\u200b", value="\u200b")
-            embed.add_field(
-                name="Red Team " + v["t2img"], value=rMsg, inline=True
-            )
-            await ctx.send(embed=embed)
+        for i in blueTeam:
+            msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
+        bMsg = "".join(msgList)
+        msgList.clear()
+        for i in redTeam:
+            msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
+        rMsg = "".join(msgList)
+        embed = discord.Embed(title=f"Game Number - {number} - Outcome - {match_outcome_string}")
+        embed.add_field(
+            name="Blue Team " + v["t1img"], value=bMsg, inline=True
+        )
+        embed.add_field(name="\u200b", value="\u200b")
+        embed.add_field(
+            name="Red Team " + v["t2img"], value=rMsg, inline=True
+        )
+        await ctx.send(embed=embed)
 
 
 # Remove a game that you no longer wish to complete or count for ELO.  Use !games to get a
