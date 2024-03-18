@@ -483,7 +483,7 @@ async def fVCoolDown():
         fTimer = fTimer - 1
 
 
-# Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from winter_2023_maps.json
+# Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from spring_2024_maps.json
 def PickMaps():
     global map_choice_1
     global map_choice_2
@@ -525,7 +525,7 @@ def PickMaps():
             if (i not in lastFive) and (i not in hateMaps):
                 mapPick.append(i)
     mapPick2 = []
-    with open("winter_2023_maps.json") as f:
+    with open("spring_2024_maps.json") as f:
         mapList = json.load(f)
 
     for i in list(mapList):
@@ -642,7 +642,7 @@ async def voteSetup():
         toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
     with open("classic_maps.json") as f:
         mapList = json.load(f)
-    with open("winter_2023_maps.json") as f:
+    with open("spring_2024_maps.json") as f:
         mapList2 = json.load(f)
 
     if server_vote == 1:
@@ -3183,7 +3183,7 @@ async def on_reaction_add(reaction, user):
 
                                 with open("classic_maps.json") as f:
                                     mapList = json.load(f)
-                                with open("winter_2023_maps.json") as f:
+                                with open("spring_2024_maps.json") as f:
                                     mapList2 = json.load(f)
                                 if server_vote == 1:
                                     await vMsg.edit(
