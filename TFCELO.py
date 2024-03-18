@@ -501,7 +501,7 @@ async def queue_status():
         await webhook.send(player_list, username='TFPugsBot')
 
 
-# Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from winter_2023_maps.json
+# Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from spring_2024_maps.json
 def PickMaps():
     global map_choice_1
     global map_choice_2
@@ -544,7 +544,7 @@ def PickMaps():
             if (i not in lastFive) and (i not in hateMaps):
                 mapPick.append(i)
     mapPick2 = []
-    with open("winter_2023_maps.json") as f:
+    with open("spring_2024_maps.json") as f:
         mapList = json.load(f)
 
     for i in list(mapList):
@@ -661,7 +661,7 @@ async def voteSetup():
         toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
     with open("classic_maps.json") as f:
         mapList = json.load(f)
-    with open("winter_2023_maps.json") as f:
+    with open("spring_2024_maps.json") as f:
         mapList2 = json.load(f)
 
     if server_vote == 1:
@@ -2482,49 +2482,44 @@ async def recent(ctx):
 
 
 @client.command(pass_context=True)
+@commands.has_role(v["runner"])
 async def checkgame(ctx, number):
     async with GLOBAL_LOCK:
-        if (
-            (ctx.channel.name == v["pc"])
-            or (ctx.channel.name == "tfc-admins")
-            or (ctx.channel.name == "tfc-runners")
-            or (ctx.channel.id == DEV_TESTING_CHANNEL)
-        ):
-            with open("pastten.json") as f:
-                past_ten = json.load(f)
-            with open("activePickups.json") as f:
-                activePickups = json.load(f)
-            with open("ELOpop.json") as f:
-                ELOpop = json.load(f)
-            msgList = []
-            if number in activePickups:
-                blueTeam = activePickups[number][2]
-                redTeam = activePickups[number][5]
-                match_outcome_string = 'Active Game (unreported!)'
-            elif number in past_ten:
-                blueTeam = past_ten[number][PAST_TEN_BLUE_TEAM_INDEX]
-                redTeam = past_ten[number][PAST_TEN_RED_TEAM_INDEX]
-                match_outcome_string = "Team " + str(past_ten[number][PAST_TEN_MATCH_OUTCOME_INDEX])
-            else:
-                await ctx.send(f'Issue finding game number {number} in past 10 or active pickups - check for typo?')
-                return
+        with open("pastten.json") as f:
+            past_ten = json.load(f)
+        with open("activePickups.json") as f:
+            activePickups = json.load(f)
+        with open("ELOpop.json") as f:
+            ELOpop = json.load(f)
+        msgList = []
+        if number in activePickups:
+            blueTeam = activePickups[number][2]
+            redTeam = activePickups[number][5]
+            match_outcome_string = 'Active Game (unreported!)'
+        elif number in past_ten:
+            blueTeam = past_ten[number][PAST_TEN_BLUE_TEAM_INDEX]
+            redTeam = past_ten[number][PAST_TEN_RED_TEAM_INDEX]
+            match_outcome_string = "Team " + str(past_ten[number][PAST_TEN_MATCH_OUTCOME_INDEX])
+        else:
+            await ctx.send(f'Issue finding game number {number} in past 10 or active pickups - check for typo?')
+            return
 
-            for i in blueTeam:
-                msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
-            bMsg = "".join(msgList)
-            msgList.clear()
-            for i in redTeam:
-                msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
-            rMsg = "".join(msgList)
-            embed = discord.Embed(title=f"Game Number - {number} - Outcome - {match_outcome_string}")
-            embed.add_field(
-                name="Blue Team " + v["t1img"], value=bMsg, inline=True
-            )
-            embed.add_field(name="\u200b", value="\u200b")
-            embed.add_field(
-                name="Red Team " + v["t2img"], value=rMsg, inline=True
-            )
-            await ctx.send(embed=embed)
+        for i in blueTeam:
+            msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
+        bMsg = "".join(msgList)
+        msgList.clear()
+        for i in redTeam:
+            msgList.append(getRank(i) + " " + ELOpop[i][0] + "\n")
+        rMsg = "".join(msgList)
+        embed = discord.Embed(title=f"Game Number - {number} - Outcome - {match_outcome_string}")
+        embed.add_field(
+            name="Blue Team " + v["t1img"], value=bMsg, inline=True
+        )
+        embed.add_field(name="\u200b", value="\u200b")
+        embed.add_field(
+            name="Red Team " + v["t2img"], value=rMsg, inline=True
+        )
+        await ctx.send(embed=embed)
 
 
 # Remove a game that you no longer wish to complete or count for ELO.  Use !games to get a
@@ -3213,7 +3208,7 @@ async def on_reaction_add(reaction, user):
 
                                 with open("classic_maps.json") as f:
                                     mapList = json.load(f)
-                                with open("winter_2023_maps.json") as f:
+                                with open("spring_2024_maps.json") as f:
                                     mapList2 = json.load(f)
                                 if server_vote == 1:
                                     await vMsg.edit(
