@@ -1,4 +1,5 @@
 import asyncio
+import aiohttp
 import json
 import discord
 from discord.ext import commands
@@ -13,6 +14,7 @@ import time
 import requests
 import mysql.connector
 import logging
+from discord import Webhook
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -80,7 +82,7 @@ map_choice_1 = None
 map_choice_2 = None
 map_choice_3 = None
 map_choice_4 = None
-map_choice_5 = "New Maps"
+map_choice_5 = None
 loveMaps = []
 vnoELO = 0
 hateMaps = []
@@ -181,7 +183,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
                     + unvoted_string)
     elif reVote == 1:
         # Weird edge-case handling - need to look up mirv count for the carry-over map
-        if map_list.get(map_choice_5) is not None:
+        if map_list.get(map_choice_5) is not None and map_list.get(map_choice_5) != 'New Maps':
             carryover_mirv_count = str(map_list[map_choice_5])
         else:
             carryover_mirv_count = str(map_list_2[map_choice_5])
@@ -241,6 +243,7 @@ async def on_ready():
     # Remake the global lock to try to get it compatible with the bot's event loop
     # TODO: I don't fully understand why or if this helps exactly.
     GLOBAL_LOCK = asyncio.Lock()
+    queue_status.start()
 
 
 @client.command(pass_context=True)
@@ -436,7 +439,7 @@ def DePopulatePickup():
     map_choice_2 = None
     map_choice_3 = None
     map_choice_4 = None
-    map_choice_5 = "New Maps"
+    map_choice_5 = None
     loveMaps = []
     hateMaps = []
     mapVotes = {}
@@ -483,12 +486,28 @@ async def fVCoolDown():
         fTimer = fTimer - 1
 
 
+# Messages the current player queue every 10 seconds to Fervore's discord
+@tasks.loop(seconds=10)
+async def queue_status():
+    global playersAdded
+    player_list = []
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+        for player in playersAdded:
+            player_list.append(ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX])
+    FERVORE_WEBHOOK_URL = 'https://discord.com/api/webhooks/1210235670115917855/xWnXmeDoT9RRGtN13XYjbxBji1ge0_-wd4J5brn7Gzy-hrp9RvfYaPvJaytbbhC-cM22'
+    async with aiohttp.ClientSession() as session:
+        webhook = Webhook.from_url(FERVORE_WEBHOOK_URL, session=session)
+        await webhook.send(player_list, username='TFPugsBot')
+
+
 # Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from winter_2023_maps.json
 def PickMaps():
     global map_choice_1
     global map_choice_2
     global map_choice_3
     global map_choice_4
+    global map_choice_5
     global loveMaps
     global hateMaps
     global mapVotes
@@ -553,6 +572,7 @@ def PickMaps():
         mapPick2.remove(map_choice_4)
     mapVotes[map_choice_4] = []
     mapSelected.append(map_choice_4)
+    mapVotes[map_choice_5] = []
 
     logging.info(f"Map Lists: {mapPick} {mapPick2}")
     logging.info(f"Maps Selected: {mapSelected}")
@@ -629,7 +649,6 @@ async def voteSetup():
     alreadyVoted = []
     mapVotes = {}
     PickMaps()
-    mapVotes[map_choice_5] = []
 
     playersAbstained = []
     players_abstained_discord_id = []
@@ -646,11 +665,11 @@ async def voteSetup():
         mapList2 = json.load(f)
 
     if server_vote == 1:
-        map_choice_1 = "West - Los Angeles"
+        map_choice_1 = "West - North California"
         mapVotes[map_choice_1] = []
-        map_choice_2 = "Central - Chicago"
+        map_choice_2 = "East - North Virginia"
         mapVotes[map_choice_2] = []
-        map_choice_3 = "East - New York"
+        map_choice_3 = "East - North Virginia 2"
         mapVotes[map_choice_3] = []
         map_choice_4 = "South East - Miami"
         mapVotes[map_choice_4] = []
@@ -1277,7 +1296,7 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
                 with open("ELOpop.json", "w") as cd:
                     json.dump(ELOpop, cd, indent=4)
 
-            if cap == "cap":
+            if cap == "cap" and len(capList) < 2:
                 capList.append(playerID)
 
             playersAdded.append(playerID)
@@ -1339,8 +1358,7 @@ async def test7(ctx):
             addplayerImpl("194276343540613121", "climax", None)
             addplayerImpl("596225454721990676", "botch", None)
             addplayerImpl("173619058657198082", "Moreno", None)
-            # retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
-            # retVal = addplayerImpl("311769927432404994", "Nemsy", None)
+            addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
             await showPickup(ctx)
 
 # Convenience command for testing bot behavior with 8 people added
@@ -1358,8 +1376,7 @@ async def test8(ctx):
             addplayerImpl("194276343540613121", "climax", None)
             addplayerImpl("596225454721990676", "botch", None)
             addplayerImpl("173619058657198082", "Moreno", None)
-            # retVal = addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
-            addplayerImpl("311769927432404994", "Nemsy", None)
+            addplayerImpl("151144734579097601", "EDEdDNEdDYFaN", None)
             await showPickup(ctx)
 
 
@@ -2517,16 +2534,23 @@ async def checkgame(ctx, number):
 @commands.has_role(v["runner"])
 async def removegame(ctx, number):
     async with GLOBAL_LOCK:
-        if ctx.channel.name == v["pc"]:
-            with open("activePickups.json") as f:
-                activePickups = json.load(f)
+        with open("activePickups.json") as f:
+            activePickups = json.load(f)
 
+        with open("pastten.json") as f:
+            pastTen = json.load(f)
+
+        if number in activePickups:
             del activePickups[number]
+        elif number in pastTen:
+            await undo(ctx, number)
+        else:
+            await ctx.send(f'ERROR: Game {number} not found in active games nor in past ten games!')
+            return
+        with open("activePickups.json", "w") as cd:
+            json.dump(activePickups, cd, indent=4)
 
-            with open("activePickups.json", "w") as cd:
-                json.dump(activePickups, cd, indent=4)
-
-            await ctx.send("Game has been removed..")
+        await ctx.send("Game has been removed..")
 
 
 def cancelImpl():
@@ -2620,23 +2644,24 @@ async def forceVote(ctx):
                 # TODO: Need to correctly handle ties here
                 windex = votes.index(max(votes))
                 if windex == 0:
-                    winningIP = "http://tinyurl.com/tfpwestvultr - connect 144.202.119.125:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpwestaws - connect {logins['west']['server_ip']}:27015; password letsplay!"
                     winningServer = "West (Los Angeles)"
                 elif windex == 1:
-                    winningIP = "http://tinyurl.com/tfpcentralvultr - connect 66.42.115.240:27015; password letsplay!"
-                    winningServer = "Central (Chi)"
+                    winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
+                    winningServer = "East (North Virginia)"
                 elif windex == 2:
-                    winningIP = "http://tinyurl.com/tfpeastvultr - connect 45.77.106.119:27015; password letsplay!"
-                    winningServer = "East (NY)"
+                    winningIP = f"http://tinyurl.com/tfpeast2aws - connect {logins['east2']['server_ip']}:27015; password letsplay!"
+                    winningServer = "East (North Virginia)"
                 elif windex == 3:
-                    winningIP = "http://tinyurl.com/tfpsoutheastvultr - connect 45.77.162.42:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
                     winningServer = "South East (Miami)"
                 else:
                     # Just pick one so things aren't completely broken
-                    winningIP = "http://tinyurl.com/tfpcentralvultr - bot chose this randomly"
-                    winningServer = "Central (Chi)"
+                    winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
+                    winningServer = "East (North Virginia)"
                 server_vote = 0
                 fTimer = 3
+                map_choice_5 = "New Maps"
                 await voteSetup()
             elif server_vote == 0:
                 # We are currently in map voting round
@@ -3325,7 +3350,6 @@ async def on_message(message):
         user = await client.fetch_user(message.author.id)
         file, embed = await generate_elo_chart(user)
         await message.author.send(embed=embed, file=file)
-
     await client.process_commands(message)
 
 

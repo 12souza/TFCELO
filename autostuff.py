@@ -684,7 +684,7 @@ def stat_log_file_handler(ftp, region):
             pickup_map = line[mapstart:mapend]
     blarghalyzer_fallback = None
     hampalyzer_output = None
-    newCMD = 'curl -X POST -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
+    newCMD = 'curl -X POST -F force=on -F logs[]=@' + logToParse1 + ' -F logs[]=@' + logToParse2 + ' http://app.hampalyzer.com/api/parseGame'
     output3 = os.popen(newCMD).read()
     if ("nginx" not in output3 or output3 is None):
         hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
@@ -743,6 +743,8 @@ def hltv_file_handler(ftp, pickup_date, pickup_map):
             zip.write(HLTVToZip1)
             zip.write(HLTVToZip2)
             zip.close()
+            os.remove(HLTVToZip1)
+            os.remove(HLTVToZip2)
         return output_filename
     except Exception as e:
         logging.warning(traceback.format_exc())
@@ -756,16 +758,19 @@ async def stats(ctx, region=None, match_number=None, winning_score=None, losing_
     with open('login.json') as f:
         logins = json.load(f)
     schannel = await client.fetch_channel(1000847501194174675) #1000847501194174675 original channelID
-    if (region.lower() == "none"):
+    region_formatted = region.lower()
+    output_zipfile = None
+    if (region_formatted == "none" or region_formatted is None):
         await ctx.send("please specify region..")
-    elif (region.lower() in ('east', 'eu', 'central', 'west', 'southeast')):
+    elif (region_formatted in ('east', 'east2', 'eu', 'central', 'west', 'southeast')):
         try:
-            ftp = FTP(logins[region][0])
-            ftp.login(user=logins[region][1], passwd=logins[region][2])
+            ftp = FTP(logins[region_formatted]['server_ip'])
+            ftp.login(user=logins[region_formatted]['ftp_username'], passwd=logins[region_formatted]['ftp_password'])
             ftp.cwd('logs')
 
             pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = stat_log_file_handler(ftp, region)
-            ftp.cwd(f'/HLTV{region.upper()}')
+            ftp.cwd('..')
+            ftp.cwd(f'HLTV{region.upper()}')
             output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
 
             if (hampalyzer_output is not None):
