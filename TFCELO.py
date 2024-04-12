@@ -27,6 +27,13 @@ client = commands.Bot(
 )
 client.remove_command("help")
 
+
+@client.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.send('This command is on a %.2fs cooldown' % error.retry_after)
+    raise error  # re-raise the error so all the errors will still show up in console
+
 # Load in ELO configuration
 with open("ELOpop.json") as f:
     ELOpop = json.load(f)
@@ -95,7 +102,6 @@ mapSelected = []
 winningIP = "None"
 votePhase = 0
 ready = []
-fTimer = 0
 inVote = 0
 eligiblePlayers = []
 reVote = 0
@@ -277,10 +283,14 @@ async def search(ctx, searchkey):
                         player_id = j
                 # really stupid hack incoming to handle people who have never actually played a game
                 if (ELOpop[player_id][PLAYER_MAP_WIN_INDEX] + ELOpop[player_id][PLAYER_MAP_LOSS_INDEX] + ELOpop[player_id][PLAYER_MAP_DRAW_INDEX]) == 0:
+                    await ctx.send(f"Player has no games reported yet - ELO is {ELOpop[player_id][PLAYER_MAP_CURRENT_ELO_INDEX]}")
                     continue
                 user = await client.fetch_user(player_id)
                 file, embed = await generate_elo_chart(user)
-                await ctx.send(embed=embed, file=file)
+                if file is None:
+                    await ctx.send(embed=embed)
+                else:
+                    await ctx.send(embed=embed, file=file)
 
 
 # Allow all players to toggle their rank being private or hidden
@@ -412,7 +422,6 @@ def DePopulatePickup():
     global mapSelected
     global winningIP
     global votePhase
-    global fTimer
     global ready
     global inVote
     global vnoELO
@@ -449,7 +458,6 @@ def DePopulatePickup():
     oMsg = None
     winningIP = "None"
     votePhase = 0
-    fTimer = 0
     inVote = 0
     eligiblePlayers = []
     reVote = 0
@@ -460,7 +468,6 @@ def DePopulatePickup():
     pickCount = 0
     msg = None
     pTotalPlayers = []
-    fVCoolDown.stop()
 
 
 # Populates a list of players whom have voted for a particular map
@@ -477,13 +484,6 @@ def mapVoteOutput(mapChoice):
         return "0 votes"
 
     return "%d votes (%s)" % (numVotes, whoVoted)
-
-
-@tasks.loop(seconds=1)  # repeat after every 10 seconds
-async def fVCoolDown():
-    global fTimer
-    if fTimer > 0:
-        fTimer = fTimer - 1
 
 
 # Messages the current player queue every 10 seconds to Fervore's discord
@@ -669,7 +669,7 @@ async def voteSetup():
         mapVotes[map_choice_1] = []
         map_choice_2 = "East - North Virginia"
         mapVotes[map_choice_2] = []
-        map_choice_3 = "East - North Virginia 2"
+        map_choice_3 = "Central - Dallas"
         mapVotes[map_choice_3] = []
         map_choice_4 = "South East - Miami"
         mapVotes[map_choice_4] = []
@@ -1100,7 +1100,8 @@ async def adjustELO(ctx, player, ELO):
             for i in ELOpop:
                 if ELOpop[i][0] == player:
                     playerID = i
-            ELOpop[playerID][1] = ELO
+            ELOpop[playerID][PLAYER_MAP_CURRENT_ELO_INDEX] = ELO
+            await ctx.send(f"Player {ELOpop[playerID][PLAYER_MAP_VISUAL_NAME_INDEX]} updated to ELO {ELOpop[playerID][PLAYER_MAP_CURRENT_ELO_INDEX]}")
 
             with open("ELOpop.json", "w") as cd:
                 json.dump(ELOpop, cd, indent=4)
@@ -1471,7 +1472,6 @@ async def doteams(channel2, playerCount=4):
     global blueTeam
     global redTeam
     global eligiblePlayers
-    global fTimer
     global captMode
     global server_vote
     global rankedOrder
@@ -1596,8 +1596,6 @@ async def doteams(channel2, playerCount=4):
                     await channel2.send("Please react to the server you want to play on..")
                     server_vote = 1
                     await voteSetup()
-                    fTimer = 5
-                    fVCoolDown.start()
                     inVote = 1
 
             elif len(capList) >= 2:
@@ -1619,8 +1617,6 @@ async def doteams(channel2, playerCount=4):
                 await channel2.send("Please react to the server you want to play on..")
                 server_vote = 1
                 await voteSetup()
-                fTimer = 5
-                fVCoolDown.start()
                 inVote = 1
     else:
         await channel2.send("you dont have enough people for that game size..")
@@ -1640,7 +1636,6 @@ async def teams(ctx, playerCount=4):
             global blueTeam
             global redTeam
             global eligiblePlayers
-            global fTimer
             global oMsg
             global captMode
             global server_vote
@@ -1758,8 +1753,6 @@ async def teams(ctx, playerCount=4):
                         
                         server_vote = 1
                         await voteSetup()
-                        fTimer = 5
-                        fVCoolDown.start()
                         inVote = 1
 
                     elif len(capList) >= 2:
@@ -1787,8 +1780,6 @@ async def teams(ctx, playerCount=4):
                         )
                         server_vote = 1
                         await voteSetup()
-                        fTimer = 5
-                        fVCoolDown.start()
                         inVote = 1
             else:
                 await ctx.send("you dont have enough people for that game size..")
@@ -2595,7 +2586,7 @@ async def requeue(ctx):
 # Examples: !forceVote
 #           !fv
 @client.command(aliases=["fv"], pass_context=True)
-@commands.cooldown(1, 3, commands.BucketType.default)
+@commands.cooldown(1, 10, commands.BucketType.user)
 @commands.has_role(v["runner"])
 async def forceVote(ctx):
     async with GLOBAL_LOCK:
@@ -2618,7 +2609,6 @@ async def forceVote(ctx):
             global cap1
             global cap1Name
             global cap2
-            global fTimer
             global cap2Name
             global winningMap
             global winningServer
@@ -2645,8 +2635,8 @@ async def forceVote(ctx):
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
                     winningServer = "East (North Virginia)"
                 elif windex == 2:
-                    winningIP = f"http://tinyurl.com/tfpeast2aws - connect {logins['east2']['server_ip']}:27015; password letsplay!"
-                    winningServer = "East (North Virginia)"
+                    winningIP = f"https://tinyurl.com/tfpcentralaws - connect {logins['central']['server_ip']}:27015; password letsplay!"
+                    winningServer = "Central (Dallas)"
                 elif windex == 3:
                     winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
                     winningServer = "South East (Miami)"
@@ -2655,7 +2645,6 @@ async def forceVote(ctx):
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
                     winningServer = "East (North Virginia)"
                 server_vote = 0
-                fTimer = 3
                 map_choice_5 = "New Maps"
                 await voteSetup()
             elif server_vote == 0:
@@ -2698,7 +2687,6 @@ async def forceVote(ctx):
                     if windex == 3:
                         map_choice_5 = map_choice_4
                     await channel.send("New maps has won, now selecting new maps..")
-                    fTimer = 3
                     await voteSetup()
                 else:
                     # A real map has won. Gather all maps that had the maximum count
@@ -2731,7 +2719,6 @@ async def forceVote(ctx):
                         await channel.send(
                             f"The winning map is **{winningMap}** and will be played at {winningIP}"
                         )
-                    fVCoolDown.stop()
 
                     inVote = 0
                     if len(lastFive) >= 5:
@@ -2960,7 +2947,7 @@ async def shuffle(ctx, idx=None, game="None"):
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 300, commands.BucketType.default)
+@commands.cooldown(1, 30, commands.BucketType.user)
 async def notice(ctx, anumber=8):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
@@ -2972,7 +2959,7 @@ async def notice(ctx, anumber=8):
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 300, commands.BucketType.default)
+@commands.cooldown(1, 30, commands.BucketType.user)
 async def vote(ctx):
     """
     Nagging message to get people to vote who haven't picked their server or map choice yet
@@ -3262,20 +3249,9 @@ async def generate_elo_chart(discord_user):
         mycursor.execute(
             f"SELECT player_elos from player_elo WHERE discord_id = {discord_user.id} order by entryID"
         )
-        plotList = []
-        for x in mycursor:
-            plotList.append(int(x[0]))
-        plt.style.use("cyberpunk")
-        plt.plot(plotList)
-        mplcyberpunk.add_glow_effects()
-        plt.savefig(discord_user.display_name + ".png")
+        elo_history = mycursor.fetchall()
 
-        mycursor.execute(
-                    f"""SELECT max(player_elos) from player_elo WHERE discord_id = {discord_user.id}"""
-        )
-        max_elo = mycursor.fetchone()[0]
-
-        if mycursor.rowcount is None:
+        if len(elo_history) < 1:
             logging.warning('Had to fall-back to local elo file - check for issue query')
             logging.warning(f"""
                 with elo_row_numbered as (
@@ -3290,8 +3266,33 @@ async def generate_elo_chart(discord_user):
 
                 select player_elos from elo_row_numbered where row_num = 1 and discord_id = '{discord_user.id}'
                 order by player_elos desc;""")
-            return discord.File(discord_user.display_name + ".png"), f"ELO is currently {ELOpop[str(discord_user.id)][1]} with a record of W: {ELOpop[str(discord_user.id)][4]} L: {ELOpop[str(discord_user.id)][5]} D: {ELOpop[str(discord_user.id)][6]}"
+            embed = discord.Embed(title=f"{discord_user.display_name}")
+            message_formatted = f"ELO is currently {ELOpop[str(discord_user.id)][1]} with a record of W: {ELOpop[str(discord_user.id)][PLAYER_MAP_WIN_INDEX]} L: {ELOpop[str(discord_user.id)][PLAYER_MAP_LOSS_INDEX]} D: {ELOpop[str(discord_user.id)][PLAYER_MAP_DRAW_INDEX]}"
+            embed.add_field(
+                name="ELO & Stats", value=message_formatted
+            )
+            return None, embed
+        elif len(elo_history) == 1:
+            # TODO: Need to store diffs of elo before and after somewhere instead of only having the final value persisted
+            embed = discord.Embed(title=f"{discord_user.display_name}")
+            message_formatted = f"ELO is currently {ELOpop[str(discord_user.id)][1]} with a record of W: {ELOpop[str(discord_user.id)][PLAYER_MAP_WIN_INDEX]} L: {ELOpop[str(discord_user.id)][PLAYER_MAP_LOSS_INDEX]} D: {ELOpop[str(discord_user.id)][PLAYER_MAP_DRAW_INDEX]}"
+            embed.add_field(
+                name="ELO & Stats", value=message_formatted
+            )
+            return None, embed
         else:
+            plotList = []
+            for x in elo_history:
+                plotList.append(int(x[0]))
+            plt.style.use("cyberpunk")
+            plt.plot(plotList)
+            mplcyberpunk.add_glow_effects()
+            plt.savefig(discord_user.display_name + ".png")
+
+            mycursor.execute(
+                    f"""SELECT max(player_elos) from player_elo WHERE discord_id = {discord_user.id}"""
+            )
+            max_elo = mycursor.fetchone()[0]
             current_elo = plotList[-1]
             previous_game_elo = plotList[-2]
             elo_difference = current_elo - previous_game_elo
