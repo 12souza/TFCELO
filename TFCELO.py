@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import json
+import datetime
 import discord
 from discord.ext import commands
 from discord.utils import get
@@ -70,7 +71,7 @@ PAST_TEN_MATCH_OUTCOME_INDEX = 8
 PAST_TEN_MAP_INDEX = 9
 LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
-MAP_VOTE_FIRST = True
+MAP_VOTE_FIRST = False
 RANK_BOUNDARIES_LIST = [220, 450, 690, 940, 1200, 1460, 1730, 2010, 2300, 2600]
 
 cap1 = None
@@ -114,6 +115,8 @@ msg = None
 pTotalPlayers = []
 winningMap = None
 winningServer = None
+last_add_timestamp = datetime.datetime.utcnow()
+last_add_context = None
 
 # =====================================
 # =====================================
@@ -249,7 +252,6 @@ async def on_ready():
     # Remake the global lock to try to get it compatible with the bot's event loop
     # TODO: I don't fully understand why or if this helps exactly.
     GLOBAL_LOCK = asyncio.Lock()
-    queue_status.start()
 
 
 @client.command(pass_context=True)
@@ -348,7 +350,7 @@ async def top15(ctx):
             top_15 = []
 
             for row in mycursor:
-                print(row)
+                logging.info(row)
                 discord_id = str(row[1])
                 if ELOpop[discord_id][PLAYER_MAP_VISUAL_RANK_INDEX] != "<:norank:1001265843683987487>" and getRank(discord_id) != "<:questionMark:972369805359337532>":
                     top_15.append(getRank(discord_id) + " " + ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
@@ -486,19 +488,24 @@ def mapVoteOutput(mapChoice):
     return "%d votes (%s)" % (numVotes, whoVoted)
 
 
-# Messages the current player queue every 10 seconds to Fervore's discord
-@tasks.loop(seconds=10)
-async def queue_status():
+@tasks.loop(minutes=30)
+async def idle_cancel():
+    global last_add_timestamp
+    global last_add_context
+    global pickupActive
     global playersAdded
-    player_list = []
-    with open("ELOpop.json") as f:
-        ELOpop = json.load(f)
-        for player in playersAdded:
-            player_list.append(ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX])
-    FERVORE_WEBHOOK_URL = 'https://discord.com/api/webhooks/1210235670115917855/xWnXmeDoT9RRGtN13XYjbxBji1ge0_-wd4J5brn7Gzy-hrp9RvfYaPvJaytbbhC-cM22'
-    async with aiohttp.ClientSession() as session:
-        webhook = Webhook.from_url(FERVORE_WEBHOOK_URL, session=session)
-        await webhook.send(player_list, username='TFPugsBot')
+    global inVote
+
+    if len(playersAdded) >= 1 and inVote == 0:
+        # check if 2 hours since last add
+        last_add_time_diff = (datetime.datetime.utcnow() - last_add_timestamp).total_seconds()
+        logging.info("last add was %d minutes ago" % (last_add_time_diff / 60))
+
+        if last_add_time_diff > (2 * 60 * 60):
+            logging.info("stopping pickup for being idle for 2 hours")
+
+            await last_add_context.send("Pickup idle for more than two hours, canceling. Durden was too slow")
+            await DePopulatePickup()
 
 
 # Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from spring_2024_maps.json
@@ -524,7 +531,7 @@ def PickMaps():
         # Seed lastFive from the last 5 pickups played so that this value is never empty
         with open("pastten.json") as f:
             past_ten = json.load(f)
-            print(past_ten)
+            logging.info(past_ten)
             past_ten_keys_list = list(past_ten.keys())
             past_ten_keys_list.reverse()
             for match in past_ten_keys_list:
@@ -1313,6 +1320,8 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
 @client.command(pass_context=True, aliases=["+"])
 @commands.has_role(v["tfc"])
 async def add(ctx, cap=None):
+    global last_add_timestamp
+    global last_add_context
     async with GLOBAL_LOCK:
         try:
             if ctx.channel.name == v["pc"]:
@@ -1325,6 +1334,10 @@ async def add(ctx, cap=None):
                         "you are already added to this pickup.."
                     )  # Send PM to player
                 if retVal == 0:  # Successfully added
+                    last_add_timestamp = datetime.datetime.utcnow()
+                    if not idle_cancel.is_running():
+                        idle_cancel.start()
+                        last_add_context = ctx
                     await showPickup(ctx)
         except Exception as e:
             logging.error(e)
@@ -1482,6 +1495,7 @@ async def doteams(channel2, playerCount=4):
     oMsg = None
     DMList = []
     channel2 = await client.fetch_channel(v["pID"])
+    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
     logging.info(f"doteams => playersAdded: {playersAdded}, playerCount: {playerCount}")
     if len(playersAdded) >= int(playerCount * 2):
         if inVote == 0:
@@ -1552,7 +1566,13 @@ async def doteams(channel2, playerCount=4):
 
                 logging.info('Outputting list of players in ranked order')
                 for i in rankedOrder:
-                    logging.info(i)
+                    # TODO: Maybe store by name directly somewhere instead of this lookup
+                    list_of_players = []
+                    for player in i:
+                        list_of_players.append(ELOpop[str(player)[PLAYER_MAP_VISUAL_NAME_INDEX]])
+                    logging.info(list_of_players)
+                    await dev_channel.send('Outputting list of players in ranked order')
+                    await dev_channel.send(list_of_players)
                 blueTeam = list(rankedOrder[0][0])
 
                 for j in eligiblePlayers:
@@ -1561,10 +1581,10 @@ async def doteams(channel2, playerCount=4):
                 blueRank = 0
                 for j in blueTeam:
                     blueRank += int(ELOpop[j][1])
-                diff = abs(blueRank - half)
+                blue_diff = abs(blueRank - half)
                 for j in redTeam:
                     redRank += int(ELOpop[j][1])
-                diff = abs(redRank - half)
+                red_diff = abs(redRank - half)
 
                 # Make blue team the favored team as it allows them to be lenient on defense
                 # if desired/needed for sportsmanship.
@@ -1577,8 +1597,8 @@ async def doteams(channel2, playerCount=4):
                     redTeam = tempTeam
                     redRank = tempRank
 
-                logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
-                logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
+                logging.info(f"blueTeam: {blueTeam}, diff: {blue_diff}, blueRank: {blueRank}")
+                logging.info(f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}")
 
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
@@ -1597,6 +1617,8 @@ async def doteams(channel2, playerCount=4):
                     server_vote = 1
                     await voteSetup()
                     inVote = 1
+                    if idle_cancel.is_running():
+                        idle_cancel.stop()
 
             elif len(capList) >= 2:
                 with open("ELOpop.json") as f:
@@ -1618,6 +1640,8 @@ async def doteams(channel2, playerCount=4):
                 server_vote = 1
                 await voteSetup()
                 inVote = 1
+                if idle_cancel.is_running():
+                    idle_cancel.stop()
     else:
         await channel2.send("you dont have enough people for that game size..")
 
@@ -1629,7 +1653,8 @@ async def doteams(channel2, playerCount=4):
 @commands.has_role(v["runner"])
 async def teams(ctx, playerCount=4):
     async with GLOBAL_LOCK:
-        if ctx.channel.name == v["pc"]:
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+        if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             global playersAdded
             global capList
             global inVote
@@ -1704,9 +1729,16 @@ async def teams(ctx, playerCount=4):
                                     rankedOrder.append((list(i), abs(blueRank - half)))
                                 rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
 
-                            #logging.info("Printing players in ranked order")
-                            #for i in rankedOrder:
-                            #    logging.info(i)
+                            logging.info("Printing players in ranked order")
+                            for i in rankedOrder:
+                                logging.info(i)
+                                # TODO: Maybe store by name directly somewhere instead of this lookup
+                                list_of_players = []
+                                for player in i:
+                                    list_of_players.append(ELOpop[str(player)[PLAYER_MAP_VISUAL_NAME_INDEX]])
+                                logging.info(list_of_players)
+                                await dev_channel.send('Outputting list of players in ranked order')
+                                await dev_channel.send(list_of_players)
                             blueTeam = list(rankedOrder[0][0])
 
                             for j in eligiblePlayers:
@@ -1715,15 +1747,17 @@ async def teams(ctx, playerCount=4):
                             blueRank = 0
                             for j in blueTeam:
                                 blueRank += int(ELOpop[j][1])
-                            diff = abs(blueRank - half)
+                            blue_diff = abs(blueRank - half)
                             for j in redTeam:
                                 redRank += int(ELOpop[j][1])
-                            diff = abs(redRank - half)
+                            red_diff = abs(redRank - half)
+
 
                             # Make blue team the favored team as it allows them to be lenient on defense
                             # if desired/needed for sportsmanship.
                             if (redRank > blueRank):
                                 logging.info("Swapping team colors so blue is favored")
+                                await dev_channel.send.info("Swapping team colors so blue is favored")
                                 tempTeam = blueTeam
                                 tempRank = blueRank
                                 blueTeam = redTeam
@@ -1731,15 +1765,18 @@ async def teams(ctx, playerCount=4):
                                 redTeam = tempTeam
                                 redRank = tempRank
 
-                            logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
-                            logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
-
                             team1prob = round(
                                 1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2
                             )
                             team2prob = round(
                                 1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
                             )
+                            blue_team_info_string = f"blueTeam: {blueTeam}, diff: {blue_diff}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+                            red_team_info_string = f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}, red_win_probability {team2prob}"
+                            logging.info(blue_team_info_string)
+                            logging.info(red_team_info_string)
+                            await dev_channel.send(blue_team_info_string)
+                            await dev_channel.send(red_team_info_string)
                             await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
                             for i in eligiblePlayers:
                                 DMList.append(f"<@{i}> ")
@@ -1754,6 +1791,8 @@ async def teams(ctx, playerCount=4):
                         server_vote = 1
                         await voteSetup()
                         inVote = 1
+                        if idle_cancel.is_running():
+                            idle_cancel.stop()
 
                     elif len(capList) >= 2:
                         with open("ELOpop.json") as f:
@@ -1781,6 +1820,8 @@ async def teams(ctx, playerCount=4):
                         server_vote = 1
                         await voteSetup()
                         inVote = 1
+                        if idle_cancel.is_running():
+                            idle_cancel.stop()
             else:
                 await ctx.send("you dont have enough people for that game size..")
 
@@ -1813,79 +1854,6 @@ async def status(ctx):
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
-async def next(ctx, player: discord.Member):
-    async with GLOBAL_LOCK:
-        if ctx.channel.name == v["pc"]:
-            global blueTeam
-            global redTeam
-            global playersAdded
-            global eligiblePlayers
-
-            eligiblePlayers = []
-            for i in blueTeam:
-                if i != str(player.id):
-                    eligiblePlayers.append(i)
-
-            for i in redTeam:
-                if i != str(player.id):
-                    eligiblePlayers.append(i)
-
-            eligiblePlayers.append(playersAdded[0])
-            playerCount = len(eligiblePlayers)
-            counter = 0
-            teamsPicked = 0
-            combos = list(itertools.combinations(eligiblePlayers, int(playerCount / 2)))
-            random.shuffle(combos)
-
-            for i in eligiblePlayers:
-                if i in playersAdded:
-                    playersAdded.remove(i)
-            while teamsPicked == 0:
-                blueTeam = []
-                redTeam = []
-                redRank = 0
-                blueRank = 0
-                totalRank = 0
-                half = 0
-                diff = 0
-                for i in range(len(combos)):
-                    for j in eligiblePlayers:
-                        totalRank += ELOpop[j][1]
-                    half = int(totalRank / 2)
-                    blueTeam = list(combos[i])
-                    for j in eligiblePlayers:
-                        if j not in blueTeam:
-                            redTeam.append(j)
-
-                    for j in blueTeam:
-                        blueRank += ELOpop[j][1]
-                    for j in redTeam:
-                        redRank += ELOpop[j][1]
-
-                    diff = abs(blueRank - half)
-                    if diff <= counter:
-                        if (len(blueTeam) == playerCount / 2) and (
-                            len(redTeam) == playerCount / 2
-                        ):
-                            teamsPicked = 1
-                            break
-                    else:
-                        blueTeam.clear()
-                        redTeam.clear()
-                        redRank = 0
-                        blueRank = 0
-                        totalRank = 0
-                if playerCount <= 8:
-                    counter += 5
-                else:
-                    counter += 20
-            team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-            team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-            await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-
-
-@client.command(pass_context=True)
-@commands.has_role(v["runner"])
 async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=None):
     global inVote
     global eligiblePlayers
@@ -1895,7 +1863,8 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
     global MAP_VOTE_FIRST
 
     async with GLOBAL_LOCK:
-        if ctx.channel.name == v["pc"]:
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+        if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
             if number is None:
@@ -1972,9 +1941,16 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                             blueRank += int(ELOpop[j][1])
                         rankedOrder.append((list(i), abs(blueRank - half)))
                     rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-                    #logging.info("Printing players in ranked order")
-                    #for i in rankedOrder:
-                    #    logging.info(i)
+                    logging.info("Printing players in ranked order")
+                    for i in rankedOrder:
+                        logging.info(i)
+                        # TODO: Maybe store by name directly somewhere instead of this lookup
+                        list_of_players = []
+                        for player in i:
+                            list_of_players.append(ELOpop[str(player)[PLAYER_MAP_VISUAL_NAME_INDEX]])
+                        logging.info(list_of_players)
+                        await dev_channel.send('Outputting list of players in ranked order')
+                        await dev_channel.send(list_of_players)
                     blueTeam = list(rankedOrder[0][0])
 
                     for j in eligiblePlayers:
@@ -1983,10 +1959,10 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     blueRank = 0
                     for j in blueTeam:
                         blueRank += int(ELOpop[j][1])
-                    diff = abs(blueRank - half)
+                    blue_diff = abs(blueRank - half)
                     for j in redTeam:
                         redRank += int(ELOpop[j][1])
-                    diff = abs(redRank - half)
+                    red_diff = abs(redRank - half)
 
                     # Make blue team the favored team as it allows them to be lenient on defense
                     # if desired/needed for sportsmanship.
@@ -1999,11 +1975,15 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         redTeam = tempTeam
                         redRank = tempRank
 
-                    logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
-                    logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
-
                     team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                     team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
+                    blue_team_info_string = f"blueTeam: {blueTeam}, diff: {blue_diff}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+                    red_team_info_string = f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}, red_win_probability {team2prob}"
+                    logging.info(blue_team_info_string)
+                    logging.info(red_team_info_string)
+
+                    await dev_channel.send(blue_team_info_string)
+                    await dev_channel.send(red_team_info_string)
                     await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
             elif number is not None:
                 eligiblePlayers = []
@@ -2061,6 +2041,13 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
                 for i in rankedOrder:
                     logging.info(i)
+                    # TODO: Maybe store by name directly somewhere instead of this lookup
+                    list_of_players = []
+                    for player in i:
+                        list_of_players.append(ELOpop[str(player)[PLAYER_MAP_VISUAL_NAME_INDEX]])
+                    logging.info(list_of_players)
+                    await dev_channel.send('Outputting list of players in ranked order')
+                    await dev_channel.send(list_of_players)
                 blueTeam = list(rankedOrder[0][0])
 
                 for j in eligiblePlayers:
@@ -2069,10 +2056,10 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 blueRank = 0
                 for j in blueTeam:
                     blueRank += int(ELOpop[j][1])
-                diff = abs(blueRank - half)
+                blue_diff = abs(blueRank - half)
                 for j in redTeam:
                     redRank += int(ELOpop[j][1])
-                diff = abs(redRank - half)
+                red_diff = abs(redRank - half)
 
                 # Make blue team the favored team as it allows them to be lenient on defense
                 # if desired/needed for sportsmanship.
@@ -2084,9 +2071,6 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     blueRank = redRank
                     redTeam = tempTeam
                     redRank = tempRank
-
-                logging.info(f"blueTeam: {blueTeam}, diff: {diff}, blueRank: {blueRank}")
-                logging.info(f"redTeam: {redTeam}, diff {diff}, redRank: {redRank}")
 
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
@@ -2101,6 +2085,13 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     activePickups[number][7],
                     activePickups[number][8],
                 ]
+                blue_team_info_string = f"blueTeam: {blueTeam}, diff: {blue_diff}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+                red_team_info_string = f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}, red_win_probability {team2prob}"
+                logging.info(blue_team_info_string)
+                logging.info(red_team_info_string)
+
+                await dev_channel.send(blue_team_info_string)
+                await dev_channel.send(red_team_info_string)
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
@@ -2765,96 +2756,7 @@ async def forceVote(ctx):
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
-async def shufflee(ctx, idx=None, game="None"):
-    async with GLOBAL_LOCK:
-        if idx is None:
-            idx = random.randint(1, 11)
-        with open("activePickups.json") as f:
-            activePickups = json.load(f)
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-        global rankedOrder
-        global blueTeam
-        global redTeam
-        global team1prob
-        global team2prob
-        global blueRank
-        global redRank
-        global tMsg
-        if game == "None":
-            blueRank = 0
-            redRank = 0
-            blueTeam = []
-            redTeam = []
-            logging.info(rankedOrder)
-            blueTeam = list(rankedOrder[int(idx)][0])
-            for j in eligiblePlayers:
-                if j not in blueTeam:
-                    redTeam.append(j)
-            for j in blueTeam:
-                blueRank += int(ELOpop[j][1])
-            for j in redTeam:
-                redRank += int(ELOpop[j][1])
-            team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-            team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-            await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-        else:
-            nblueTeam = activePickups[game][2]
-            nredTeam = activePickups[game][5]
-            neligiblePlayers = []
-            for i in nblueTeam:
-                neligiblePlayers.append(i)
-            for i in nredTeam:
-                neligiblePlayers.append(i)
-
-            combos = list(
-                itertools.combinations(neligiblePlayers, int(len(neligiblePlayers) / 2))
-            )
-            random.shuffle(combos)
-            blueTeam = []
-            redTeam = []
-            rankedOrder = []
-            redRank = 0
-            blueRank = 0
-            totalRank = 0
-            half = 0
-            for j in neligiblePlayers:
-                totalRank += int(ELOpop[j][1])
-            half = int(totalRank / 2)
-            for i in list(combos):
-                blueRank = 0
-                for j in i:
-                    blueRank += int(ELOpop[j][1])
-                rankedOrder.append((i, abs(blueRank - half)))
-            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-
-            blueTeam = list(rankedOrder[int(idx)][0])
-            for j in neligiblePlayers:
-                if j not in blueTeam:
-                    redTeam.append(j)
-            blueRank = 0
-            for j in blueTeam:
-                blueRank += int(ELOpop[j][1])
-            for j in redTeam:
-                redRank += int(ELOpop[j][1])
-            team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-            team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-            await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-            activePickups[game][0] = team1prob
-            activePickups[game][1] = blueRank
-            activePickups[game][2] = blueTeam
-            activePickups[game][3] = team2prob
-            activePickups[game][4] = redRank
-            activePickups[game][5] = redTeam
-
-            with open("activePickups.json", "w") as cd:
-                json.dump(activePickups, cd, indent=4)
-
-
-@client.command(pass_context=True)
-@commands.has_role(v["runner"])
 async def shuffle(ctx, idx=None, game="None"):
-    # global sMsg
     global rankedOrder
     global blueTeam
     global redTeam
@@ -2864,8 +2766,8 @@ async def shuffle(ctx, idx=None, game="None"):
     global redRank
     global tMsg
     async with GLOBAL_LOCK:
-        # rankedOrder = []
-        if ctx.channel.name == v["pc"]:
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+        if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             if idx is None:
                 idx = random.randint(1, 11)
             with open("activePickups.json") as f:
@@ -2887,8 +2789,16 @@ async def shuffle(ctx, idx=None, game="None"):
                     blueRank += int(ELOpop[j][1])
                 for j in redTeam:
                     redRank += int(ELOpop[j][1])
+
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
+                blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+                red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
+                logging.info(blue_team_info_string)
+                logging.info(red_team_info_string)
+
+                await dev_channel.send(blue_team_info_string)
+                await dev_channel.send(red_team_info_string)
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
             else:
                 rankedOrder = []
@@ -2934,6 +2844,13 @@ async def shuffle(ctx, idx=None, game="None"):
                     redRank += int(ELOpop[j][1])
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
+                blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+                red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
+                logging.info(blue_team_info_string)
+                logging.info(red_team_info_string)
+
+                await dev_channel.send(blue_team_info_string)
+                await dev_channel.send(red_team_info_string)
                 await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
                 activePickups[game][0] = team1prob
                 activePickups[game][1] = blueRank
