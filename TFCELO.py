@@ -1651,7 +1651,7 @@ async def doteams(channel2, playerCount=4):
 
                     team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                     team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                    await teamsDisplay(dev_channel, blueTeam, redTeam, team1prob, team2prob, redRank, blueRank, True, True)
+                    await teamsDisplay(dev_channel, blueTeam, redTeam, team1prob, team2prob, blueRank, redRank, True, True)
                     redTeam = []
                     redRank = 0
                     totalRank = 0
@@ -1849,7 +1849,7 @@ async def teams(ctx, playerCount=4):
 
                                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                                await teamsDisplay(dev_channel, blueTeam, redTeam, team1prob, team2prob, redRank, blueRank, True, True)
+                                await teamsDisplay(dev_channel, blueTeam, redTeam, team1prob, team2prob, blueRank, redRank, True, True)
                                 redTeam = []
                                 redRank = 0
                                 totalRank = 0
@@ -2098,7 +2098,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                         team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                         team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                        await teamsDisplay(dev_channel, blueTeam, redTeam, team1prob, team2prob, redRank, blueRank, True, True)
+                        await teamsDisplay(dev_channel, blueTeam, redTeam, team1prob, team2prob, blueRank, redRank, True, True)
                         redTeam = []
                         redRank = 0
                         totalRank = 0
