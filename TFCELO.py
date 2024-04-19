@@ -1603,7 +1603,7 @@ async def teams(ctx, playerCount=4):
                         if len(playersAdded) == playerCount:
                             eligiblePlayers = playersAdded
                         else:
-                            eligiblePlayers = playersAdded[0:playerCount * 2]
+                            eligiblePlayers = playersAdded[0 : playerCount * 2]
 
                         if MAP_VOTE_FIRST is True:
                             # Prune down the players added
@@ -1806,7 +1806,7 @@ async def teams(ctx, playerCount=4):
                         if len(playersAdded) == playerCount:
                             eligiblePlayers = playersAdded
                         else:
-                            eligiblePlayers = playersAdded[0:playerCount * 2]
+                            eligiblePlayers = playersAdded[0 : playerCount * 2]
                         captMode = 1
                         DMList = []
                         for i in eligiblePlayers:
