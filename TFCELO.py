@@ -6,6 +6,7 @@ import logging
 import os
 import random
 import time
+import typing
 
 import discord
 import matplotlib.pyplot as plt
@@ -530,6 +531,86 @@ async def idle_cancel():
                 "Pickup idle for more than two hours, canceling. Durden was too slow"
             )
             await DePopulatePickup()
+
+
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def timeout(
+    ctx,
+    user: discord.Member,
+    input_duration: typing.Optional[str] = None,
+    *,
+    reason=None,
+):
+    adminChannel = await client.fetch_channel(836999458431434792)
+    if reason is None:
+        await ctx.send("User must be given a reason for timeout..")
+    else:
+        if input_duration is None:
+            duration = datetime.timedelta(seconds=0, minutes=0, hours=0, days=1)
+        else:
+            digits = []
+            for char in input_duration:
+                if char.isdigit():
+                    digits.append(char)
+            converted_duration = int("".join(digits))
+            logging.info(f"Input Duration: {input_duration}")
+            logging.info(f"Converted Duration: {converted_duration}")
+            if "m" in input_duration.lower():
+                input_duration
+                duration = datetime.timedelta(
+                    seconds=0, minutes=int(converted_duration), hours=0, days=0
+                )
+            elif "s" in input_duration.lower():
+                duration = datetime.timedelta(
+                    seconds=int(converted_duration), minutes=0, hours=0, days=0
+                )
+            elif "h" in input_duration.lower():
+                duration = datetime.timedelta(
+                    seconds=0, minutes=0, hours=int(converted_duration), days=0
+                )
+            elif "d" in input_duration.lower():
+                duration = datetime.timedelta(
+                    seconds=0, minutes=0, hours=0, days=int(converted_duration)
+                )
+            else:
+                await ctx.send(
+                    "Incorrect duration value set. Use <numbervalue>[d,h,m,s] or set no number for 1 day."
+                )
+                return
+        await user.timeout(duration, reason=reason)
+        await ctx.send(f"Successfully timed out {user.name} for {duration}")
+        await user.send(f"You have been timed out for {duration} for {reason}")
+        await adminChannel.send(
+            f"**{user.display_name}** has been timed out by **{ctx.author.display_name}** for **{reason}** for {duration}"
+        )
+
+
+# use_voice_activation
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def forcePTT(ctx, user: discord.Member, *, reason=None):
+    if reason is None:
+        await ctx.send("User must be given a reason")
+    else:
+        adminChannel = await client.fetch_channel(836999458431434792)
+        channels = [
+            836633744902586378,
+            836633820849373184,
+            840065112484085771,
+            840065140489060363,
+        ]
+        for id in channels:
+            vchannel = await client.fetch_channel(id)
+            perms = vchannel.overwrites_for(user)
+            perms.use_voice_activation = False
+            # await vchannel.set_permissions(user, use_voice_activation=not perms.use_voice_activation)
+            await vchannel.set_permissions(user, overwrite=perms)
+        await ctx.send(f"Successfully set {user.name}'s permission to PTT only")
+        await user.send(f"You have been put on PTT for {reason}")
+        await adminChannel.send(
+            f"**{user.display_name}** has been forced to PPT by **{ctx.author.display_name}** for **{reason}**"
+        )
 
 
 # Selects maps from two different json files.  options 1/2 are from classic_maps.json and option 3/4 is from spring_2024_maps.json
