@@ -539,51 +539,52 @@ async def timeout(
     ctx,
     user: discord.Member,
     input_duration: typing.Optional[str] = None,
-    *,
     reason=None,
 ):
     adminChannel = await client.fetch_channel(836999458431434792)
-    if reason is None:
+    if input_duration is None and reason is None:
         await ctx.send("User must be given a reason for timeout..")
+        return
+    elif input_duration is not None and reason is None:
+        # User didn't put a length for the timeout
+        reason = input_duration
+        duration = datetime.timedelta(seconds=0, minutes=0, hours=0, days=1)
+        print(reason)
     else:
-        if input_duration is None:
-            duration = datetime.timedelta(seconds=0, minutes=0, hours=0, days=1)
+        digits = []
+        for char in input_duration:
+            if char.isdigit():
+                digits.append(char)
+        converted_duration = int("".join(digits))
+        logging.info(f"Input Duration: {input_duration}")
+        logging.info(f"Converted Duration: {converted_duration}")
+        if "m" in input_duration.lower():
+            duration = datetime.timedelta(
+                seconds=0, minutes=int(converted_duration), hours=0, days=0
+            )
+        elif "s" in input_duration.lower():
+            duration = datetime.timedelta(
+                seconds=int(converted_duration), minutes=0, hours=0, days=0
+            )
+        elif "h" in input_duration.lower():
+            duration = datetime.timedelta(
+                seconds=0, minutes=0, hours=int(converted_duration), days=0
+            )
+        elif "d" in input_duration.lower():
+            duration = datetime.timedelta(
+                seconds=0, minutes=0, hours=0, days=int(converted_duration)
+            )
         else:
-            digits = []
-            for char in input_duration:
-                if char.isdigit():
-                    digits.append(char)
-            converted_duration = int("".join(digits))
-            logging.info(f"Input Duration: {input_duration}")
-            logging.info(f"Converted Duration: {converted_duration}")
-            if "m" in input_duration.lower():
-                input_duration
-                duration = datetime.timedelta(
-                    seconds=0, minutes=int(converted_duration), hours=0, days=0
-                )
-            elif "s" in input_duration.lower():
-                duration = datetime.timedelta(
-                    seconds=int(converted_duration), minutes=0, hours=0, days=0
-                )
-            elif "h" in input_duration.lower():
-                duration = datetime.timedelta(
-                    seconds=0, minutes=0, hours=int(converted_duration), days=0
-                )
-            elif "d" in input_duration.lower():
-                duration = datetime.timedelta(
-                    seconds=0, minutes=0, hours=0, days=int(converted_duration)
-                )
-            else:
-                await ctx.send(
-                    "Incorrect duration value set. Use <numbervalue>[d,h,m,s] or set no number for 1 day."
-                )
-                return
-        await user.timeout(duration, reason=reason)
-        await ctx.send(f"Successfully timed out {user.name} for {duration}")
-        await user.send(f"You have been timed out for {duration} for {reason}")
-        await adminChannel.send(
-            f"**{user.display_name}** has been timed out by **{ctx.author.display_name}** for **{reason}** for {duration}"
-        )
+            await ctx.send(
+                "Incorrect duration value set. Use <numbervalue>[d,h,m,s] or set no number for 1 day."
+            )
+            return
+    await user.timeout(duration, reason=reason)
+    await ctx.send(f"Successfully timed out {user.name} for {duration}")
+    await user.send(f"You have been timed out for {duration} for {reason}")
+    await adminChannel.send(
+        f"**{user.display_name}** has been timed out by **{ctx.author.display_name}** for **{reason}** for {duration}"
+    )
 
 
 # use_voice_activation
