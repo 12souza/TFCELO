@@ -5,8 +5,10 @@ import json
 import logging
 import os
 import random
+import re
 import time
 import typing
+import urllib.request
 
 import discord
 import matplotlib.pyplot as plt
@@ -1923,7 +1925,14 @@ async def status(ctx):
 @client.command(pass_context=True)
 async def tfcmap(ctx, map_name_string):
     async with GLOBAL_LOCK:
-        await ctx.send(f"https://tfcmaps.net/?filterMap={map_name_string}")
+        map = map_name_string.lower()
+        with urllib.request.urlopen(r"http://mrclan.com/tfcmaps/") as mapIndex:
+            response = mapIndex.read().decode("utf-8")
+            matches = re.findall('<a href="/tfcmaps/%s.zip' % (map), response, re.I)
+            if len(matches) != 0:
+                await ctx.send("Found map: http://mrclan.com/tfcmaps/%s.zip" % (map))
+            else:
+                await ctx.send(f"https://tfcmaps.net/?filterMap={map_name_string}")
 
 
 @client.command(pass_context=True)
