@@ -28,6 +28,7 @@ client = commands.Bot(
     command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents
 )
 client.remove_command("help")
+# client.load_extension("cogs.1v1_commands")
 
 
 @client.event
@@ -532,7 +533,7 @@ async def idle_cancel():
             await last_add_context.send(
                 "Pickup idle for more than two hours, canceling. Durden was too slow"
             )
-            await DePopulatePickup()
+            await cancelImpl()
 
 
 @client.command(pass_context=True)
