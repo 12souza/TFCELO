@@ -28,6 +28,7 @@ client = commands.Bot(
     command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents
 )
 client.remove_command("help")
+# client.load_extension("cogs.1v1_commands")
 
 
 @client.event
@@ -532,7 +533,7 @@ async def idle_cancel():
             await last_add_context.send(
                 "Pickup idle for more than two hours, canceling. Durden was too slow"
             )
-            await DePopulatePickup()
+            cancelImpl()
 
 
 @client.command(pass_context=True)
@@ -1767,64 +1768,6 @@ async def teams(ctx, playerCount=4):
                                     rankedOrder.append((list(i), abs(blueRank - half)))
                                 rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
 
-                            dev_channel.send(
-                                "Outputting top 5 possible games by absolute ELO difference sorted ascending"
-                            )
-                            for index, item in enumerate(rankedOrder):
-                                if index > 4:
-                                    break
-                                blueTeam = rankedOrder[index][0]
-                                for j in eligiblePlayers:
-                                    if j not in blueTeam:
-                                        redTeam.append(j)
-                                blueRank = 0
-                                for j in blueTeam:
-                                    blueRank += int(ELOpop[j][1])
-                                blue_diff = abs(blueRank - half)
-                                for j in redTeam:
-                                    redRank += int(ELOpop[j][1])
-                                red_diff = abs(redRank - half)
-
-                                # Make blue team the favored team as it allows them to be lenient on defense
-                                # if desired/needed for sportsmanship.
-                                if redRank > blueRank:
-                                    logging.info(
-                                        "Swapping team colors so blue is favored"
-                                    )
-                                    tempTeam = blueTeam
-                                    tempRank = blueRank
-                                    blueTeam = redTeam
-                                    blueRank = redRank
-                                    redTeam = tempTeam
-                                    redRank = tempRank
-
-                                logging.info(
-                                    f"blueTeam: {blueTeam}, diff: {blue_diff}, blueRank: {blueRank}"
-                                )
-                                logging.info(
-                                    f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}"
-                                )
-
-                                team1prob = round(
-                                    1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2
-                                )
-                                team2prob = round(
-                                    1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
-                                )
-                                await teamsDisplay(
-                                    dev_channel,
-                                    blueTeam,
-                                    redTeam,
-                                    team1prob,
-                                    team2prob,
-                                    blueRank,
-                                    redRank,
-                                    True,
-                                    True,
-                                )
-                                redTeam = []
-                                redRank = 0
-                                totalRank = 0
                             blueTeam = list(rankedOrder[0][0])
 
                             for j in eligiblePlayers:
@@ -1872,10 +1815,75 @@ async def teams(ctx, playerCount=4):
 
                             dmMsg = "".join(DMList)
                             await ctx.send(dmMsg)
-                            # await ctx.send("Please react to the map you want to play on..")
                             await ctx.send(
                                 "Please react to the server you want to play on.."
                             )
+
+                            await dev_channel.send(
+                                "Outputting top 5 possible games by absolute ELO difference sorted ascending"
+                            )
+                            for index, item in enumerate(rankedOrder):
+                                if index > 4:
+                                    break
+                                dev_blue_team = rankedOrder[index][0]
+                                dev_blue_rank = 0
+                                dev_red_team = []
+                                dev_red_rank = 0
+                                for j in eligiblePlayers:
+                                    if j not in dev_blue_team:
+                                        dev_red_team.append(j)
+                                for j in dev_blue_team:
+                                    dev_blue_rank += int(ELOpop[j][1])
+                                dev_blue_diff = abs(dev_blue_rank - half)
+                                for j in dev_red_team:
+                                    dev_red_rank += int(ELOpop[j][1])
+                                dev_red_diff = abs(dev_red_rank - half)
+
+                                # Make blue team the favored team as it allows them to be lenient on defense
+                                # if desired/needed for sportsmanship.
+                                if dev_red_rank > dev_blue_rank:
+                                    logging.info(
+                                        "Swapping team colors so blue is favored"
+                                    )
+                                    tempTeam = dev_blue_team
+                                    tempRank = dev_blue_rank
+                                    dev_blue_team = dev_red_team
+                                    dev_blue_rank = dev_red_rank
+                                    dev_red_team = tempTeam
+                                    dev_red_rank = tempRank
+
+                                logging.info(
+                                    f"blueTeam: {dev_blue_team}, diff: {dev_blue_diff}, blueRank: {dev_blue_rank}"
+                                )
+                                logging.info(
+                                    f"redTeam: {dev_red_team}, diff {dev_red_diff}, redRank: {dev_red_rank}"
+                                )
+
+                                dev_team1prob = round(
+                                    1
+                                    / (
+                                        1 + 10 ** ((dev_red_rank - dev_blue_rank) / 400)
+                                    ),
+                                    2,
+                                )
+                                dev_team2prob = round(
+                                    1
+                                    / (
+                                        1 + 10 ** ((dev_blue_rank - dev_red_rank) / 400)
+                                    ),
+                                    2,
+                                )
+                                await teamsDisplay(
+                                    dev_channel,
+                                    dev_blue_team,
+                                    dev_red_team,
+                                    dev_team1prob,
+                                    dev_team2prob,
+                                    dev_blue_rank,
+                                    dev_red_rank,
+                                    True,
+                                    True,
+                                )
 
                         server_vote = 1
                         await voteSetup(ctx)
@@ -2790,6 +2798,8 @@ async def forceVote(ctx):
             global alreadyVoted
             global lastFive
             global vMsg
+            global blueTeam
+            global redTeam
             logging.info("Force Vote Called")
             vote.reset_cooldown(ctx)
             winningMap = None
@@ -2903,10 +2913,21 @@ async def forceVote(ctx):
                             f"BOT'S CHOICE! The winning map is **{wMap}** and will be played at {winningIP}"
                         )
                     else:
+                        # Re-show teams output for clarity
+                        await teamsDisplay(
+                            channel,
+                            blueTeam,
+                            redTeam,
+                            None,
+                            None,
+                            None,
+                            None,
+                            False,
+                            False,
+                        )
                         await channel.send(
                             f"The winning map is **{winningMap}** and will be played at {winningIP}"
                         )
-
                     inVote = 0
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
