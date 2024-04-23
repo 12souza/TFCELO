@@ -1768,7 +1768,7 @@ async def teams(ctx, playerCount=4):
                                     rankedOrder.append((list(i), abs(blueRank - half)))
                                 rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
 
-                            dev_channel.send(
+                            await dev_channel.send(
                                 "Outputting top 5 possible games by absolute ELO difference sorted ascending"
                             )
                             for index, item in enumerate(rankedOrder):
@@ -1873,7 +1873,6 @@ async def teams(ctx, playerCount=4):
 
                             dmMsg = "".join(DMList)
                             await ctx.send(dmMsg)
-                            # await ctx.send("Please react to the map you want to play on..")
                             await ctx.send(
                                 "Please react to the server you want to play on.."
                             )
@@ -2793,8 +2792,6 @@ async def forceVote(ctx):
             global vMsg
             global blueTeam
             global redTeam
-            global team1prob
-            global team2prob
             logging.info("Force Vote Called")
             vote.reset_cooldown(ctx)
             winningMap = None
@@ -2908,13 +2905,21 @@ async def forceVote(ctx):
                             f"BOT'S CHOICE! The winning map is **{wMap}** and will be played at {winningIP}"
                         )
                     else:
+                        # Re-show teams output for clarity
+                        await teamsDisplay(
+                            channel,
+                            blueTeam,
+                            redTeam,
+                            None,
+                            None,
+                            None,
+                            None,
+                            False,
+                            False,
+                        )
                         await channel.send(
                             f"The winning map is **{winningMap}** and will be played at {winningIP}"
                         )
-
-                    # Re-show teams output for clarity
-                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
-
                     inVote = 0
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
