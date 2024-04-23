@@ -533,7 +533,7 @@ async def idle_cancel():
             await last_add_context.send(
                 "Pickup idle for more than two hours, canceling. Durden was too slow"
             )
-            await cancelImpl()
+            cancelImpl()
 
 
 @client.command(pass_context=True)
@@ -2791,6 +2791,10 @@ async def forceVote(ctx):
             global alreadyVoted
             global lastFive
             global vMsg
+            global blueTeam
+            global redTeam
+            global team1prob
+            global team2prob
             logging.info("Force Vote Called")
             vote.reset_cooldown(ctx)
             winningMap = None
@@ -2907,6 +2911,9 @@ async def forceVote(ctx):
                         await channel.send(
                             f"The winning map is **{winningMap}** and will be played at {winningIP}"
                         )
+
+                    # Re-show teams output for clarity
+                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
 
                     inVote = 0
                     if len(lastFive) >= 5:
