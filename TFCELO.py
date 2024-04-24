@@ -2769,7 +2769,7 @@ async def requeue(ctx):
 # Examples: !forceVote
 #           !fv
 @client.command(aliases=["fv"], pass_context=True)
-@commands.cooldown(1, 10, commands.BucketType.user)
+@commands.cooldown(1, 10, commands.BucketType.channel)
 @commands.has_role(v["runner"])
 async def forceVote(ctx):
     async with GLOBAL_LOCK:
@@ -3081,7 +3081,7 @@ async def shuffle(ctx, idx=None, game="None"):
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 30, commands.BucketType.user)
+@commands.cooldown(1, 30, commands.BucketType.channel)
 async def notice(ctx, anumber=8):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
@@ -3093,7 +3093,7 @@ async def notice(ctx, anumber=8):
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 30, commands.BucketType.user)
+@commands.cooldown(1, 30, commands.BucketType.channel)
 async def vote(ctx):
     """
     Nagging message to get people to vote who haven't picked their server or map choice yet
