@@ -28,7 +28,10 @@ client = commands.Bot(
     command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents
 )
 client.remove_command("help")
-# client.load_extension("cogs.1v1_commands")
+
+
+async def load_extensions():
+    await client.load_extension("cogs.dm_commands")
 
 
 @client.event
@@ -59,6 +62,7 @@ GLOBAL_LOCK = asyncio.Lock()
 
 # ELOpop scheme
 # ELOpop contains at the root a map of player ID (i.e. str(ctx.author.id)) to a list of variables metadata slots
+# TODO: Move to fixtures file
 PLAYER_MAP_VISUAL_NAME_INDEX = 0  # Player's visual name
 PLAYER_MAP_CURRENT_ELO_INDEX = 1  # Player's current ELO number
 PLAYER_MAP_VISUAL_RANK_INDEX = 3  # current visual rank icon
@@ -67,7 +71,9 @@ PLAYER_MAP_LOSS_INDEX = 5
 PLAYER_MAP_DRAW_INDEX = 6
 PLAYER_MAP_ACHIEVEMENT_INDEX = 7  # list of achievement icons
 PLAYER_MAP_DUNCE_FLAG_INDEX = 8  # Is this player a dunce or not?
-PLAYER_MAP_NUM_ENTRIES = 9  # Note: Bump this when adding another player map entry
+PLAYER_MAP_STEAM_ID_INDEX = 9
+PLAYER_MAP_DM_WIN_INDEX = 10
+PLAYER_MAP_DM_LOSS_INDEX = 11
 PAST_TEN_BLUE_TEAM_INDEX = 0
 PAST_TEN_RED_TEAM_INDEX = 4
 PAST_TEN_MATCH_OUTCOME_INDEX = 8
@@ -259,6 +265,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
 async def on_ready():
     global GLOBAL_LOCK
     logging.info("on_ready!")
+    await load_extensions()
     # Remake the global lock to try to get it compatible with the bot's event loop
     # TODO: I don't fully understand why or if this helps exactly.
     GLOBAL_LOCK = asyncio.Lock()
@@ -707,6 +714,13 @@ def PickMaps():
 @commands.has_role(v["admin"])
 async def pick_maps_test(ctx):
     PickMaps()
+
+
+# TODO: Add steam_id registation for players
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def register_steamid(ctx, player: discord.Member, steam_id):
+    print("foo")
 
 
 # This function manages the captain's mode.
@@ -1501,7 +1515,7 @@ async def add(ctx, cap=None):
     global last_add_context
     async with GLOBAL_LOCK:
         try:
-            if ctx.channel.name == v["pc"]:
+            if ctx.channel.name == v["pc"] or (ctx.channel.id == DEV_TESTING_CHANNEL):
                 playerID = str(ctx.author.id)
                 playerDisplayName = ctx.author.display_name
 
@@ -3487,7 +3501,4 @@ async def on_message(message):
     await client.process_commands(message)
 
 
-logging.info(v["TOKEN"])
-
 client.run(v["TOKEN"])
-# client.run('NzMyMzcyMTcwMzY5NTMxOTc4.G-L8nP.JZ6Gj_AwGnavMYbjW5XU-VVHx6BTeAPUQwEjqI')
