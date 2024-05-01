@@ -2861,20 +2861,35 @@ async def forceVote(ctx):
                     len(mapVotes[map_choice_3]),
                     len(mapVotes[map_choice_4]),
                 ]
-                # TODO: Need to correctly handle ties here
-                windex = votes.index(max(votes))
-                if windex == 0:
+                server_names = [
+                    mapVotes[map_choice_1],
+                    mapVotes[map_choice_2],
+                    mapVotes[map_choice_3],
+                    mapVotes[map_choice_4],
+                ]
+                vote_index = 0
+                max_vote_count = votes.index(max(votes))
+                candidate_server_names = []
+                for count in votes:
+                    if count == max_vote_count:
+                        candidate_server_names.append(server_names[vote_index])
+                    voteIndex = vote_index + 1
+
+                if len(candidate_server_names) > 1:
+                    await ctx.send(
+                        "There was a tie in server votes! Making a random selection between them..."
+                    )
+                # Pick a random final winner from the candidate maps
+                winning_server = random.choice(candidate_server_names)
+                winningServer = winningServer  # keeping this random variable around til I refactor it into oblivion
+                if winning_server == "West - North California":
                     winningIP = f"http://tinyurl.com/tfpwestaws - connect {logins['west']['server_ip']}:27015; password letsplay!"
-                    winningServer = "West (Los Angeles)"
-                elif windex == 1:
+                elif winning_server == "East - North Virginia":
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
-                    winningServer = "East (North Virginia)"
-                elif windex == 2:
+                elif winning_server == "Central - Dallas":
                     winningIP = f"https://tinyurl.com/tfpcentralaws - connect {logins['central']['server_ip']}:27015; password letsplay!"
-                    winningServer = "Central (Dallas)"
-                elif windex == 3:
+                elif winning_server == "South East - Miami":
                     winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
-                    winningServer = "South East (Miami)"
                 else:
                     # Just pick one so things aren't completely broken
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
