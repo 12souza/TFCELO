@@ -28,7 +28,10 @@ client = commands.Bot(
     command_prefix=["!", "+", "-"], case_insensitive=True, intents=intents
 )
 client.remove_command("help")
-# client.load_extension("cogs.1v1_commands")
+
+
+async def load_extensions():
+    await client.load_extension("cogs.dm_commands")
 
 
 @client.event
@@ -59,6 +62,7 @@ GLOBAL_LOCK = asyncio.Lock()
 
 # ELOpop scheme
 # ELOpop contains at the root a map of player ID (i.e. str(ctx.author.id)) to a list of variables metadata slots
+# TODO: Move to fixtures file
 PLAYER_MAP_VISUAL_NAME_INDEX = 0  # Player's visual name
 PLAYER_MAP_CURRENT_ELO_INDEX = 1  # Player's current ELO number
 PLAYER_MAP_VISUAL_RANK_INDEX = 3  # current visual rank icon
@@ -67,7 +71,9 @@ PLAYER_MAP_LOSS_INDEX = 5
 PLAYER_MAP_DRAW_INDEX = 6
 PLAYER_MAP_ACHIEVEMENT_INDEX = 7  # list of achievement icons
 PLAYER_MAP_DUNCE_FLAG_INDEX = 8  # Is this player a dunce or not?
-PLAYER_MAP_NUM_ENTRIES = 9  # Note: Bump this when adding another player map entry
+PLAYER_MAP_STEAM_ID_INDEX = 9
+PLAYER_MAP_DM_WIN_INDEX = 10
+PLAYER_MAP_DM_LOSS_INDEX = 11
 PAST_TEN_BLUE_TEAM_INDEX = 0
 PAST_TEN_RED_TEAM_INDEX = 4
 PAST_TEN_MATCH_OUTCOME_INDEX = 8
@@ -259,6 +265,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
 async def on_ready():
     global GLOBAL_LOCK
     logging.info("on_ready!")
+    await load_extensions()
     # Remake the global lock to try to get it compatible with the bot's event loop
     # TODO: I don't fully understand why or if this helps exactly.
     GLOBAL_LOCK = asyncio.Lock()
@@ -331,6 +338,39 @@ async def private(ctx):
 
         with open("ELOpop.json", "w") as cd:
             json.dump(ELOpop, cd, indent=4)
+
+
+"""@client.command(pass_context=True)
+async def load_player_database(ctx):
+    global ELOpop
+
+    async with GLOBAL_LOCK:
+        with open("ELOpop.json") as f:
+            ELOpop = json.load(f)
+
+        db = mysql.connector.connect(
+            host=logins["mysql"]["host"],
+            user=logins["mysql"]["user"],
+            passwd=logins["mysql"]["passwd"],
+            database=logins["mysql"]["database"],
+        )
+        mycursor = db.cursor()
+        columns = "discord_id, created_at, updated_at, deleted_at, player_name, current_elo, visual_rank_override, pug_wins, pug_losses, pug_draws, dm_wins, dm_losses, achievements, dunce, steam_id"
+        placeholders = ", ".join(["%s"] * 15)
+
+        sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
+            "matches",
+            columns,
+            placeholders,
+        )
+        logging.info(sql)
+        logging.info(list(current_game.values()))
+        player_rows = []
+        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        for player in ELOpop:
+            current_row = [player, current_timestamp, current_timestamp, None,
+                            ELOpop[player]]
+        cursor.execute(sql, list(current_game.values()))"""
 
 
 @client.command(pass_context=True)
@@ -707,6 +747,13 @@ def PickMaps():
 @commands.has_role(v["admin"])
 async def pick_maps_test(ctx):
     PickMaps()
+
+
+# TODO: Add steam_id registation for players
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def register_steamid(ctx, player: discord.Member, steam_id):
+    print("foo")
 
 
 # This function manages the captain's mode.
@@ -1476,6 +1523,9 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
                     0,
                     [],
                     None,
+                    None,
+                    0,
+                    0,
                 ]
                 # Write the ELO out
                 with open("ELOpop.json", "w") as cd:
@@ -1501,7 +1551,7 @@ async def add(ctx, cap=None):
     global last_add_context
     async with GLOBAL_LOCK:
         try:
-            if ctx.channel.name == v["pc"]:
+            if ctx.channel.name == v["pc"] or (ctx.channel.id == DEV_TESTING_CHANNEL):
                 playerID = str(ctx.author.id)
                 playerDisplayName = ctx.author.display_name
 
@@ -2769,7 +2819,7 @@ async def requeue(ctx):
 # Examples: !forceVote
 #           !fv
 @client.command(aliases=["fv"], pass_context=True)
-@commands.cooldown(1, 10, commands.BucketType.user)
+@commands.cooldown(1, 10, commands.BucketType.channel)
 @commands.has_role(v["runner"])
 async def forceVote(ctx):
     async with GLOBAL_LOCK:
@@ -3081,7 +3131,7 @@ async def shuffle(ctx, idx=None, game="None"):
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 30, commands.BucketType.user)
+@commands.cooldown(1, 30, commands.BucketType.channel)
 async def notice(ctx, anumber=8):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
@@ -3093,7 +3143,7 @@ async def notice(ctx, anumber=8):
 
 
 @client.command(pass_context=True)
-@commands.cooldown(1, 30, commands.BucketType.user)
+@commands.cooldown(1, 30, commands.BucketType.channel)
 async def vote(ctx):
     """
     Nagging message to get people to vote who haven't picked their server or map choice yet
@@ -3487,7 +3537,4 @@ async def on_message(message):
     await client.process_commands(message)
 
 
-logging.info(v["TOKEN"])
-
 client.run(v["TOKEN"])
-# client.run('NzMyMzcyMTcwMzY5NTMxOTc4.G-L8nP.JZ6Gj_AwGnavMYbjW5XU-VVHx6BTeAPUQwEjqI')
