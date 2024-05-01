@@ -2868,7 +2868,7 @@ async def forceVote(ctx):
                     mapVotes[map_choice_4],
                 ]
                 vote_index = 0
-                max_vote_count = votes.index(max(votes))
+                max_vote_count = max(votes)
                 candidate_server_names = []
                 for count in votes:
                     if count == max_vote_count:
