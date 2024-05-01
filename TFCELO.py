@@ -2873,13 +2873,17 @@ async def forceVote(ctx):
                 for count in votes:
                     if count == max_vote_count:
                         candidate_server_names.append(server_names[vote_index])
-                    voteIndex = vote_index + 1
+                    vote_index = vote_index + 1
 
                 if len(candidate_server_names) > 1:
                     await ctx.send(
                         "There was a tie in server votes! Making a random selection between them..."
                     )
+                    winning_server = random.choice(candidate_server_names)
+                else:
+                    winning_server = candidate_server_names[0]
                 # Pick a random final winner from the candidate maps
+
                 winning_server = random.choice(candidate_server_names)
                 winningServer = winningServer  # keeping this random variable around til I refactor it into oblivion
                 if winning_server == "West - North California":
