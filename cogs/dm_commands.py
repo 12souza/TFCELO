@@ -75,7 +75,7 @@ class DMCommandsCog(commands.Cog):
             size = ftp.size(logFile)
             # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
             # if we find any edge cases.
-            if (size > 100000) and (
+            if (size > 20000) and (
                 ".log" in logFile
             ):  # Rounds with logs of players and time will be big
                 log_to_parse = logFile
@@ -536,7 +536,49 @@ class DMCommandsCog(commands.Cog):
         )
         cursor = db.cursor(dictionary=True)
 
-        # TODO: Reported matches should update players table
+        # TODO: Reported matches should update players table but this is a short-term way to grab
+        sql = """SELECT
+                CASE
+                WHEN match_outcome = 1 THEN blue_team
+                WHEN match_outcome = 2 THEN red_team
+            END AS winner,
+            COUNT(*) AS win_count
+            FROM matches WHERE deleted_at IS NULL AND match_outcome IS NOT NULL
+            GROUP BY winner
+            ORDER BY win_count DESC;"""
+        cursor.execute(sql)
+        output = cursor.fetchall()
+        logging.info(output)
+        leaderboard_names = []
+        leaderboard_wins = []
+        for row in output:
+            discord_id = str(row["winner"])
+            win_count = str(row["win_count"])
+
+            if ELOpop[discord_id][PLAYER_MAP_DUNCE_FLAG_INDEX] is not None:
+                win_emblem = ""  # Dunces don't get an emblem to show off
+            else:
+                # TODO: This should be based off of 1v1 wins, not pug wins
+                self.get_win_emblem(ctx, discord_id)
+                win_emblem = str(self.get_win_emblem(ctx, discord_id))
+
+            leaderboard_names.append(
+                win_emblem
+                + " "
+                + ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX]
+                + "\n"
+            )
+            leaderboard_wins.append(win_count + "\n")
+        message_formatted = "".join(leaderboard_names)
+        embed = discord.Embed(title="1v1 Win Count Leaderboard")
+        embed.add_field(
+            name="Players",
+            value=message_formatted,
+            inline=True,
+        )
+        message_formatted = "".join(leaderboard_wins)
+        embed.add_field(name="Victories", value=message_formatted, inline=True)
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):

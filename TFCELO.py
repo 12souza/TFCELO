@@ -2862,10 +2862,10 @@ async def forceVote(ctx):
                     len(mapVotes[map_choice_4]),
                 ]
                 server_names = [
-                    mapVotes[map_choice_1],
-                    mapVotes[map_choice_2],
-                    mapVotes[map_choice_3],
-                    mapVotes[map_choice_4],
+                    map_choice_1,
+                    map_choice_2,
+                    map_choice_3,
+                    map_choice_4,
                 ]
                 vote_index = 0
                 max_vote_count = max(votes)
@@ -2885,7 +2885,8 @@ async def forceVote(ctx):
                 # Pick a random final winner from the candidate maps
 
                 winning_server = random.choice(candidate_server_names)
-                winningServer = winningServer  # keeping this random variable around til I refactor it into oblivion
+                logging.info(f"Winning server is - {winning_server}")
+                winningServer = winning_server  # keeping this random variable around til I refactor it into oblivion
                 if winning_server == "West - North California":
                     winningIP = f"http://tinyurl.com/tfpwestaws - connect {logins['west']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "East - North Virginia":
