@@ -486,18 +486,17 @@ class DMCommandsCog(commands.Cog):
         # This column is just the primary key from the MySQL db but isn't used
         del match_row["id"]
         active_1v1_matches[match_id] = match_row
+        logging.info(active_1v1_matches)
+        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         active_1v1_matches[match_id]["created_at"] = active_1v1_matches[match_id][
             "created_at"
         ].strftime("%Y-%m-%d %H:%M:%S")
-        active_1v1_matches[match_id]["updated_at"] = active_1v1_matches[match_id][
-            "updated_at"
-        ].strftime("%Y-%m-%d %H:%M:%S")
-        active_1v1_matches[match_id]["deleted_at"] = active_1v1_matches[match_id][
-            "deleted_at"
-        ].strftime("%Y-%m-%d %H:%M:%S")
+        active_1v1_matches[match_id]["updated_at"] = current_timestamp
+        active_1v1_matches[match_id]["deleted_at"] = current_timestamp
+        logging.info(active_1v1_matches)
         with open("active_1v1_matches.json", "w") as f:
             json.dump(active_1v1_matches, f, indent=4)
-        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
         sql = "UPDATE matches SET updated_at = %s, deleted_at = %s WHERE match_id = %s"
         logging.info(sql)
         logging.info((current_timestamp, current_timestamp, match_id))

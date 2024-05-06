@@ -38,7 +38,21 @@ async def load_extensions():
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send("This command is on a %.2fs cooldown" % error.retry_after)
-    raise error  # re-raise the error so all the errors will still show up in console
+    elif isinstance(error, commands.MissingRole):
+        await ctx.send(
+            "This command requires you to have a certain role that you don't have"
+        )
+    elif isinstance(error, commands.CommandNotFound):
+        await ctx.send("The command that you entered was not found")
+    elif isinstance(error, commands.CommandInvokeError):
+        await ctx.send(
+            "The command that you sent failed with an error on the backend. Sending debug-output to admins!"
+        )
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+        await dev_channel.send(error)
+        raise error
+    else:
+        raise error  # re-raise the error so all the errors will still show up in console
 
 
 # Load in ELO configuration
@@ -676,28 +690,17 @@ def PickMaps():
     mapVotes = {}
     alreadyVoted = []
     mapPick = []
-    if len(lastFive) == 0:
-        # Seed lastFive from the last 5 pickups played so that this value is never empty
-        with open("pastten.json") as f:
-            past_ten = json.load(f)
-            logging.info(past_ten)
-            past_ten_keys_list = list(past_ten.keys())
-            past_ten_keys_list.reverse()
-            for match in past_ten_keys_list:
-                map = past_ten[match][PAST_TEN_MAP_INDEX]
-                # Handle edge case of bot's choice being two maps in one that need to be omitted from the pool
-                if "Bot's Choice" in map:
-                    lastFive.append("Bot's Choice (Double ELO)")
-                    # Handle weird edge case of monkey_lg double elo text in a lazy way
-                    lastFive.append(
-                        past_ten[match][PAST_TEN_MAP_INDEX]
-                        .replace("Bot's Choice - ", "")
-                        .replace(" (no HW w/ double ELO)", "")
-                    )
-                else:
-                    lastFive.append(map)
-                if len(lastFive) >= 5:
-                    break
+    # Seed lastFive from the last 5 pickups played so that this value is never empty
+    with open("pastten.json") as f:
+        past_ten = json.load(f)
+        logging.info(past_ten)
+        past_ten_keys_list = list(past_ten.keys())
+        past_ten_keys_list.reverse()
+        for match in past_ten_keys_list:
+            if len(lastFive) >= 5:
+                break
+            map = past_ten[match][PAST_TEN_MAP_INDEX]
+            lastFive.append(map)
 
     for i in list(mapList):
         if i not in mapSelected:
