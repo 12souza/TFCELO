@@ -347,8 +347,6 @@ class DMCommandsCog(commands.Cog):
     @commands.has_role(v["tfc"])
     @commands.check(check_message_channel)
     async def check1v1game(self, ctx, match_id):
-        if match_id is None:
-            await ctx.send("You must enter a match_id number to look up from database!")
         db = mysql.connector.connect(
             host=logins["mysql"]["host"],
             user=logins["mysql"]["user"],

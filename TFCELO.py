@@ -44,6 +44,8 @@ async def on_command_error(ctx, error):
         )
     elif isinstance(error, commands.CommandNotFound):
         await ctx.send("The command that you entered was not found")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(error)
     elif isinstance(error, commands.CommandInvokeError):
         await ctx.send(
             "The command that you sent failed with an error on the backend. Sending debug-output to admins!"
