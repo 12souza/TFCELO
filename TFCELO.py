@@ -163,6 +163,76 @@ def server_vote_output():
     return ""
 
 
+def teamsDisplay(
+    blueTeam,
+    redTeam,
+    team1prob,
+    team2prob,
+    team1_elo=None,
+    team2_elo=None,
+    show_probability=False,
+    show_visual_rank=False,
+):
+    msgList = []
+
+    for i in blueTeam:
+        if show_visual_rank:
+            msgList.append(
+                getRank(i)
+                + " "
+                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
+                + " "
+                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
+                + "\n"
+            )
+        else:
+            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
+    bMsg = "".join(msgList)
+    msgList.clear()
+    for i in redTeam:
+        if show_visual_rank:
+            msgList.append(
+                getRank(i)
+                + " "
+                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
+                + " "
+                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
+                + "\n"
+            )
+        else:
+            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
+    rMsg = "".join(msgList)
+    embed = discord.Embed(title="Teams Sorted!")
+    if show_probability:
+        embed.add_field(
+            name="Blue Team "
+            + v["t1img"]
+            + " "
+            + str(int(team1prob * 100))
+            + "% "
+            + str(int(team1_elo)),
+            value=bMsg,
+            inline=True,
+        )
+    else:
+        embed.add_field(name="Blue Team " + v["t1img"], value=bMsg, inline=True)
+    embed.add_field(name="\u200b", value="\u200b")
+    if show_probability:
+        embed.add_field(
+            name="Red Team "
+            + v["t2img"]
+            + " "
+            + str(int(team2prob * 100))
+            + "% "
+            + str(int(team2_elo)),
+            value=rMsg,
+            inline=True,
+        )
+    else:
+        embed.add_field(name="Red Team " + v["t2img"], value=rMsg, inline=True)
+    return embed
+
+
 def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
     global map_choice_1
     global map_choice_2
@@ -1110,77 +1180,6 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         await vMsg.reply("Click the link above to go the current vote!")
 
 
-async def teamsDisplay(
-    ctx,
-    blueTeam,
-    redTeam,
-    team1prob,
-    team2prob,
-    team1_elo=None,
-    team2_elo=None,
-    show_probability=False,
-    show_visual_rank=False,
-):
-    msgList = []
-
-    for i in blueTeam:
-        if show_visual_rank:
-            msgList.append(
-                getRank(i)
-                + " "
-                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
-                + " "
-                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
-                + "\n"
-            )
-        else:
-            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
-    bMsg = "".join(msgList)
-    msgList.clear()
-    for i in redTeam:
-        if show_visual_rank:
-            msgList.append(
-                getRank(i)
-                + " "
-                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
-                + " "
-                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
-                + "\n"
-            )
-        else:
-            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
-    rMsg = "".join(msgList)
-    embed = discord.Embed(title="Teams Sorted!")
-    if show_probability:
-        embed.add_field(
-            name="Blue Team "
-            + v["t1img"]
-            + " "
-            + str(int(team1prob * 100))
-            + "% "
-            + str(int(team1_elo)),
-            value=bMsg,
-            inline=True,
-        )
-    else:
-        embed.add_field(name="Blue Team " + v["t1img"], value=bMsg, inline=True)
-    embed.add_field(name="\u200b", value="\u200b")
-    if show_probability:
-        embed.add_field(
-            name="Red Team "
-            + v["t2img"]
-            + " "
-            + str(int(team2prob * 100))
-            + "% "
-            + str(int(team2_elo)),
-            value=rMsg,
-            inline=True,
-        )
-    else:
-        embed.add_field(name="Red Team " + v["t2img"], value=rMsg, inline=True)
-    await ctx.send(embed=embed)
-
-
 async def pastGames(ctx):
     with open("pastten.json") as f:
         past_ten_matches = json.load(f)
@@ -1387,7 +1386,9 @@ async def swapteam(
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
 
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
             else:
                 with open("ELOpop.json") as f:
                     ELOpop = json.load(f)
@@ -1433,7 +1434,9 @@ async def swapteam(
                 ]
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
 
 
 # Saves the pickup into the activepickups json which can be seen with !games
@@ -1860,8 +1863,10 @@ async def teams(ctx, playerCount=4):
                             logging.info(red_team_info_string)
                             await dev_channel.send(blue_team_info_string)
                             await dev_channel.send(red_team_info_string)
-                            await teamsDisplay(
-                                ctx, blueTeam, redTeam, team1prob, team2prob
+                            await ctx.send(
+                                embed=teamsDisplay(
+                                    blueTeam, redTeam, team1prob, team2prob
+                                )
                             )
                             for i in eligiblePlayers:
                                 DMList.append(f"<@{i}> ")
@@ -1875,6 +1880,7 @@ async def teams(ctx, playerCount=4):
                             await dev_channel.send(
                                 "Outputting top 5 possible games by absolute ELO difference sorted ascending"
                             )
+                            debug_embeds = []
                             for index, item in enumerate(rankedOrder):
                                 if index > 4:
                                     break
@@ -1926,17 +1932,19 @@ async def teams(ctx, playerCount=4):
                                     ),
                                     2,
                                 )
-                                await teamsDisplay(
-                                    dev_channel,
-                                    dev_blue_team,
-                                    dev_red_team,
-                                    dev_team1prob,
-                                    dev_team2prob,
-                                    dev_blue_rank,
-                                    dev_red_rank,
-                                    True,
-                                    True,
+                                debug_embeds.append(
+                                    teamsDisplay(
+                                        dev_blue_team,
+                                        dev_red_team,
+                                        dev_team1prob,
+                                        dev_team2prob,
+                                        dev_blue_rank,
+                                        dev_red_rank,
+                                        True,
+                                        True,
+                                    )
                                 )
+                            await dev_channel.send(embeds=debug_embeds)
 
                         server_vote = 1
                         await voteSetup(ctx)
@@ -2133,16 +2141,17 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         team2prob = round(
                             1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
                         )
-                        await teamsDisplay(
-                            dev_channel,
-                            blueTeam,
-                            redTeam,
-                            team1prob,
-                            team2prob,
-                            blueRank,
-                            redRank,
-                            True,
-                            True,
+                        await dev_channel.send(
+                            embed=teamsDisplay(
+                                blueTeam,
+                                redTeam,
+                                team1prob,
+                                team2prob,
+                                blueRank,
+                                redRank,
+                                True,
+                                True,
+                            )
                         )
                         redTeam = []
                         redRank = 0
@@ -2180,7 +2189,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                     await dev_channel.send(blue_team_info_string)
                     await dev_channel.send(red_team_info_string)
-                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                    await ctx.send(
+                        embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                    )
             elif number is not None:
                 eligiblePlayers = []
                 playerIn = None
@@ -2273,16 +2284,17 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                     team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                     team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                    await teamsDisplay(
-                        dev_channel,
-                        blueTeam,
-                        redTeam,
-                        team1prob,
-                        team2prob,
-                        blueRank,
-                        redRank,
-                        True,
-                        True,
+                    await dev_channel.send(
+                        embed=teamsDisplay(
+                            blueTeam,
+                            redTeam,
+                            team1prob,
+                            team2prob,
+                            blueRank,
+                            redRank,
+                            True,
+                            True,
+                        )
                     )
                     redTeam = []
                     redRank = 0
@@ -2333,7 +2345,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 await dev_channel.send(red_team_info_string)
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
 
 
 @client.command(pass_context=True)
@@ -2987,16 +3001,17 @@ async def forceVote(ctx):
                         )
                     else:
                         # Re-show teams output for clarity
-                        await teamsDisplay(
-                            channel,
-                            blueTeam,
-                            redTeam,
-                            None,
-                            None,
-                            None,
-                            None,
-                            False,
-                            False,
+                        await channel.send(
+                            embed=teamsDisplay(
+                                blueTeam,
+                                redTeam,
+                                None,
+                                None,
+                                None,
+                                None,
+                                False,
+                                False,
+                            )
                         )
                         await channel.send(
                             f"The winning map is **{winningMap}** and will be played at {winningIP}"
@@ -3089,7 +3104,9 @@ async def shuffle(ctx, idx=None, game="None"):
 
                 await dev_channel.send(blue_team_info_string)
                 await dev_channel.send(red_team_info_string)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
             else:
                 rankedOrder = []
                 nblueTeam = activePickups[game][2]
@@ -3141,7 +3158,9 @@ async def shuffle(ctx, idx=None, game="None"):
 
                 await dev_channel.send(blue_team_info_string)
                 await dev_channel.send(red_team_info_string)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
                 activePickups[game][0] = team1prob
                 activePickups[game][1] = blueRank
                 activePickups[game][2] = blueTeam
