@@ -10,6 +10,7 @@ client = commands.Bot(
 )
 UDP_IP_ADDRESS = "0.0.0.0"
 UDP_PORT_NO = 6789
+DM_CHANNEL_ID = 1230852204567597186
 serverSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 serverSock.bind((UDP_IP_ADDRESS, UDP_PORT_NO))
 
@@ -85,6 +86,27 @@ async def on_ready():
                         )
                 else:
                     print("!! NO ACTIVE PICKUPS!")
+        if "[1v1 MATCH RESULT]" in str(data):
+            with open("active_1v1_matches.json", "r") as f:
+                active_1v1_matches = json.load(f)
+            if len(active_1v1_matches) > 0:
+                reported_1v1_match = list(active_1v1_matches)[-1]
+                dm_channel = await client.fetch_channel(DM_CHANNEL_ID)
+                # TODO: This is copy-paste of above logic
+                if "Team 1 Wins" in (str(data)):
+                    # team 1 wins
+                    await dm_channel.send("!win1v1 1")
+                    # [MATCH RESULT] Team 1 Wins <10> (0)
+                    await dm_channel.send(
+                        f"**AUTO-REPORTING** Team 1 wins {reported_1v1_match}"
+                    )
+                elif "Team 2 Wins" in (str(data)):
+                    await dm_channel.send("!win1v1 2")
+                    # [MATCH RESULT] Team 2 Wins <10> (0)
+                    await dm_channel.send(
+                        f"**AUTO-REPORTING** Team 2 wins {reported_1v1_match}"
+                    )
+                await dm_channel.send("!stats1v1")
 
 
 client.run(v["TOKEN"])

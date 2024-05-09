@@ -504,7 +504,6 @@ class DMCommandsCog(commands.Cog):
         )
         await ctx.send(f"Match {match_id} un-reported.")
 
-    # TODO: 1v1 Stats, can be called by anyone
     @commands.command(aliases=["stats1v"], pass_context=True)
     @commands.has_role(v["tfc"])
     @commands.check(check_message_channel)
@@ -519,7 +518,6 @@ class DMCommandsCog(commands.Cog):
         hampalyzer_output = self.stat_log_file_handler(ftp, "east2")
         await ctx.send(f"Hampalyzer Stats: {hampalyzer_output}")
 
-    # TODO: Leaderboard, can be called by anyone
     @commands.command(pass_context=True)
     @commands.has_role(v["tfc"])
     @commands.check(check_message_channel)

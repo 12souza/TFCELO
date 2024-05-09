@@ -3578,6 +3578,18 @@ async def on_message(message):
         user = await client.fetch_user(message.author.id)
         file, embed = await generate_elo_chart(user)
         await message.author.send(embed=embed, file=file)
+    # Check for auto-report
+    user = await client.fetch_user(message.author.id)
+    if user.bot:
+        if "!stats1v1" in message.content:
+            ctx = await client.get_context(message)
+            command = client.get_command("stats1v1")
+            await ctx.invoke(command)
+        elif "!win1v1" in message.content:
+            ctx = await client.get_context(message)
+            split_message = str(message.content).split(" ")
+            command = client.get_command("win1v1")
+            await ctx.invoke(command, split_message[1])
     await client.process_commands(message)
 
 
