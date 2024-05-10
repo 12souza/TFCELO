@@ -9,7 +9,9 @@ import re
 import time
 import typing
 import urllib.request
-
+import zipfile
+from ftplib import FTP
+import traceback
 import discord
 import matplotlib.pyplot as plt
 import mplcyberpunk
@@ -345,6 +347,142 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + unvoted_string
         )
     return output
+
+
+def find(haystack, needle, n):
+    start = haystack.find(needle)
+    while start >= 0 and n > 1:
+        start = haystack.find(needle, start + len(needle))
+        n -= 1
+    return start
+
+
+def stat_log_file_handler(ftp, region):
+    # Note: We are taking a dependency on newer logs having a higher ascending name
+    logListNameAsc = ftp.nlst()  # Get list of logs sorted in ascending order by name.
+    logListNameDesc = reversed(
+        logListNameAsc
+    )  # We want to evaluate most recent first for efficiency, so reverse it
+
+    lastTwoBigLogList = []
+    for logFile in logListNameDesc:
+        size = ftp.size(logFile)
+        # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+        # if we find any edge cases.
+        if (size > 100000) and (
+            ".log" in logFile
+        ):  # Rounds with logs of players and time will be big
+            lastTwoBigLogList.append(logFile)
+            if len(lastTwoBigLogList) >= 2:
+                break
+
+    logToParse1 = lastTwoBigLogList[1]
+    logToParse2 = lastTwoBigLogList[0]
+
+    try:
+        ftp.retrbinary("RETR " + logToParse1, open(logToParse1, "wb").write)
+        ftp.retrbinary("RETR " + logToParse2, open(logToParse2, "wb").write)
+    except Exception:
+        logging.warning(f"Issue Downloading logfiles from FTP - {Exception}")
+
+    os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
+    os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
+
+    logToParse1 = f"{logToParse1[0:-4]}-coach{region}.log"
+    logToParse2 = f"{logToParse2[0:-4]}-coach{region}.log"
+    f = open(logToParse1)
+    pickup_date = None
+    pickup_map = None
+    for line in f:
+        if "Loading map" in line:
+            mapstart = line.find('map "') + 5
+            mapend = line.find('"', mapstart)
+            datestart = line.find("L ") + 2
+            dateend = line.find("-", datestart)
+            pickup_date = line[datestart:dateend]
+            pickup_map = line[mapstart:mapend]
+    blarghalyzer_fallback = None
+    hampalyzer_output = None
+    newCMD = (
+        "curl -X POST -F force=on -F logs[]=@"
+        + logToParse1
+        + " -F logs[]=@"
+        + logToParse2
+        + " http://app.hampalyzer.com/api/parseGame"
+    )
+    output3 = os.popen(newCMD).read()
+    if "nginx" not in output3 or output3 is None:
+        hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
+    else:
+        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        newCMD = (
+            'curl -v -m 5 -F "process=true" -F "inptImage=@'
+            + logToParse1
+            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        )
+        os.popen(newCMD).read()
+        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        newCMD = (
+            'curl -v -m 5 -F "process=true" -F "inptImage=@'
+            + logToParse2
+            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        )
+        os.popen(newCMD).read()
+        blarghalyzer_fallback = (
+            "**Round 1:** https://blarghalyzer.com/parsedlogs/"
+            + logToParse1[:-4].lower()
+            + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/"
+            + logToParse2[:-4].lower()
+            + "/"
+        )
+
+    os.remove(logToParse1)
+    os.remove(logToParse2)
+    return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
+
+
+def hltv_file_handler(ftp, pickup_date, pickup_map):
+    try:
+        output_filename = None
+        # getting lists
+        HLTVListNameAsc = (
+            ftp.nlst()
+        )  # Get list of demos sorted in ascending order by name.
+        HLTVListNameDesc = list(reversed(HLTVListNameAsc))
+        lastTwoBigHLTVList = []
+        for HLTVFile in HLTVListNameDesc:
+            size = ftp.size(HLTVFile)
+            # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+            # if we find any edge cases.
+            if (size > 11000000) and (
+                ".dem" in HLTVFile
+            ):  # Rounds with logs of players and time will be big
+                print("passed heuristic!")
+                lastTwoBigHLTVList.append(HLTVFile)
+                if len(lastTwoBigHLTVList) >= 2:
+                    break
+
+        if len(lastTwoBigHLTVList) >= 2:
+            HLTVToZip1 = lastTwoBigHLTVList[1]
+            HLTVToZip2 = lastTwoBigHLTVList[0]
+
+            # zip file stuff.. get rid of slashes so we dont error.
+            formatted_date = pickup_date.replace("/", "")
+            ftp.retrbinary("RETR " + HLTVToZip1, open(HLTVToZip1, "wb").write)
+            ftp.retrbinary("RETR " + HLTVToZip2, open(HLTVToZip2, "wb").write)
+            mode = zipfile.ZIP_DEFLATED
+            output_filename = pickup_map + "-" + formatted_date + ".zip"
+            zip = zipfile.ZipFile(output_filename, "w", mode)
+            zip.write(HLTVToZip1)
+            zip.write(HLTVToZip2)
+            zip.close()
+            os.remove(HLTVToZip1)
+            os.remove(HLTVToZip2)
+        return output_filename
+    except Exception as e:
+        logging.warning(traceback.format_exc())
+        logging.warning(f"error here. {e}")
+        return None
 
 
 @client.event
@@ -1987,6 +2125,64 @@ async def teams(ctx, playerCount=4):
 
 
 @client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def stats(
+    ctx, region=None, match_number=None, winning_score=None, losing_score=None
+):
+    with open("login.json") as f:
+        logins = json.load(f)
+    schannel = await client.fetch_channel(
+        1000847501194174675
+    )  # 1000847501194174675 original channelID
+    region_formatted = region.lower()
+    output_zipfile = None
+    if region_formatted == "none" or region_formatted is None:
+        await ctx.send("please specify region..")
+    elif region_formatted in ("east", "east2", "eu", "central", "west", "southeast"):
+        try:
+            ftp = FTP(logins[region_formatted]["server_ip"])
+            ftp.login(
+                user=logins[region_formatted]["ftp_username"],
+                passwd=logins[region_formatted]["ftp_password"],
+            )
+            ftp.cwd("logs")
+
+            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = (
+                stat_log_file_handler(ftp, region)
+            )
+            ftp.cwd("..")
+            ftp.cwd(f"HLTV{region.upper()}")
+            output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
+
+            if hampalyzer_output is not None:
+                if output_zipfile is None:
+                    await schannel.send(
+                        f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                elif output_zipfile is not None:
+                    await schannel.send(
+                        file=discord.File(output_zipfile),
+                        content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
+                    )
+                    os.remove(output_zipfile)
+            else:
+                if output_zipfile is None:
+                    await schannel.send(
+                        f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                elif output_zipfile is not None:
+                    await schannel.send(
+                        file=discord.File(output_zipfile),
+                        content=f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
+                    )
+                    os.remove(output_zipfile)
+
+            ftp.close()
+        except ZeroDivisionError:
+            print(traceback.format_exc())
+
+
+@client.command(pass_context=True)
 async def status(ctx):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
@@ -2403,7 +2599,7 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2425,7 +2621,7 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2530,7 +2726,7 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2557,7 +2753,7 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2605,7 +2801,7 @@ async def win(ctx, team, pNumber="None"):
 
             pastTen[pNumber] = []
 
-            await ctx.send("Match reported.. thank you!")
+            await ctx.send("Match reported!")
 
 
 @client.command(pass_context=True)
@@ -3580,16 +3776,20 @@ async def on_message(message):
         await message.author.send(embed=embed, file=file)
     # Check for auto-report
     user = await client.fetch_user(message.author.id)
+    ctx = await client.get_context(message)
     if user.bot:
         if "!stats1v1" in message.content:
-            ctx = await client.get_context(message)
             command = client.get_command("stats1v1")
             await ctx.invoke(command)
         elif "!win1v1" in message.content:
-            ctx = await client.get_context(message)
             split_message = str(message.content).split(" ")
             command = client.get_command("win1v1")
             await ctx.invoke(command, split_message[1])
+        elif "!win" in message.content:
+            split_message = str(message.content).split(" ")
+            await win(ctx, split_message[1])
+        elif "!draw" in message.content:
+            await draw(ctx)
     await client.process_commands(message)
 
 
