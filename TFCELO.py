@@ -9,11 +9,14 @@ import re
 import time
 import typing
 import urllib.request
-
+import zipfile
+from ftplib import FTP
+import traceback
 import discord
 import matplotlib.pyplot as plt
 import mplcyberpunk
 import mysql.connector
+import requests
 from discord.ext import commands, tasks
 from discord.utils import get
 
@@ -38,7 +41,23 @@ async def load_extensions():
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send("This command is on a %.2fs cooldown" % error.retry_after)
-    raise error  # re-raise the error so all the errors will still show up in console
+    elif isinstance(error, commands.MissingRole):
+        await ctx.send(
+            "This command requires you to have a certain role that you don't have"
+        )
+    elif isinstance(error, commands.CommandNotFound):
+        await ctx.send("The command that you entered was not found")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(error)
+    elif isinstance(error, commands.CommandInvokeError):
+        await ctx.send(
+            "The command that you sent failed with an error on the backend. Sending debug-output to admins!"
+        )
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+        await dev_channel.send(error)
+        raise error
+    else:
+        raise error  # re-raise the error so all the errors will still show up in console
 
 
 # Load in ELO configuration
@@ -126,6 +145,7 @@ winningMap = None
 winningServer = None
 last_add_timestamp = datetime.datetime.utcnow()
 last_add_context = None
+map_url_dictionary = {}
 
 # =====================================
 # =====================================
@@ -149,6 +169,76 @@ def server_vote_output():
     return ""
 
 
+def teamsDisplay(
+    blueTeam,
+    redTeam,
+    team1prob,
+    team2prob,
+    team1_elo=None,
+    team2_elo=None,
+    show_probability=False,
+    show_visual_rank=False,
+):
+    msgList = []
+
+    for i in blueTeam:
+        if show_visual_rank:
+            msgList.append(
+                getRank(i)
+                + " "
+                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
+                + " "
+                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
+                + "\n"
+            )
+        else:
+            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
+    bMsg = "".join(msgList)
+    msgList.clear()
+    for i in redTeam:
+        if show_visual_rank:
+            msgList.append(
+                getRank(i)
+                + " "
+                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
+                + " "
+                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
+                + "\n"
+            )
+        else:
+            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
+    rMsg = "".join(msgList)
+    embed = discord.Embed(title="Teams Sorted!")
+    if show_probability:
+        embed.add_field(
+            name="Blue Team "
+            + v["t1img"]
+            + " "
+            + str(int(team1prob * 100))
+            + "% "
+            + str(int(team1_elo)),
+            value=bMsg,
+            inline=True,
+        )
+    else:
+        embed.add_field(name="Blue Team " + v["t1img"], value=bMsg, inline=True)
+    embed.add_field(name="\u200b", value="\u200b")
+    if show_probability:
+        embed.add_field(
+            name="Red Team "
+            + v["t2img"]
+            + " "
+            + str(int(team2prob * 100))
+            + "% "
+            + str(int(team2_elo)),
+            value=rMsg,
+            inline=True,
+        )
+    else:
+        embed.add_field(name="Red Team " + v["t2img"], value=rMsg, inline=True)
+    return embed
+
+
 def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
     global map_choice_1
     global map_choice_2
@@ -158,12 +248,11 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
     output = "Something went wrong"
     if reVote == 0:
         output = (
-            "```Vote up and make sure you hydrate!\n\n"
-            + "1️⃣ "
+            "```1️⃣ "
             + map_choice_1
             + " " * (25 - len(map_choice_1))
             + "   "
-            + str(map_list[map_choice_1])
+            + str(map_list[map_choice_1]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_1)
@@ -172,7 +261,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_2
             + " " * (25 - len(map_choice_2))
             + "   "
-            + str(map_list[map_choice_2])
+            + str(map_list[map_choice_2]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_2)
@@ -181,7 +270,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_3
             + " " * (25 - len(map_choice_3))
             + "   "
-            + str(map_list_2[map_choice_3])
+            + str(map_list_2[map_choice_3]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_3)
@@ -190,7 +279,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_4
             + " " * (25 - len(map_choice_4))
             + "   "
-            + str(map_list_2[map_choice_4])
+            + str(map_list_2[map_choice_4]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_4)
@@ -207,16 +296,16 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             map_list.get(map_choice_5) is not None
             and map_list.get(map_choice_5) != "New Maps"
         ):
-            carryover_mirv_count = str(map_list[map_choice_5])
+            carryover_mirv_count = str(map_list[map_choice_5]["mirv_count"])
         else:
-            carryover_mirv_count = str(map_list_2[map_choice_5])
+            carryover_mirv_count = str(map_list_2[map_choice_5]["mirv_count"])
         output = (
             "```Vote up and make sure you hydrate!\n\n"
             + "1️⃣ "
             + map_choice_1
             + " " * (25 - len(map_choice_1))
             + "   "
-            + str(map_list[map_choice_1])
+            + str(map_list[map_choice_1]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_1)
@@ -225,7 +314,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_2
             + " " * (25 - len(map_choice_2))
             + "   "
-            + str(map_list[map_choice_2])
+            + str(map_list[map_choice_2]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_2)
@@ -234,7 +323,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_3
             + " " * (25 - len(map_choice_3))
             + "   "
-            + str(map_list_2[map_choice_3])
+            + str(map_list_2[map_choice_3]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_3)
@@ -243,7 +332,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_4
             + " " * (25 - len(map_choice_4))
             + "   "
-            + str(map_list_2[map_choice_4])
+            + str(map_list_2[map_choice_4]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_4)
@@ -259,6 +348,142 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + unvoted_string
         )
     return output
+
+
+def find(haystack, needle, n):
+    start = haystack.find(needle)
+    while start >= 0 and n > 1:
+        start = haystack.find(needle, start + len(needle))
+        n -= 1
+    return start
+
+
+def stat_log_file_handler(ftp, region):
+    # Note: We are taking a dependency on newer logs having a higher ascending name
+    logListNameAsc = ftp.nlst()  # Get list of logs sorted in ascending order by name.
+    logListNameDesc = reversed(
+        logListNameAsc
+    )  # We want to evaluate most recent first for efficiency, so reverse it
+
+    lastTwoBigLogList = []
+    for logFile in logListNameDesc:
+        size = ftp.size(logFile)
+        # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+        # if we find any edge cases.
+        if (size > 100000) and (
+            ".log" in logFile
+        ):  # Rounds with logs of players and time will be big
+            lastTwoBigLogList.append(logFile)
+            if len(lastTwoBigLogList) >= 2:
+                break
+
+    logToParse1 = lastTwoBigLogList[1]
+    logToParse2 = lastTwoBigLogList[0]
+
+    try:
+        ftp.retrbinary("RETR " + logToParse1, open(logToParse1, "wb").write)
+        ftp.retrbinary("RETR " + logToParse2, open(logToParse2, "wb").write)
+    except Exception:
+        logging.warning(f"Issue Downloading logfiles from FTP - {Exception}")
+
+    os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
+    os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
+
+    logToParse1 = f"{logToParse1[0:-4]}-coach{region}.log"
+    logToParse2 = f"{logToParse2[0:-4]}-coach{region}.log"
+    f = open(logToParse1)
+    pickup_date = None
+    pickup_map = None
+    for line in f:
+        if "Loading map" in line:
+            mapstart = line.find('map "') + 5
+            mapend = line.find('"', mapstart)
+            datestart = line.find("L ") + 2
+            dateend = line.find("-", datestart)
+            pickup_date = line[datestart:dateend]
+            pickup_map = line[mapstart:mapend]
+    blarghalyzer_fallback = None
+    hampalyzer_output = None
+    newCMD = (
+        "curl -X POST -F force=on -F logs[]=@"
+        + logToParse1
+        + " -F logs[]=@"
+        + logToParse2
+        + " http://app.hampalyzer.com/api/parseGame"
+    )
+    output3 = os.popen(newCMD).read()
+    if "nginx" not in output3 or output3 is None:
+        hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
+    else:
+        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        newCMD = (
+            'curl -v -m 5 -F "process=true" -F "inptImage=@'
+            + logToParse1
+            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        )
+        os.popen(newCMD).read()
+        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        newCMD = (
+            'curl -v -m 5 -F "process=true" -F "inptImage=@'
+            + logToParse2
+            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
+        )
+        os.popen(newCMD).read()
+        blarghalyzer_fallback = (
+            "**Round 1:** https://blarghalyzer.com/parsedlogs/"
+            + logToParse1[:-4].lower()
+            + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/"
+            + logToParse2[:-4].lower()
+            + "/"
+        )
+
+    os.remove(logToParse1)
+    os.remove(logToParse2)
+    return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
+
+
+def hltv_file_handler(ftp, pickup_date, pickup_map):
+    try:
+        output_filename = None
+        # getting lists
+        HLTVListNameAsc = (
+            ftp.nlst()
+        )  # Get list of demos sorted in ascending order by name.
+        HLTVListNameDesc = list(reversed(HLTVListNameAsc))
+        lastTwoBigHLTVList = []
+        for HLTVFile in HLTVListNameDesc:
+            size = ftp.size(HLTVFile)
+            # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
+            # if we find any edge cases.
+            if (size > 11000000) and (
+                ".dem" in HLTVFile
+            ):  # Rounds with logs of players and time will be big
+                print("passed heuristic!")
+                lastTwoBigHLTVList.append(HLTVFile)
+                if len(lastTwoBigHLTVList) >= 2:
+                    break
+
+        if len(lastTwoBigHLTVList) >= 2:
+            HLTVToZip1 = lastTwoBigHLTVList[1]
+            HLTVToZip2 = lastTwoBigHLTVList[0]
+
+            # zip file stuff.. get rid of slashes so we dont error.
+            formatted_date = pickup_date.replace("/", "")
+            ftp.retrbinary("RETR " + HLTVToZip1, open(HLTVToZip1, "wb").write)
+            ftp.retrbinary("RETR " + HLTVToZip2, open(HLTVToZip2, "wb").write)
+            mode = zipfile.ZIP_DEFLATED
+            output_filename = pickup_map + "-" + formatted_date + ".zip"
+            zip = zipfile.ZipFile(output_filename, "w", mode)
+            zip.write(HLTVToZip1)
+            zip.write(HLTVToZip2)
+            zip.close()
+            os.remove(HLTVToZip1)
+            os.remove(HLTVToZip2)
+        return output_filename
+    except Exception as e:
+        logging.warning(traceback.format_exc())
+        logging.warning(f"error here. {e}")
+        return None
 
 
 @client.event
@@ -676,28 +901,17 @@ def PickMaps():
     mapVotes = {}
     alreadyVoted = []
     mapPick = []
-    if len(lastFive) == 0:
-        # Seed lastFive from the last 5 pickups played so that this value is never empty
-        with open("pastten.json") as f:
-            past_ten = json.load(f)
-            logging.info(past_ten)
-            past_ten_keys_list = list(past_ten.keys())
-            past_ten_keys_list.reverse()
-            for match in past_ten_keys_list:
-                map = past_ten[match][PAST_TEN_MAP_INDEX]
-                # Handle edge case of bot's choice being two maps in one that need to be omitted from the pool
-                if "Bot's Choice" in map:
-                    lastFive.append("Bot's Choice (Double ELO)")
-                    # Handle weird edge case of monkey_lg double elo text in a lazy way
-                    lastFive.append(
-                        past_ten[match][PAST_TEN_MAP_INDEX]
-                        .replace("Bot's Choice - ", "")
-                        .replace(" (no HW w/ double ELO)", "")
-                    )
-                else:
-                    lastFive.append(map)
-                if len(lastFive) >= 5:
-                    break
+    # Seed lastFive from the last 5 pickups played so that this value is never empty
+    with open("pastten.json") as f:
+        past_ten = json.load(f)
+        logging.info(past_ten)
+        past_ten_keys_list = list(past_ten.keys())
+        past_ten_keys_list.reverse()
+        for match in past_ten_keys_list:
+            if len(lastFive) >= 5:
+                break
+            map = past_ten[match][PAST_TEN_MAP_INDEX]
+            lastFive.append(map)
 
     for i in list(mapList):
         if i not in mapSelected:
@@ -869,6 +1083,23 @@ async def voteSetup(ctx):
         await vMsg.add_reaction("4️⃣")
         votable = 1
     elif (reVote == 0) and (server_vote == 0):
+        vote_embed_1 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
+        vote_embed_2 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
+        vote_embed_3 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
+        vote_embed_4 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
+        await ctx.send(embeds=[vote_embed_1, vote_embed_2, vote_embed_3, vote_embed_4])
         vMsg = await ctx.send(
             get_map_vote_output(reVote, mapList, mapList2, toVoteString)
         )
@@ -879,6 +1110,40 @@ async def voteSetup(ctx):
         await vMsg.add_reaction("5️⃣")
         votable = 1
     elif (reVote == 1) and (server_vote == 0):
+        vote_embed_1 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
+        vote_embed_2 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
+        vote_embed_3 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
+        vote_embed_4 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
+        # Not sure which map pool option 5 is coming from so we have to do it hacky
+        if mapList.get(map_choice_5) is None:
+            carryover_image_url = mapList2[map_choice_5]["image_url"]
+        else:
+            carryover_image_url = mapList[map_choice_5]["image_url"]
+        vote_embed_5 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_5.set_image(url=carryover_image_url)
+        await ctx.send(
+            embeds=[
+                vote_embed_1,
+                vote_embed_2,
+                vote_embed_3,
+                vote_embed_4,
+                vote_embed_5,
+            ]
+        )
         vMsg = await ctx.send(
             get_map_vote_output(reVote, mapList, mapList2, toVoteString)
         )
@@ -1107,77 +1372,6 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         await vMsg.reply("Click the link above to go the current vote!")
 
 
-async def teamsDisplay(
-    ctx,
-    blueTeam,
-    redTeam,
-    team1prob,
-    team2prob,
-    team1_elo=None,
-    team2_elo=None,
-    show_probability=False,
-    show_visual_rank=False,
-):
-    msgList = []
-
-    for i in blueTeam:
-        if show_visual_rank:
-            msgList.append(
-                getRank(i)
-                + " "
-                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
-                + " "
-                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
-                + "\n"
-            )
-        else:
-            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
-    bMsg = "".join(msgList)
-    msgList.clear()
-    for i in redTeam:
-        if show_visual_rank:
-            msgList.append(
-                getRank(i)
-                + " "
-                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
-                + " "
-                + str(ELOpop[i][PLAYER_MAP_CURRENT_ELO_INDEX])
-                + "\n"
-            )
-        else:
-            msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
-    rMsg = "".join(msgList)
-    embed = discord.Embed(title="Teams Sorted!")
-    if show_probability:
-        embed.add_field(
-            name="Blue Team "
-            + v["t1img"]
-            + " "
-            + str(int(team1prob * 100))
-            + "% "
-            + str(int(team1_elo)),
-            value=bMsg,
-            inline=True,
-        )
-    else:
-        embed.add_field(name="Blue Team " + v["t1img"], value=bMsg, inline=True)
-    embed.add_field(name="\u200b", value="\u200b")
-    if show_probability:
-        embed.add_field(
-            name="Red Team "
-            + v["t2img"]
-            + " "
-            + str(int(team2prob * 100))
-            + "% "
-            + str(int(team2_elo)),
-            value=rMsg,
-            inline=True,
-        )
-    else:
-        embed.add_field(name="Red Team " + v["t2img"], value=rMsg, inline=True)
-    await ctx.send(embed=embed)
-
-
 async def pastGames(ctx):
     with open("pastten.json") as f:
         past_ten_matches = json.load(f)
@@ -1384,7 +1578,9 @@ async def swapteam(
                 team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                 team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
 
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
             else:
                 with open("ELOpop.json") as f:
                     ELOpop = json.load(f)
@@ -1430,7 +1626,9 @@ async def swapteam(
                 ]
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
 
 
 # Saves the pickup into the activepickups json which can be seen with !games
@@ -1855,10 +2053,11 @@ async def teams(ctx, playerCount=4):
                             red_team_info_string = f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}, red_win_probability {team2prob}"
                             logging.info(blue_team_info_string)
                             logging.info(red_team_info_string)
-                            await dev_channel.send(blue_team_info_string)
-                            await dev_channel.send(red_team_info_string)
-                            await teamsDisplay(
-                                ctx, blueTeam, redTeam, team1prob, team2prob
+
+                            await ctx.send(
+                                embed=teamsDisplay(
+                                    blueTeam, redTeam, team1prob, team2prob
+                                )
                             )
                             for i in eligiblePlayers:
                                 DMList.append(f"<@{i}> ")
@@ -1872,6 +2071,7 @@ async def teams(ctx, playerCount=4):
                             await dev_channel.send(
                                 "Outputting top 5 possible games by absolute ELO difference sorted ascending"
                             )
+                            debug_embeds = []
                             for index, item in enumerate(rankedOrder):
                                 if index > 4:
                                     break
@@ -1923,17 +2123,19 @@ async def teams(ctx, playerCount=4):
                                     ),
                                     2,
                                 )
-                                await teamsDisplay(
-                                    dev_channel,
-                                    dev_blue_team,
-                                    dev_red_team,
-                                    dev_team1prob,
-                                    dev_team2prob,
-                                    dev_blue_rank,
-                                    dev_red_rank,
-                                    True,
-                                    True,
+                                debug_embeds.append(
+                                    teamsDisplay(
+                                        dev_blue_team,
+                                        dev_red_team,
+                                        dev_team1prob,
+                                        dev_team2prob,
+                                        dev_blue_rank,
+                                        dev_red_rank,
+                                        True,
+                                        True,
+                                    )
                                 )
+                            await dev_channel.send(embeds=debug_embeds)
 
                         server_vote = 1
                         await voteSetup(ctx)
@@ -1971,6 +2173,64 @@ async def teams(ctx, playerCount=4):
                             idle_cancel.stop()
             else:
                 await ctx.send("you dont have enough people for that game size..")
+
+
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def stats(
+    ctx, region=None, match_number=None, winning_score=None, losing_score=None
+):
+    with open("login.json") as f:
+        logins = json.load(f)
+    schannel = await client.fetch_channel(
+        1000847501194174675
+    )  # 1000847501194174675 original channelID
+    region_formatted = region.lower()
+    output_zipfile = None
+    if region_formatted == "none" or region_formatted is None:
+        await ctx.send("please specify region..")
+    elif region_formatted in ("east", "east2", "eu", "central", "west", "southeast"):
+        try:
+            ftp = FTP(logins[region_formatted]["server_ip"])
+            ftp.login(
+                user=logins[region_formatted]["ftp_username"],
+                passwd=logins[region_formatted]["ftp_password"],
+            )
+            ftp.cwd("logs")
+
+            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = (
+                stat_log_file_handler(ftp, region)
+            )
+            ftp.cwd("..")
+            ftp.cwd(f"HLTV{region.upper()}")
+            output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
+
+            if hampalyzer_output is not None:
+                if output_zipfile is None:
+                    await schannel.send(
+                        f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                elif output_zipfile is not None:
+                    await schannel.send(
+                        file=discord.File(output_zipfile),
+                        content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
+                    )
+                    os.remove(output_zipfile)
+            else:
+                if output_zipfile is None:
+                    await schannel.send(
+                        f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                elif output_zipfile is not None:
+                    await schannel.send(
+                        file=discord.File(output_zipfile),
+                        content=f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
+                    )
+                    os.remove(output_zipfile)
+
+            ftp.close()
+        except ZeroDivisionError:
+            print(traceback.format_exc())
 
 
 @client.command(pass_context=True)
@@ -2130,16 +2390,17 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         team2prob = round(
                             1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
                         )
-                        await teamsDisplay(
-                            dev_channel,
-                            blueTeam,
-                            redTeam,
-                            team1prob,
-                            team2prob,
-                            blueRank,
-                            redRank,
-                            True,
-                            True,
+                        await dev_channel.send(
+                            embed=teamsDisplay(
+                                blueTeam,
+                                redTeam,
+                                team1prob,
+                                team2prob,
+                                blueRank,
+                                redRank,
+                                True,
+                                True,
+                            )
                         )
                         redTeam = []
                         redRank = 0
@@ -2175,9 +2436,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     logging.info(blue_team_info_string)
                     logging.info(red_team_info_string)
 
-                    await dev_channel.send(blue_team_info_string)
-                    await dev_channel.send(red_team_info_string)
-                    await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                    await ctx.send(
+                        embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                    )
             elif number is not None:
                 eligiblePlayers = []
                 playerIn = None
@@ -2270,16 +2531,17 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                     team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
                     team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                    await teamsDisplay(
-                        dev_channel,
-                        blueTeam,
-                        redTeam,
-                        team1prob,
-                        team2prob,
-                        blueRank,
-                        redRank,
-                        True,
-                        True,
+                    await dev_channel.send(
+                        embed=teamsDisplay(
+                            blueTeam,
+                            redTeam,
+                            team1prob,
+                            team2prob,
+                            blueRank,
+                            redRank,
+                            True,
+                            True,
+                        )
                     )
                     redTeam = []
                     redRank = 0
@@ -2326,11 +2588,11 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 logging.info(blue_team_info_string)
                 logging.info(red_team_info_string)
 
-                await dev_channel.send(blue_team_info_string)
-                await dev_channel.send(red_team_info_string)
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
 
 
 @client.command(pass_context=True)
@@ -2384,7 +2646,7 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2406,7 +2668,7 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2511,7 +2773,7 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2538,7 +2800,7 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"MANUAL REPORT: INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
+                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
                     logging.info(input_query)
                     mycursor.execute(
                         "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
@@ -2586,7 +2848,7 @@ async def win(ctx, team, pNumber="None"):
 
             pastTen[pNumber] = []
 
-            await ctx.send("Match reported.. thank you!")
+            await ctx.send("Match reported!")
 
 
 @client.command(pass_context=True)
@@ -2861,20 +3123,40 @@ async def forceVote(ctx):
                     len(mapVotes[map_choice_3]),
                     len(mapVotes[map_choice_4]),
                 ]
-                # TODO: Need to correctly handle ties here
-                windex = votes.index(max(votes))
-                if windex == 0:
+                server_names = [
+                    map_choice_1,
+                    map_choice_2,
+                    map_choice_3,
+                    map_choice_4,
+                ]
+                vote_index = 0
+                max_vote_count = max(votes)
+                candidate_server_names = []
+                for count in votes:
+                    if count == max_vote_count:
+                        candidate_server_names.append(server_names[vote_index])
+                    vote_index = vote_index + 1
+
+                if len(candidate_server_names) > 1:
+                    await ctx.send(
+                        "There was a tie in server votes! Making a random selection between them..."
+                    )
+                    winning_server = random.choice(candidate_server_names)
+                else:
+                    winning_server = candidate_server_names[0]
+                # Pick a random final winner from the candidate maps
+
+                winning_server = random.choice(candidate_server_names)
+                logging.info(f"Winning server is - {winning_server}")
+                winningServer = winning_server  # keeping this random variable around til I refactor it into oblivion
+                if winning_server == "West - North California":
                     winningIP = f"http://tinyurl.com/tfpwestaws - connect {logins['west']['server_ip']}:27015; password letsplay!"
-                    winningServer = "West (Los Angeles)"
-                elif windex == 1:
+                elif winning_server == "East - North Virginia":
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
-                    winningServer = "East (North Virginia)"
-                elif windex == 2:
+                elif winning_server == "Central - Dallas":
                     winningIP = f"https://tinyurl.com/tfpcentralaws - connect {logins['central']['server_ip']}:27015; password letsplay!"
-                    winningServer = "Central (Dallas)"
-                elif windex == 3:
+                elif winning_server == "South East - Miami":
                     winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
-                    winningServer = "South East (Miami)"
                 else:
                     # Just pick one so things aren't completely broken
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
@@ -2964,16 +3246,17 @@ async def forceVote(ctx):
                         )
                     else:
                         # Re-show teams output for clarity
-                        await teamsDisplay(
-                            channel,
-                            blueTeam,
-                            redTeam,
-                            None,
-                            None,
-                            None,
-                            None,
-                            False,
-                            False,
+                        await channel.send(
+                            embed=teamsDisplay(
+                                blueTeam,
+                                redTeam,
+                                None,
+                                None,
+                                None,
+                                None,
+                                False,
+                                False,
+                            )
                         )
                         await channel.send(
                             f"The winning map is **{winningMap}** and will be played at {winningIP}"
@@ -3064,9 +3347,9 @@ async def shuffle(ctx, idx=None, game="None"):
                 logging.info(blue_team_info_string)
                 logging.info(red_team_info_string)
 
-                await dev_channel.send(blue_team_info_string)
-                await dev_channel.send(red_team_info_string)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
             else:
                 rankedOrder = []
                 nblueTeam = activePickups[game][2]
@@ -3116,9 +3399,9 @@ async def shuffle(ctx, idx=None, game="None"):
                 logging.info(blue_team_info_string)
                 logging.info(red_team_info_string)
 
-                await dev_channel.send(blue_team_info_string)
-                await dev_channel.send(red_team_info_string)
-                await teamsDisplay(ctx, blueTeam, redTeam, team1prob, team2prob)
+                await ctx.send(
+                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+                )
                 activePickups[game][0] = team1prob
                 activePickups[game][1] = blueRank
                 activePickups[game][2] = blueTeam
@@ -3534,6 +3817,39 @@ async def on_message(message):
         user = await client.fetch_user(message.author.id)
         file, embed = await generate_elo_chart(user)
         await message.author.send(embed=embed, file=file)
+    # Check for auto-report
+    user = await client.fetch_user(message.author.id)
+    ctx = await client.get_context(message)
+    if user.bot:
+        if "!stats1v1" in message.content:
+            command = client.get_command("stats1v1")
+            await ctx.invoke(command)
+        elif "!win1v1" in message.content:
+            split_message = str(message.content).split(" ")
+            command = client.get_command("win1v1")
+            await ctx.invoke(command, split_message[1])
+        elif "!win" in message.content:
+            split_message = str(message.content).split(" ")
+            await win(ctx, split_message[1])
+        elif "!draw" in message.content:
+            await draw(ctx)
+        elif "!stats" in message.content:
+            split_message = str(message.content).split(" ")
+
+            if len(split_message) == 5:
+                tokens = str(message.content).split(" ")
+                region = tokens[1]
+                match_number = tokens[2]
+                winning_score = tokens[3]
+                losing_score = tokens[4]
+            else:  # Assume 4
+                tokens = str(message.content).split(" ")
+                region = tokens[1]
+                match_number = tokens[2]
+                winning_score = tokens[3]
+                losing_score = winning_score
+
+            await stats(ctx, region, match_number, winning_score, losing_score)
     await client.process_commands(message)
 
 

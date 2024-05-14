@@ -75,7 +75,7 @@ class DMCommandsCog(commands.Cog):
             size = ftp.size(logFile)
             # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
             # if we find any edge cases.
-            if (size > 100000) and (
+            if (size > 20000) and (
                 ".log" in logFile
             ):  # Rounds with logs of players and time will be big
                 log_to_parse = logFile
@@ -347,8 +347,6 @@ class DMCommandsCog(commands.Cog):
     @commands.has_role(v["tfc"])
     @commands.check(check_message_channel)
     async def check1v1game(self, ctx, match_id):
-        if match_id is None:
-            await ctx.send("You must enter a match_id number to look up from database!")
         db = mysql.connector.connect(
             host=logins["mysql"]["host"],
             user=logins["mysql"]["user"],
@@ -486,18 +484,17 @@ class DMCommandsCog(commands.Cog):
         # This column is just the primary key from the MySQL db but isn't used
         del match_row["id"]
         active_1v1_matches[match_id] = match_row
+        logging.info(active_1v1_matches)
+        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         active_1v1_matches[match_id]["created_at"] = active_1v1_matches[match_id][
             "created_at"
         ].strftime("%Y-%m-%d %H:%M:%S")
-        active_1v1_matches[match_id]["updated_at"] = active_1v1_matches[match_id][
-            "updated_at"
-        ].strftime("%Y-%m-%d %H:%M:%S")
-        active_1v1_matches[match_id]["deleted_at"] = active_1v1_matches[match_id][
-            "deleted_at"
-        ].strftime("%Y-%m-%d %H:%M:%S")
+        active_1v1_matches[match_id]["updated_at"] = current_timestamp
+        active_1v1_matches[match_id]["deleted_at"] = current_timestamp
+        logging.info(active_1v1_matches)
         with open("active_1v1_matches.json", "w") as f:
             json.dump(active_1v1_matches, f, indent=4)
-        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
         sql = "UPDATE matches SET updated_at = %s, deleted_at = %s WHERE match_id = %s"
         logging.info(sql)
         logging.info((current_timestamp, current_timestamp, match_id))
@@ -507,7 +504,6 @@ class DMCommandsCog(commands.Cog):
         )
         await ctx.send(f"Match {match_id} un-reported.")
 
-    # TODO: 1v1 Stats, can be called by anyone
     @commands.command(aliases=["stats1v"], pass_context=True)
     @commands.has_role(v["tfc"])
     @commands.check(check_message_channel)
@@ -522,7 +518,6 @@ class DMCommandsCog(commands.Cog):
         hampalyzer_output = self.stat_log_file_handler(ftp, "east2")
         await ctx.send(f"Hampalyzer Stats: {hampalyzer_output}")
 
-    # TODO: Leaderboard, can be called by anyone
     @commands.command(pass_context=True)
     @commands.has_role(v["tfc"])
     @commands.check(check_message_channel)
@@ -536,7 +531,49 @@ class DMCommandsCog(commands.Cog):
         )
         cursor = db.cursor(dictionary=True)
 
-        # TODO: Reported matches should update players table
+        # TODO: Reported matches should update players table but this is a short-term way to grab
+        sql = """SELECT
+                CASE
+                WHEN match_outcome = 1 THEN blue_team
+                WHEN match_outcome = 2 THEN red_team
+            END AS winner,
+            COUNT(*) AS win_count
+            FROM matches WHERE deleted_at IS NULL AND match_outcome IS NOT NULL
+            GROUP BY winner
+            ORDER BY win_count DESC;"""
+        cursor.execute(sql)
+        output = cursor.fetchall()
+        logging.info(output)
+        leaderboard_names = []
+        leaderboard_wins = []
+        for row in output:
+            discord_id = str(row["winner"])
+            win_count = str(row["win_count"])
+
+            if ELOpop[discord_id][PLAYER_MAP_DUNCE_FLAG_INDEX] is not None:
+                win_emblem = ""  # Dunces don't get an emblem to show off
+            else:
+                # TODO: This should be based off of 1v1 wins, not pug wins
+                self.get_win_emblem(ctx, discord_id)
+                win_emblem = str(self.get_win_emblem(ctx, discord_id))
+
+            leaderboard_names.append(
+                win_emblem
+                + " "
+                + ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX]
+                + "\n"
+            )
+            leaderboard_wins.append(win_count + "\n")
+        message_formatted = "".join(leaderboard_names)
+        embed = discord.Embed(title="1v1 Win Count Leaderboard")
+        embed.add_field(
+            name="Players",
+            value=message_formatted,
+            inline=True,
+        )
+        message_formatted = "".join(leaderboard_wins)
+        embed.add_field(name="Victories", value=message_formatted, inline=True)
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):
