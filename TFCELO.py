@@ -102,6 +102,7 @@ MAP_VOTE_FIRST = False
 RANK_BOUNDARIES_LIST = [220, 450, 690, 940, 1200, 1460, 1730, 2010, 2300, 2600]
 MAIN_MAPS_FILE = "classic_maps.json"
 SECONDARY_MAPS_FILE = "spring_2024_maps.json"
+SHOW_VISUAL_RANKS = False
 
 cap1 = None
 cap1Name = None
@@ -625,32 +626,37 @@ async def top15(ctx):
                 """
                     with elo_row_numbered as (
                         select player_name, discord_id, player_elos, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
+                    ),
+                    filtered_players as (
+                      select distinct discord_id from player_elo where created_at >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 45 DAY) and match_id != 0
                     )
 
                     select player_name, discord_id, player_elos from elo_row_numbered where row_num = 1
-                    order by player_elos desc;"""
+                    and discord_id in (select discord_id from filtered_players)
+                    order by player_elos desc;
+"""
             )
             top_15 = []
 
             for row in mycursor:
                 logging.info(row)
                 discord_id = str(row[1])
-                if (
-                    ELOpop[discord_id][PLAYER_MAP_VISUAL_RANK_INDEX]
-                    != "<:norank:1001265843683987487>"
-                    and getRank(discord_id) != "<:questionMark:972369805359337532>"
+                if ELOpop[discord_id][PLAYER_MAP_VISUAL_RANK_INDEX] and (
+                    (
+                        ELOpop[discord_id][PLAYER_MAP_WIN_INDEX]
+                        + ELOpop[discord_id][PLAYER_MAP_LOSS_INDEX]
+                        + ELOpop[discord_id][PLAYER_MAP_DRAW_INDEX]
+                    )
+                    > 10
                 ):
                     top_15.append(
-                        getRank(discord_id)
-                        + " "
-                        + ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX]
-                        + "\n"
+                        ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n"
                     )
                 if len(top_15) == 15:
                     break
 
             message_formatted = "".join(top_15)
-            embed = discord.Embed(title="Top 15 Non-Private Players")
+            embed = discord.Embed(title="Top 15 Players")
             embed.add_field(name="Player List", value=message_formatted, inline=True)
             await ctx.send(embed=embed)
         except Exception as e:
@@ -1255,6 +1261,8 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         else:
             visualRank = getRank(i)  # ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
             # await ctx.send(f"{ELOpop[i][3]}")
+        if not SHOW_VISUAL_RANKS:
+            visualRank = ""
 
         if (
             ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX] is not None
@@ -1264,7 +1272,12 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
                 + "- Dunce cap for: "
                 + ELOpop[i][PLAYER_MAP_DUNCE_FLAG_INDEX]
             )  # Achievements get wiped and replaced with the dunce cap
-            visualRank = getRank(i)  # Always show the rank of the dunce as a punishment
+            if SHOW_VISUAL_RANKS:
+                visualRank = getRank(
+                    i
+                )  # Always show the rank of the dunce as a punishment
+            else:
+                visualRank = ""
             win_emblem = ""  # Dunces don't get an emblem to show off
         else:
             ach = "".join(achList)  # Not a dunce, use their real achievements
@@ -3559,6 +3572,8 @@ async def on_reaction_add(reaction, user):
                                     visualRank = ELOpop[i][PLAYER_MAP_VISUAL_RANK_INDEX]
                                 else:
                                     visualRank = getRank(i)
+                                if not SHOW_VISUAL_RANKS:
+                                    visualRank = ""
                                 if i in capList:
                                     msgList.append(
                                         visualRank
