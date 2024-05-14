@@ -1982,17 +1982,12 @@ async def teams(ctx, playerCount=4):
                                         if j not in current_team:
                                             opposing_team.append(j)
                                     opposing_team = sorted(opposing_team)
-                                    logging.info(current_team)
-                                    logging.info(opposing_team)
                                     for index, team in enumerate(rankedOrder):
                                         if (
                                             sorted(rankedOrder[index][0])
                                             == opposing_team
                                         ):
                                             already_inserted = True
-                                            logging.info(
-                                                "found matching team, delete this debug later"
-                                            )
                                             break
                                     if not already_inserted:
                                         rankedOrder.append(
@@ -2002,7 +1997,6 @@ async def teams(ctx, playerCount=4):
                                             rankedOrder, key=lambda x: x[1]
                                         )
                                 rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-                                print(rankedOrder)
                             elif playerCount > 8:
                                 teamList = []
                                 for i in range(100):
@@ -2033,9 +2027,6 @@ async def teams(ctx, playerCount=4):
                             # if desired/needed for sportsmanship.
                             if redRank > blueRank:
                                 logging.info("Swapping team colors so blue is favored")
-                                await dev_channel.send(
-                                    "Swapping team colors so blue is favored"
-                                )
                                 tempTeam = blueTeam
                                 tempRank = blueRank
                                 blueTeam = redTeam
