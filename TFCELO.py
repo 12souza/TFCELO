@@ -3308,7 +3308,6 @@ async def shuffle(ctx, idx=None, game="None"):
     global redRank
     global tMsg
     async with GLOBAL_LOCK:
-        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             if idx is None:
                 idx = random.randint(1, 11)
