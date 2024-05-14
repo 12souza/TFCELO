@@ -16,6 +16,7 @@ import discord
 import matplotlib.pyplot as plt
 import mplcyberpunk
 import mysql.connector
+import requests
 from discord.ext import commands, tasks
 from discord.utils import get
 
@@ -144,6 +145,7 @@ winningMap = None
 winningServer = None
 last_add_timestamp = datetime.datetime.utcnow()
 last_add_context = None
+map_url_dictionary = {}
 
 # =====================================
 # =====================================
@@ -246,12 +248,11 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
     output = "Something went wrong"
     if reVote == 0:
         output = (
-            "```Vote up and make sure you hydrate!\n\n"
-            + "1️⃣ "
+            "```1️⃣ "
             + map_choice_1
             + " " * (25 - len(map_choice_1))
             + "   "
-            + str(map_list[map_choice_1])
+            + str(map_list[map_choice_1]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_1)
@@ -260,7 +261,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_2
             + " " * (25 - len(map_choice_2))
             + "   "
-            + str(map_list[map_choice_2])
+            + str(map_list[map_choice_2]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_2)
@@ -269,7 +270,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_3
             + " " * (25 - len(map_choice_3))
             + "   "
-            + str(map_list_2[map_choice_3])
+            + str(map_list_2[map_choice_3]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_3)
@@ -278,7 +279,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_4
             + " " * (25 - len(map_choice_4))
             + "   "
-            + str(map_list_2[map_choice_4])
+            + str(map_list_2[map_choice_4]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_4)
@@ -295,16 +296,16 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             map_list.get(map_choice_5) is not None
             and map_list.get(map_choice_5) != "New Maps"
         ):
-            carryover_mirv_count = str(map_list[map_choice_5])
+            carryover_mirv_count = str(map_list[map_choice_5]["mirv_count"])
         else:
-            carryover_mirv_count = str(map_list_2[map_choice_5])
+            carryover_mirv_count = str(map_list_2[map_choice_5]["mirv_count"])
         output = (
             "```Vote up and make sure you hydrate!\n\n"
             + "1️⃣ "
             + map_choice_1
             + " " * (25 - len(map_choice_1))
             + "   "
-            + str(map_list[map_choice_1])
+            + str(map_list[map_choice_1]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_1)
@@ -313,7 +314,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_2
             + " " * (25 - len(map_choice_2))
             + "   "
-            + str(map_list[map_choice_2])
+            + str(map_list[map_choice_2]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_2)
@@ -322,7 +323,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_3
             + " " * (25 - len(map_choice_3))
             + "   "
-            + str(map_list_2[map_choice_3])
+            + str(map_list_2[map_choice_3]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_3)
@@ -331,7 +332,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + map_choice_4
             + " " * (25 - len(map_choice_4))
             + "   "
-            + str(map_list_2[map_choice_4])
+            + str(map_list_2[map_choice_4]["mirv_count"])
             + " mirv"
             + " " * 15
             + mapVoteOutput(map_choice_4)
@@ -1082,6 +1083,23 @@ async def voteSetup(ctx):
         await vMsg.add_reaction("4️⃣")
         votable = 1
     elif (reVote == 0) and (server_vote == 0):
+        vote_embed_1 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
+        vote_embed_2 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
+        vote_embed_3 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
+        vote_embed_4 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
+        await ctx.send(embeds=[vote_embed_1, vote_embed_2, vote_embed_3, vote_embed_4])
         vMsg = await ctx.send(
             get_map_vote_output(reVote, mapList, mapList2, toVoteString)
         )
@@ -1092,6 +1110,40 @@ async def voteSetup(ctx):
         await vMsg.add_reaction("5️⃣")
         votable = 1
     elif (reVote == 1) and (server_vote == 0):
+        vote_embed_1 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
+        vote_embed_2 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
+        vote_embed_3 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
+        vote_embed_4 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
+        # Not sure which map pool option 5 is coming from so we have to do it hacky
+        if mapList.get(map_choice_5) is None:
+            carryover_image_url = mapList2[map_choice_5]["image_url"]
+        else:
+            carryover_image_url = mapList[map_choice_5]["image_url"]
+        vote_embed_5 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_embed_5.set_image(url=carryover_image_url)
+        await ctx.send(
+            embeds=[
+                vote_embed_1,
+                vote_embed_2,
+                vote_embed_3,
+                vote_embed_4,
+                vote_embed_5,
+            ]
+        )
         vMsg = await ctx.send(
             get_map_vote_output(reVote, mapList, mapList2, toVoteString)
         )
@@ -2001,8 +2053,7 @@ async def teams(ctx, playerCount=4):
                             red_team_info_string = f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}, red_win_probability {team2prob}"
                             logging.info(blue_team_info_string)
                             logging.info(red_team_info_string)
-                            await dev_channel.send(blue_team_info_string)
-                            await dev_channel.send(red_team_info_string)
+
                             await ctx.send(
                                 embed=teamsDisplay(
                                     blueTeam, redTeam, team1prob, team2prob
@@ -2385,8 +2436,6 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                     logging.info(blue_team_info_string)
                     logging.info(red_team_info_string)
 
-                    await dev_channel.send(blue_team_info_string)
-                    await dev_channel.send(red_team_info_string)
                     await ctx.send(
                         embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
                     )
@@ -2539,8 +2588,6 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                 logging.info(blue_team_info_string)
                 logging.info(red_team_info_string)
 
-                await dev_channel.send(blue_team_info_string)
-                await dev_channel.send(red_team_info_string)
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
                 await ctx.send(
@@ -3300,8 +3347,6 @@ async def shuffle(ctx, idx=None, game="None"):
                 logging.info(blue_team_info_string)
                 logging.info(red_team_info_string)
 
-                await dev_channel.send(blue_team_info_string)
-                await dev_channel.send(red_team_info_string)
                 await ctx.send(
                     embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
                 )
@@ -3354,8 +3399,6 @@ async def shuffle(ctx, idx=None, game="None"):
                 logging.info(blue_team_info_string)
                 logging.info(red_team_info_string)
 
-                await dev_channel.send(blue_team_info_string)
-                await dev_channel.send(red_team_info_string)
                 await ctx.send(
                     embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
                 )
@@ -3790,6 +3833,23 @@ async def on_message(message):
             await win(ctx, split_message[1])
         elif "!draw" in message.content:
             await draw(ctx)
+        elif "!stats" in message.content:
+            split_message = str(message.content).split(" ")
+
+            if len(split_message) == 5:
+                tokens = str(message.content).split(" ")
+                region = tokens[1]
+                match_number = tokens[2]
+                winning_score = tokens[3]
+                losing_score = tokens[4]
+            else:  # Assume 4
+                tokens = str(message.content).split(" ")
+                region = tokens[1]
+                match_number = tokens[2]
+                winning_score = tokens[3]
+                losing_score = winning_score
+
+            await stats(ctx, region, match_number, winning_score, losing_score)
     await client.process_commands(message)
 
 
