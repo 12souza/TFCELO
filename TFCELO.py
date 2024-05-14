@@ -16,7 +16,6 @@ import discord
 import matplotlib.pyplot as plt
 import mplcyberpunk
 import mysql.connector
-import requests
 from discord.ext import commands, tasks
 from discord.utils import get
 
@@ -101,6 +100,8 @@ LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
 MAP_VOTE_FIRST = False
 RANK_BOUNDARIES_LIST = [220, 450, 690, 940, 1200, 1460, 1730, 2010, 2300, 2600]
+MAIN_MAPS_FILE = "classic_maps.json"
+SECONDARY_MAPS_FILE = "spring_2024_maps.json"
 
 cap1 = None
 cap1Name = None
@@ -895,7 +896,7 @@ def PickMaps():
     global alreadyVoted
     global votePhase
     global lastFive
-    with open("classic_maps.json") as f:
+    with open(MAIN_MAPS_FILE) as f:
         mapList = json.load(f)
 
     mapVotes = {}
@@ -918,7 +919,7 @@ def PickMaps():
             if (i not in lastFive) and (i not in hateMaps):
                 mapPick.append(i)
     mapPick2 = []
-    with open("spring_2024_maps.json") as f:
+    with open(SECONDARY_MAPS_FILE) as f:
         mapList = json.load(f)
 
     for i in list(mapList):
@@ -1040,9 +1041,9 @@ async def voteSetup(ctx):
     toVoteString = "```"
     if len(playersAbstained) != 0:
         toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
-    with open("classic_maps.json") as f:
+    with open(MAIN_MAPS_FILE) as f:
         mapList = json.load(f)
-    with open("spring_2024_maps.json") as f:
+    with open(SECONDARY_MAPS_FILE) as f:
         mapList2 = json.load(f)
 
     if server_vote == 1:
@@ -1173,7 +1174,7 @@ async def addach(ctx, key, value):
 @client.command(pass_context=True, aliases=["map"])
 @commands.has_role(v["runner"])
 async def pickRandomMap(ctx):
-    with open("classic_maps.json") as f:
+    with open(MAIN_MAPS_FILE) as f:
         mapList = json.load(f)
     global lastFive
 
@@ -3653,9 +3654,9 @@ async def on_reaction_add(reaction, user):
                                         + " need to vote 💩```"
                                     )
 
-                                with open("classic_maps.json") as f:
+                                with open(MAIN_MAPS_FILE) as f:
                                     mapList = json.load(f)
-                                with open("spring_2024_maps.json") as f:
+                                with open(SECONDARY_MAPS_FILE) as f:
                                     mapList2 = json.load(f)
                                 if server_vote == 1:
                                     await vMsg.edit(
