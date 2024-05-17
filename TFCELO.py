@@ -18,6 +18,7 @@ import mplcyberpunk
 import mysql.connector
 from discord.ext import commands, tasks
 from discord.utils import get
+from discord import TextChannel
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -735,7 +736,7 @@ def DePopulatePickup():
     cap1Name = None
     cap2 = None
     cap2Name = None
-    # playersAdded = []
+    playersAdded = []
     capList = []
     blueTeam = []
     ready = []
@@ -806,6 +807,54 @@ async def idle_cancel():
                 "Pickup idle for more than two hours, canceling. Durden was too slow"
             )
             cancelImpl()
+
+
+# TODO: Vote timer loop that shows amount of time left, calls a separate function via after_loop at the end that checks if the length of players_abstained is > 2 and if it does it requeues and kicks the non-voters
+@tasks.loop(seconds=1, count=20)
+async def vote_timer():
+    global vMsg
+    global inVote
+
+    # Double check if we are in a map-vote
+    if inVote == 0:
+        logging.info("Bailing out of vote timer because we aren't in a vote anymore")
+        vote_timer.cancel()
+    if vMsg is None:
+        # TODO: Figure out _when_ this is happening, but vMsg is None AFTER a pickup started. We shouldn't even be here if this is the case!
+        logging.info(
+            "The vote message global was none, check why we are in the loop here"
+        )
+        vote_timer.cancel()
+    if "seconds remain" in vMsg.content:
+        edited_content = "\n".join(vMsg.content.split("\n")[:-1])
+    else:
+        edited_content = vMsg.content
+    vMsg = await vMsg.edit(
+        content=edited_content
+        + "\n"
+        + f"{20 - vote_timer.current_loop} seconds remain in the current vote"
+    )
+
+
+@vote_timer.after_loop
+async def handle_slow_voters():
+    global players_abstained_discord_id
+
+    if vote_timer.is_being_cancelled():
+        logging.info("The vote timer is being canceled for some reason")
+        return None
+    else:
+        logging.info(f"Kicking idle users: {players_abstained_discord_id}")
+        channel = await client.fetch_channel(v["pID"])
+        kicked_players_pretty = []
+        for player in players_abstained_discord_id:
+            current_user = await client.fetch_user(player)
+            kicked_players_pretty.append(current_user.display_name)
+        await channel.send(
+            f"Kicked the following players who didn't vote in time - {kicked_players_pretty}"
+        )
+        await requeue(channel, False)
+        await removePlayerImpl(channel, players_abstained_discord_id)
 
 
 @client.command(pass_context=True)
@@ -1277,7 +1326,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
                     i
                 )  # Always show the rank of the dunce as a punishment
             else:
-                visualRank = ""
+                visualRank = "#"
             win_emblem = ""  # Dunces don't get an emblem to show off
         else:
             ach = "".join(achList)  # Not a dunce, use their real achievements
@@ -1350,12 +1399,6 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
                 )
         elif len(playersAdded) == 0:
             embed.add_field(name="Players Added", value="PUG IS EMPTY!")
-
-        # Add the ready field to show who is ready
-        if len(ready) != 0:
-            embed.add_field(name="Players Ready", value=readyMsg)
-        elif len(ready) == 0:
-            embed.add_field(name="Players Ready", value="\u200b")
 
         oMsg = await ctx.send(embed=embed)
 
@@ -1437,26 +1480,31 @@ def get_win_emblem(ctx, discord_id):
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
 
-    if ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 10:
-        return get(ctx.message.guild.emojis, name="we0")  # Civilian
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 25:
-        return get(ctx.message.guild.emojis, name="we1")  # Scout
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 50:
-        return get(ctx.message.guild.emojis, name="we2")  # Pyro
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 75:
-        return get(ctx.message.guild.emojis, name="we3")  # Medic
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 100:
-        return get(ctx.message.guild.emojis, name="we4")  # Spy
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 250:
-        return get(ctx.message.guild.emojis, name="we5")  # Sniper
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 500:
-        return get(ctx.message.guild.emojis, name="we6")  # Engineer
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 750:
-        return get(ctx.message.guild.emojis, name="we7")  # Soldier
-    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 1000:
-        return get(ctx.message.guild.emojis, name="we8")  # Demoman
+    if type(ctx) is TextChannel:
+        emoji_comparison = ctx.guild.emojis
     else:
-        return get(ctx.message.guild.emojis, name="we9")  # HWGuy
+        emoji_comparison = ctx.message.guild.emojis
+
+    if ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 10:
+        return get(emoji_comparison, name="we0")  # Civilian
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 25:
+        return get(emoji_comparison, name="we1")  # Scout
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 50:
+        return get(emoji_comparison, name="we2")  # Pyro
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 75:
+        return get(emoji_comparison, name="we3")  # Medic
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 100:
+        return get(emoji_comparison, name="we4")  # Spy
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 250:
+        return get(emoji_comparison, name="we5")  # Sniper
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 500:
+        return get(emoji_comparison, name="we6")  # Engineer
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 750:
+        return get(emoji_comparison, name="we7")  # Soldier
+    elif ELOpop[discord_id][PLAYER_MAP_WIN_INDEX] < 1000:
+        return get(emoji_comparison, name="we8")  # Demoman
+    else:
+        return get(emoji_comparison, name="we9")  # HWGuy
 
 
 # Utility function for retrieving the cosmetic ranking number based on ELO for a player ID
@@ -1844,33 +1892,8 @@ async def test8(ctx):
 # Adding player: 303845825476558859, dougtck
 
 
-# Convenience multi-threading test function 1.
-# Instructions: Run "!testMultithreading1" followed immediately by !testMultithreading2.  If the thread model is working
-# correctly, the second function should print only after the first has waited 10 seconds.
-@client.command(pass_context=True)
-@commands.has_role(v["admin"])
-async def testMultithreading1(ctx):
-    async with GLOBAL_LOCK:
-        await ctx.send("testMultithreading1 sleeping for 10 seconds async")
-
-        # block for a moment
-        await asyncio.sleep(10)
-        # report a message
-        await ctx.send("testMultithreading1 finished")
-
-
-# Convenience multi-threading test function 2.
-# Instructions: Run "!testMultithreading1" followed immediately by !testMultithreading2.  If the thread model is working
-# correctly, the second function should print only after the first has waited 10 seconds.
-@client.command(pass_context=True)
-@commands.has_role(v["admin"])
-async def testMultithreading2(ctx):
-    async with GLOBAL_LOCK:
-        await ctx.send("testMultithreading2 done")
-
-
 # Utility function for showing the pickup
-async def removePlayerImpl(ctx, playerID):
+async def removePlayerImpl(ctx, player_id_list):
     global playersAdded
     global capList
     global MAP_VOTE_FIRST
@@ -1880,12 +1903,10 @@ async def removePlayerImpl(ctx, playerID):
     # and still in voting stage.
     if MAP_VOTE_FIRST is True and inVote == 1:
         return
-    if playerID in playersAdded:
-        playersAdded.remove(playerID)
-        if playerID in capList:
-            capList.remove(playerID)
-        await showPickup(ctx)
-        return
+    playersAdded = [player for player in playersAdded if player not in player_id_list]
+    capList = [player for player in capList if player not in player_id_list]
+    await showPickup(ctx)
+    return
 
 
 @client.command(pass_context=True, aliases=["-"])
@@ -1893,7 +1914,7 @@ async def remove(ctx):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(ctx.author.id)
-            await removePlayerImpl(ctx, playerID)
+            await removePlayerImpl(ctx, [playerID])
 
 
 @client.command(pass_context=True)
@@ -1902,7 +1923,7 @@ async def kick(ctx, player: discord.Member):
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(player.id)
-            await removePlayerImpl(ctx, playerID)
+            await removePlayerImpl(ctx, [playerID])
 
 
 @client.command(pass_context=True)
@@ -2098,7 +2119,7 @@ async def teams(ctx, playerCount=4):
                                 # if desired/needed for sportsmanship.
                                 if dev_red_rank > dev_blue_rank:
                                     logging.info(
-                                        "Swapping team colors so blue is favored"
+                                        "DEV LOGGING: Swapping team colors so blue is favored"
                                     )
                                     tempTeam = dev_blue_team
                                     tempRank = dev_blue_rank
@@ -2176,6 +2197,10 @@ async def teams(ctx, playerCount=4):
                         inVote = 1
                         if idle_cancel.is_running():
                             idle_cancel.stop()
+                    if vote_timer.is_running():
+                        vote_timer.restart()
+                    else:
+                        vote_timer.start()
             else:
                 await ctx.send("you dont have enough people for that game size..")
 
@@ -3058,7 +3083,7 @@ async def cancel(ctx):
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
-async def requeue(ctx):
+async def requeue(ctx, show_queue=True):
     global blueTeam
     global redTeam
     global playersAdded
@@ -3073,13 +3098,15 @@ async def requeue(ctx):
             neligibleplayers = eligiblePlayers
             DePopulatePickup()
             playersAdded = neligibleplayers.copy() + playersAdded
-            await showPickup(ctx)
+            if show_queue:
+                await showPickup(ctx)
         else:
             neligibleplayers = blueTeam + redTeam
             DePopulatePickup()
             playersAdded = neligibleplayers.copy() + playersAdded
             neligibleplayers.clear()
-            await showPickup(ctx)
+            if show_queue:
+                await showPickup(ctx)
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
@@ -3119,6 +3146,11 @@ async def forceVote(ctx):
             global redTeam
             logging.info("Force Vote Called")
             vote.reset_cooldown(ctx)
+            if vote_timer.is_running():
+                vote_timer.restart()
+
+            if not vote_timer.is_running():
+                vote_timer.start()
             winningMap = None
             alreadyVoted = []
             if server_vote == 1:
@@ -3270,6 +3302,12 @@ async def forceVote(ctx):
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
                     lastFive.append(winningMap)
+                    if vote_timer.is_running():
+                        vote_timer.cancel()
+                    edited_content = "\n".join(vMsg.content.split("\n")[:-1])
+                    await vMsg.edit(
+                        content=edited_content + "\n" + "Voting is finished!"
+                    )
 
                     if captMode == 0:
                         savePickup()
@@ -3573,7 +3611,7 @@ async def on_reaction_add(reaction, user):
                                 else:
                                     visualRank = getRank(i)
                                 if not SHOW_VISUAL_RANKS:
-                                    visualRank = ""
+                                    visualRank = "#"
                                 if i in capList:
                                     msgList.append(
                                         visualRank
@@ -3607,7 +3645,6 @@ async def on_reaction_add(reaction, user):
                                 embed.add_field(
                                     name="Players Added", value="PUG IS EMPTY!"
                                 )
-                            embed.add_field(name="Players Ready", value=rMsg)
 
                             await oMsg.edit(embed=embed)
                         elif len(ready) == 8:
@@ -3673,7 +3710,7 @@ async def on_reaction_add(reaction, user):
                                 with open(SECONDARY_MAPS_FILE) as f:
                                     mapList2 = json.load(f)
                                 if server_vote == 1:
-                                    await vMsg.edit(
+                                    vMsg = await vMsg.edit(
                                         content="```Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
                                         + "1️⃣ "
                                         + map_choice_1
@@ -3697,7 +3734,7 @@ async def on_reaction_add(reaction, user):
                                         + toVoteString
                                     )
                                 elif server_vote == 0:
-                                    await vMsg.edit(
+                                    vMsg = await vMsg.edit(
                                         content=get_map_vote_output(
                                             reVote, mapList, mapList2, toVoteString
                                         )
