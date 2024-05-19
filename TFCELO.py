@@ -148,6 +148,7 @@ winningServer = None
 last_add_timestamp = datetime.datetime.utcnow()
 last_add_context = None
 map_url_dictionary = {}
+map_vote_message_view = None
 
 # =====================================
 # =====================================
@@ -165,6 +166,209 @@ for playerIDKey, playerValues in ELOpop.items():
 # Write ELO database changes out
 with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
+
+
+def process_vote(player: discord.Member = None, vote=None):
+    global eligiblePlayers
+    global inVote
+    global mapVotes
+
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+    playerCount = len(eligiblePlayers)
+    userID = str(player.id)
+    playerName = ELOpop[str(userID)][0]
+    logging.info(player)
+    logging.info(userID)
+    logging.info(vote)
+    # TODO: inVote check for == 0?
+    if inVote == 1:
+        if userID in eligiblePlayers:
+            # If the player has already voted for a map, remove their vote so they can change their decision
+            # TODO: Seems sub-optimal if they just click the same option twice?
+            for i in list(mapVotes):
+                if playerName in mapVotes[i]:
+                    mapVotes[i].remove(playerName)
+            if vote == map_choice_1:
+                mapVotes[map_choice_1].append(playerName)
+            if vote == map_choice_2:
+                mapVotes[map_choice_2].append(playerName)
+            if vote == map_choice_3:
+                mapVotes[map_choice_3].append(playerName)
+            if vote == map_choice_4:
+                mapVotes[map_choice_4].append(playerName)
+            if vote == map_choice_5:
+                mapVotes[map_choice_5].append(playerName)
+            if playerName not in alreadyVoted:
+                alreadyVoted.append(userID)
+
+            playersAbstained = []
+            players_abstained_discord_id = []
+            for i in eligiblePlayers:
+                if i not in alreadyVoted:
+                    playersAbstained.append(ELOpop[str(i)][0])
+                    players_abstained_discord_id.append(i)
+            logging.info(alreadyVoted)
+            logging.info(mapVotes)
+            logging.info(playerCount)
+        # TODO: Consider giving error message to player who hits button who isn't in pickup?
+
+
+def generate_map_vote_embed(vote_round):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global map_choice_5
+    global playersAbstained
+
+    with open(MAIN_MAPS_FILE) as f:
+        main_maps = json.load(f)
+    with open(SECONDARY_MAPS_FILE) as f:
+        secondary_maps = json.load(f)
+
+    main_embed = discord.Embed(
+        title="Vote for map!",
+        description="Time remaining in vote - Infinity Seconds",
+        color=0xF1C40F,
+        url="https://tfcmaps.net/",
+    )
+
+    main_embed.add_field(
+        name="",
+        value="1️⃣"
+        + map_choice_1
+        + " " * (25 - len(map_choice_1))
+        + "   "
+        + str(main_maps[map_choice_1]["mirv_count"])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_1),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="2️⃣"
+        + map_choice_2
+        + " " * (25 - len(map_choice_2))
+        + "   "
+        + str(main_maps[map_choice_2]["mirv_count"])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_2),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="3️⃣"
+        + map_choice_3
+        + " " * (25 - len(map_choice_3))
+        + "   "
+        + str(secondary_maps[map_choice_3]["mirv_count"])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_3),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="4️⃣"
+        + map_choice_4
+        + " " * (25 - len(map_choice_4))
+        + "   "
+        + str(secondary_maps[map_choice_4]["mirv_count"])
+        + " mirv"
+        + " " * 15
+        + mapVoteOutput(map_choice_4),
+        inline=False,
+    )
+    if vote_round == 0:
+        # New Maps
+        main_embed.add_field(
+            name="",
+            value="5️⃣"
+            + map_choice_5
+            + " " * (49 - len(map_choice_5))
+            + mapVoteOutput(map_choice_5),
+            inline=False,
+        )
+    elif vote_round == 1:
+        # Weird edge-case handling - need to look up mirv count for the carry-over map
+        if (
+            main_maps.get(map_choice_5) is not None
+            and main_maps.get(map_choice_5) != "New Maps"
+        ):
+            carryover_mirv_count = str(main_maps[map_choice_5]["mirv_count"])
+        else:
+            carryover_mirv_count = str(secondary_maps[map_choice_5]["mirv_count"])
+        main_embed.add_field(
+            name="",
+            value="5️⃣"
+            + map_choice_5
+            + " " * (25 - len(map_choice_5))
+            + "   "
+            + carryover_mirv_count
+            + " mirv"
+            + " " * 15
+            + mapVoteOutput(map_choice_5),
+            inline=False,
+        )
+    # unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
+    # main_embed.add_field(name="Lazy Fucks", value=unvoted_string)
+    # TODO: add past 5 maps like inhouse?
+    return main_embed
+
+
+async def handle_map_button_callback(
+    self, interaction: discord.Interaction, button: discord.ui.Button
+):
+    global vMsg
+    global reVote
+    # TODO: What is the point of this if statement? Test without it
+    process_vote(interaction.user, button.custom_id)
+    await interaction.response.edit_message(embed=generate_map_vote_embed(reVote))
+
+
+# TODO: server vote buttons
+# TODO: map vote buttons
+class MapVoteView(discord.ui.View):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global map_choice_5
+
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_buttons()
+
+    def add_buttons(self):
+        self.add_item(
+            self.create_button(label=f"1️⃣ {map_choice_1}", custom_id=map_choice_1)
+        )
+        self.add_item(
+            self.create_button(label=f"2️⃣ {map_choice_2}", custom_id=map_choice_2)
+        )
+        self.add_item(
+            self.create_button(label=f"3️⃣ {map_choice_3}", custom_id=map_choice_3)
+        )
+        self.add_item(
+            self.create_button(label=f"4️⃣ {map_choice_4}", custom_id=map_choice_4)
+        )
+        self.add_item(
+            self.create_button(label=f"5️⃣ {map_choice_5}", custom_id=map_choice_5)
+        )
+
+    def create_button(self, label, custom_id):
+        button = discord.ui.Button(
+            label=label, custom_id=custom_id, style=discord.ButtonStyle.blurple
+        )
+
+        async def map_button_callback(interaction: discord.Interaction):
+            await handle_map_button_callback(self, interaction, button)
+
+        button.callback = map_button_callback
+        return button
 
 
 def server_vote_output():
@@ -1090,31 +1294,33 @@ async def voteSetup(ctx):
         await vMsg.add_reaction("4️⃣")
         votable = 1
     elif (reVote == 0) and (server_vote == 0):
-        vote_embed_1 = discord.Embed(
+        vote_image_embed_1 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
-        vote_embed_2 = discord.Embed(
+        vote_image_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
+        vote_image_embed_2 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
-        vote_embed_3 = discord.Embed(
+        vote_image_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
+        vote_image_embed_3 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
-        vote_embed_4 = discord.Embed(
+        vote_image_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
+        vote_image_embed_4 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
-        await ctx.send(embeds=[vote_embed_1, vote_embed_2, vote_embed_3, vote_embed_4])
-        vMsg = await ctx.send(
-            get_map_vote_output(reVote, mapList, mapList2, toVoteString)
+        vote_image_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
+        vote_embed = generate_map_vote_embed(reVote)
+        map_vote_message_view = MapVoteView()
+        await ctx.send(
+            embeds=[
+                vote_image_embed_1,
+                vote_image_embed_2,
+                vote_image_embed_3,
+                vote_image_embed_4,
+            ]
         )
-        await vMsg.add_reaction("1️⃣")
-        await vMsg.add_reaction("2️⃣")
-        await vMsg.add_reaction("3️⃣")
-        await vMsg.add_reaction("4️⃣")
-        await vMsg.add_reaction("5️⃣")
+        vMsg = await ctx.send(embed=vote_embed, view=map_vote_message_view)
         votable = 1
     elif (reVote == 1) and (server_vote == 0):
         vote_embed_1 = discord.Embed(
