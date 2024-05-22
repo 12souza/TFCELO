@@ -181,9 +181,6 @@ def process_vote(player: discord.Member = None, vote=None):
     playerCount = len(eligiblePlayers)
     userID = str(player.id)
     playerName = ELOpop[str(userID)][0]
-    logging.info(player)
-    logging.info(userID)
-    logging.info(vote)
     # TODO: inVote check for == 0?
     if inVote == 1:
         if userID in eligiblePlayers:
@@ -213,11 +210,10 @@ def process_vote(player: discord.Member = None, vote=None):
                     players_abstained_discord_id.append(i)
             logging.info(alreadyVoted)
             logging.info(mapVotes)
-            logging.info(playerCount)
         # TODO: Consider giving error message to player who hits button who isn't in pickup?
 
 
-def drawProgressBar(d, x, y, w, h, progress, bg="black", fg="green"):
+def drawProgressBar(d, x, y, w, h, progress, bg="black", fg="gold"):
     # draw background
     d.ellipse((x + w, y, x + h + w, y + h), fill=bg)
     d.ellipse((x, y, x + h, y + h), fill=bg)
@@ -338,14 +334,14 @@ def generate_map_vote_embed(vote_round):
             inline=False,
         )
     unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
-    main_embed.add_field(name="Players who haven't voted yet", value=unvoted_string)
+    main_embed.set_footer(text=unvoted_string)
 
     # create image or load your existing image with out=Image.open(path)
-    out = Image.new("RGBA", (150, 100), (255, 255, 255, 0))
+    out = Image.new("RGBA", (150, 13), (255, 255, 255, 0))
     d = ImageDraw.Draw(out)
 
     # draw the progress bar to given location, width, progress and color
-    d = drawProgressBar(d, 10, 10, 100, 25, (8 - len(playersAbstained)) / 8)
+    d = drawProgressBar(d, 10, 4, 100, 6.25, (8 - len(playersAbstained)) / 8)
     out.save("pickup_progress_bar.png", "PNG")
     image_file = discord.File("pickup_progress_bar.png")
     main_embed.set_image(url="attachment://pickup_progress_bar.png")
@@ -388,14 +384,14 @@ def generate_server_vote_embed():
         inline=False,
     )
     unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
-    main_embed.add_field(name="Players who haven't voted yet", value=unvoted_string)
+    main_embed.set_footer(text=unvoted_string)
 
     # create image or load your existing image with out=Image.open(path)
-    out = Image.new("RGBA", (150, 100), (255, 255, 255, 0))
+    out = Image.new("RGBA", (150, 13), (255, 255, 255, 0))
     d = ImageDraw.Draw(out)
 
     # draw the progress bar to given location, width, progress and color
-    d = drawProgressBar(d, 10, 10, 100, 25, (8 - len(playersAbstained)) / 8)
+    d = drawProgressBar(d, 10, 4, 100, 6.25, (8 - len(playersAbstained)) / 8)
     out.save("pickup_progress_bar.png", "PNG")
     image_file = discord.File("pickup_progress_bar.png")
     main_embed.set_image(url="attachment://pickup_progress_bar.png")
@@ -538,7 +534,7 @@ def teamsDisplay(
         else:
             msgList.append(ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n")
     rMsg = "".join(msgList)
-    embed = discord.Embed(title="Teams Sorted!")
+    embed = discord.Embed(title="Teams Sorted!", color=0xF1C40F)
     if show_probability:
         embed.add_field(
             name="Blue Team "
@@ -2334,9 +2330,6 @@ async def teams(ctx, playerCount=4):
 
                             dmMsg = "".join(DMList)
                             await ctx.send(dmMsg)
-                            await ctx.send(
-                                "Please react to the server you want to play on.."
-                            )
 
                             await dev_channel.send(
                                 "Outputting top 5 possible games by absolute ELO difference sorted ascending"
