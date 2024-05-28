@@ -19,6 +19,7 @@ import mysql.connector
 from discord.ext import commands, tasks
 from discord.utils import get
 from discord import TextChannel
+from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -149,6 +150,7 @@ winningServer = None
 last_add_timestamp = datetime.datetime.utcnow()
 last_add_context = None
 map_url_dictionary = {}
+map_vote_message_view = None
 
 # =====================================
 # =====================================
@@ -168,8 +170,338 @@ with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
 
-def server_vote_output():
-    return ""
+def process_vote(player: discord.Member = None, vote=None):
+    global eligiblePlayers
+    global inVote
+    global mapVotes
+    global playersAbstained
+    global players_abstained_discord_id
+
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+    playerCount = len(eligiblePlayers)
+    userID = str(player.id)
+    playerName = ELOpop[str(userID)][0]
+    logging.info(player)
+    logging.info(userID)
+    logging.info(vote)
+    # TODO: inVote check for == 0?
+    if inVote == 1:
+        if userID in eligiblePlayers:
+            # If the player has already voted for a map, remove their vote so they can change their decision
+            # TODO: Seems sub-optimal if they just click the same option twice?
+            for i in list(mapVotes):
+                if playerName in mapVotes[i]:
+                    mapVotes[i].remove(playerName)
+            if vote == map_choice_1:
+                mapVotes[map_choice_1].append(playerName)
+            if vote == map_choice_2:
+                mapVotes[map_choice_2].append(playerName)
+            if vote == map_choice_3:
+                mapVotes[map_choice_3].append(playerName)
+            if vote == map_choice_4:
+                mapVotes[map_choice_4].append(playerName)
+            if vote == map_choice_5:
+                mapVotes[map_choice_5].append(playerName)
+            if playerName not in alreadyVoted:
+                alreadyVoted.append(userID)
+
+            playersAbstained = []
+            players_abstained_discord_id = []
+            for i in eligiblePlayers:
+                if i not in alreadyVoted:
+                    playersAbstained.append(ELOpop[str(i)][0])
+                    players_abstained_discord_id.append(i)
+            logging.info(alreadyVoted)
+            logging.info(mapVotes)
+            logging.info(playerCount)
+        # TODO: Consider giving error message to player who hits button who isn't in pickup?
+
+
+def drawProgressBar(d, x, y, w, h, progress, bg="black", fg="green"):
+    # draw background
+    d.ellipse((x + w, y, x + h + w, y + h), fill=bg)
+    d.ellipse((x, y, x + h, y + h), fill=bg)
+    d.rectangle((x + (h / 2), y, x + w + (h / 2), y + h), fill=bg)
+
+    # draw progress bar
+    w *= progress
+    d.ellipse((x + w, y, x + h + w, y + h), fill=fg)
+    d.ellipse((x, y, x + h, y + h), fill=fg)
+    d.rectangle((x + (h / 2), y, x + w + (h / 2), y + h), fill=fg)
+
+    return d
+
+
+def generate_map_vote_embed(vote_round, time_remaining=120):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global map_choice_5
+    global playersAbstained
+
+    with open(MAIN_MAPS_FILE) as f:
+        main_maps = json.load(f)
+    with open(SECONDARY_MAPS_FILE) as f:
+        secondary_maps = json.load(f)
+
+    main_embed = discord.Embed(
+        title="Vote for map!",
+        description=f"Time remaining in vote - {time_remaining} Seconds",
+        color=0xF1C40F,
+        url="https://tfcmaps.net/",
+    )
+
+    main_embed.add_field(
+        name="",
+        value="1️⃣ "
+        + map_choice_1
+        + " " * (25 - len(map_choice_1))
+        + "   "
+        + str(main_maps[map_choice_1]["mirv_count"])
+        + " mirv <:mirv:1242078860611158106>"
+        + " " * 15
+        + "\n"
+        + mapVoteOutput(map_choice_1),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="2️⃣ "
+        + map_choice_2
+        + " " * (25 - len(map_choice_2))
+        + "   "
+        + str(main_maps[map_choice_2]["mirv_count"])
+        + " mirv <:mirv:1242078860611158106>"
+        + " " * 15
+        + "\n"
+        + mapVoteOutput(map_choice_2),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="3️⃣ "
+        + map_choice_3
+        + " " * (25 - len(map_choice_3))
+        + "   "
+        + str(secondary_maps[map_choice_3]["mirv_count"])
+        + " mirv <:mirv:1242078860611158106>"
+        + " " * 15
+        + "\n"
+        + mapVoteOutput(map_choice_3),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="4️⃣ "
+        + map_choice_4
+        + " " * (25 - len(map_choice_4))
+        + "   "
+        + str(secondary_maps[map_choice_4]["mirv_count"])
+        + " mirv <:mirv:1242078860611158106>"
+        + " " * 15
+        + "\n"
+        + mapVoteOutput(map_choice_4),
+        inline=False,
+    )
+    if vote_round == 0:
+        # New Maps
+        main_embed.add_field(
+            name="",
+            value="5️⃣ "
+            + map_choice_5
+            + " " * (49 - len(map_choice_5))
+            + "\n"
+            + mapVoteOutput(map_choice_5),
+            inline=False,
+        )
+    elif vote_round == 1:
+        # Weird edge-case handling - need to look up mirv count for the carry-over map
+        if (
+            main_maps.get(map_choice_5) is not None
+            and main_maps.get(map_choice_5) != "New Maps"
+        ):
+            carryover_mirv_count = str(main_maps[map_choice_5]["mirv_count"])
+        else:
+            carryover_mirv_count = str(secondary_maps[map_choice_5]["mirv_count"])
+        main_embed.add_field(
+            name="",
+            value="5️⃣ "
+            + map_choice_5
+            + " " * (25 - len(map_choice_5))
+            + "   "
+            + carryover_mirv_count
+            + " mirv <:mirv:1242078860611158106>"
+            + " " * 15
+            + "\n"
+            + mapVoteOutput(map_choice_5),
+            inline=False,
+        )
+    unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
+    main_embed.add_field(name="Players who haven't voted yet", value=unvoted_string)
+
+    # create image or load your existing image with out=Image.open(path)
+    out = Image.new("RGBA", (150, 100), (255, 255, 255, 0))
+    d = ImageDraw.Draw(out)
+
+    # draw the progress bar to given location, width, progress and color
+    d = drawProgressBar(d, 10, 10, 100, 25, (8 - len(playersAbstained)) / 8)
+    out.save("pickup_progress_bar.png", "PNG")
+    image_file = discord.File("pickup_progress_bar.png")
+    main_embed.set_image(url="attachment://pickup_progress_bar.png")
+    # TODO: add past 5 maps like inhouse?
+    return main_embed, image_file
+
+
+def generate_server_vote_embed(time_remaining=120):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global playersAbstained
+
+    main_embed = discord.Embed(
+        title="Vote for server!",
+        description=f"Time remaining in vote - {time_remaining} Seconds",
+        color=0xF1C40F,
+        url="https://tfcmaps.net/",
+    )
+
+    main_embed.add_field(
+        name="",
+        value="1️⃣ " + map_choice_1 + "\n" + mapVoteOutput(map_choice_1),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="2️⃣ " + map_choice_2 + "\n" + mapVoteOutput(map_choice_2),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="3️⃣ " + map_choice_3 + "\n" + mapVoteOutput(map_choice_3),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="4️⃣ " + map_choice_4 + "\n" + mapVoteOutput(map_choice_4),
+        inline=False,
+    )
+    unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
+    main_embed.add_field(name="Players who haven't voted yet", value=unvoted_string)
+
+    # create image or load your existing image with out=Image.open(path)
+    out = Image.new("RGBA", (150, 100), (255, 255, 255, 0))
+    d = ImageDraw.Draw(out)
+
+    # draw the progress bar to given location, width, progress and color
+    d = drawProgressBar(d, 10, 10, 100, 25, (8 - len(playersAbstained)) / 8)
+    out.save("pickup_progress_bar.png", "PNG")
+    image_file = discord.File("pickup_progress_bar.png")
+    main_embed.set_image(url="attachment://pickup_progress_bar.png")
+    # TODO: add past 5 maps like inhouse?
+    return main_embed, image_file
+
+
+async def handle_map_button_callback(
+    self, interaction: discord.Interaction, button: discord.ui.Button
+):
+    global reVote
+    process_vote(interaction.user, button.custom_id)
+    embed, progress_bar = generate_map_vote_embed(reVote)
+    await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
+
+
+async def handle_server_button_callback(
+    self, interaction: discord.Interaction, button: discord.ui.Button
+):
+    process_vote(interaction.user, button.custom_id)
+    embed, progress_bar = generate_server_vote_embed()
+    await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
+
+
+class ServerVoteView(discord.ui.View):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global map_choice_5
+
+    def __init__(self):
+        super().__init__(timeout=120)
+        self.add_buttons()
+
+    def add_buttons(self):
+        self.add_item(
+            self.create_button(label=f"1️⃣ {map_choice_1}", custom_id=map_choice_1)
+        )
+        self.add_item(
+            self.create_button(label=f"2️⃣ {map_choice_2}", custom_id=map_choice_2)
+        )
+        self.add_item(
+            self.create_button(label=f"3️⃣ {map_choice_3}", custom_id=map_choice_3)
+        )
+        self.add_item(
+            self.create_button(label=f"4️⃣ {map_choice_4}", custom_id=map_choice_4)
+        )
+
+    def create_button(self, label, custom_id):
+        button = discord.ui.Button(
+            label=label, custom_id=custom_id, style=discord.ButtonStyle.blurple
+        )
+
+        async def server_button_callback(interaction: discord.Interaction):
+            await handle_server_button_callback(self, interaction, button)
+
+        button.callback = server_button_callback
+        return button
+
+    async def on_timeout():
+        await handle_slow_voters()
+
+
+class MapVoteView(discord.ui.View):
+    global map_choice_1
+    global map_choice_2
+    global map_choice_3
+    global map_choice_4
+    global map_choice_5
+
+    def __init__(self):
+        super().__init__(timeout=120)
+        self.add_buttons()
+
+    def add_buttons(self):
+        self.add_item(
+            self.create_button(label=f"1️⃣ {map_choice_1}", custom_id=map_choice_1)
+        )
+        self.add_item(
+            self.create_button(label=f"2️⃣ {map_choice_2}", custom_id=map_choice_2)
+        )
+        self.add_item(
+            self.create_button(label=f"3️⃣ {map_choice_3}", custom_id=map_choice_3)
+        )
+        self.add_item(
+            self.create_button(label=f"4️⃣ {map_choice_4}", custom_id=map_choice_4)
+        )
+        self.add_item(
+            self.create_button(label=f"5️⃣ {map_choice_5}", custom_id=map_choice_5)
+        )
+
+    def create_button(self, label, custom_id):
+        button = discord.ui.Button(
+            label=label, custom_id=custom_id, style=discord.ButtonStyle.blurple
+        )
+
+        async def map_button_callback(interaction: discord.Interaction):
+            await handle_map_button_callback(self, interaction, button)
+
+        button.callback = map_button_callback
+        return button
+
+    async def on_timeout():
+        await handle_slow_voters()
 
 
 def teamsDisplay(
@@ -256,7 +588,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_1))
             + "   "
             + str(map_list[map_choice_1]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_1)
             + "\n"
@@ -265,7 +597,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_2))
             + "   "
             + str(map_list[map_choice_2]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_2)
             + "\n"
@@ -274,7 +606,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_3))
             + "   "
             + str(map_list_2[map_choice_3]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_3)
             + "\n"
@@ -283,7 +615,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_4))
             + "   "
             + str(map_list_2[map_choice_4]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_4)
             + "\n"
@@ -309,7 +641,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_1))
             + "   "
             + str(map_list[map_choice_1]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_1)
             + "\n"
@@ -318,7 +650,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_2))
             + "   "
             + str(map_list[map_choice_2]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_2)
             + "\n"
@@ -327,7 +659,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_3))
             + "   "
             + str(map_list_2[map_choice_3]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_3)
             + "\n"
@@ -336,7 +668,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_4))
             + "   "
             + str(map_list_2[map_choice_4]["mirv_count"])
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_4)
             + "\n"
@@ -345,7 +677,7 @@ def get_map_vote_output(reVote, map_list, map_list_2, unvoted_string):
             + " " * (25 - len(map_choice_5))
             + "   "
             + carryover_mirv_count
-            + " mirv"
+            + " mirv <:mirv:1242078860611158106>"
             + " " * 15
             + mapVoteOutput(map_choice_5)
             + unvoted_string
@@ -777,12 +1109,14 @@ def mapVoteOutput(mapChoice):
         # whoVoted.append(ELOpop[i][0])
         whoVoted.append(i)
     numVotes = len(whoVoted)
-    whoVoted = ", ".join(whoVoted)
-
-    if len(whoVoted) == 0:
+    if numVotes == 0:
         return "0 votes"
 
-    return "%d votes (%s)" % (numVotes, whoVoted)
+    whoVoted = "**" + ", ".join(whoVoted) + "**"
+    if numVotes == 1:
+        return "1 vote (%s)" % whoVoted
+    else:
+        return "%d votes (%s)" % (numVotes, whoVoted)
 
 
 @tasks.loop(minutes=30)
@@ -810,51 +1144,45 @@ async def idle_cancel():
 
 
 # TODO: Vote timer loop that shows amount of time left, calls a separate function via after_loop at the end that checks if the length of players_abstained is > 2 and if it does it requeues and kicks the non-voters
-@tasks.loop(seconds=1, count=20)
-async def vote_timer():
-    global vMsg
+@tasks.loop(seconds=1, count=120)
+async def vote_timer(vote_message):
     global inVote
+    global server_vote
 
     # Double check if we are in a map-vote
     if inVote == 0:
         logging.info("Bailing out of vote timer because we aren't in a vote anymore")
         vote_timer.cancel()
-    if vMsg is None:
+    if vote_message is None:
         # TODO: Figure out _when_ this is happening, but vMsg is None AFTER a pickup started. We shouldn't even be here if this is the case!
         logging.info(
             "The vote message global was none, check why we are in the loop here"
         )
         vote_timer.cancel()
-    if "seconds remain" in vMsg.content:
-        edited_content = "\n".join(vMsg.content.split("\n")[:-1])
-    else:
-        edited_content = vMsg.content
-    vMsg = await vMsg.edit(
-        content=edited_content
-        + "\n"
-        + f"{20 - vote_timer.current_loop} seconds remain in the current vote"
-    )
+    time_remaining = f"{120 - vote_timer.current_loop}"
+    # Check if it's a server vote or map vote
+    if server_vote == 1:
+        vote_embed, progress_bar = generate_server_vote_embed(time_remaining)
+        vote_message = await vote_message.edit(embed=vote_embed)
+    elif server_vote == 0:
+        vote_embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
+        vote_message = await vote_message.edit(embed=vote_embed)
 
 
-@vote_timer.after_loop
 async def handle_slow_voters():
     global players_abstained_discord_id
 
-    if vote_timer.is_being_cancelled():
-        logging.info("The vote timer is being canceled for some reason")
-        return None
-    else:
-        logging.info(f"Kicking idle users: {players_abstained_discord_id}")
-        channel = await client.fetch_channel(v["pID"])
-        kicked_players_pretty = []
-        for player in players_abstained_discord_id:
-            current_user = await client.fetch_user(player)
-            kicked_players_pretty.append(current_user.display_name)
-        await channel.send(
-            f"Kicked the following players who didn't vote in time - {kicked_players_pretty}"
-        )
-        await requeue(channel, False)
-        await removePlayerImpl(channel, players_abstained_discord_id)
+    logging.info(f"Kicking idle users: {players_abstained_discord_id}")
+    channel = await client.fetch_channel(v["pID"])
+    kicked_players_pretty = []
+    for player in players_abstained_discord_id:
+        current_user = await client.fetch_user(player)
+        kicked_players_pretty.append(current_user.display_name)
+    await channel.send(
+        f"Kicked the following players who didn't vote in time - {kicked_players_pretty}"
+    )
+    await requeue(channel, False)
+    await removePlayerImpl(channel, players_abstained_discord_id)
 
 
 @client.command(pass_context=True)
@@ -1085,17 +1413,14 @@ async def voteSetup(ctx):
 
     alreadyVoted = []
     mapVotes = {}
-    PickMaps()
-
     playersAbstained = []
     players_abstained_discord_id = []
     for i in eligiblePlayers:
         if i not in alreadyVoted:
             playersAbstained.append(ELOpop[i][0])
             players_abstained_discord_id.append(i)
-    toVoteString = "```"
-    if len(playersAbstained) != 0:
-        toVoteString = "\n💩 " + ", ".join(playersAbstained) + " need to vote 💩```"
+    PickMaps()
+
     with open(MAIN_MAPS_FILE) as f:
         mapList = json.load(f)
     with open(SECONDARY_MAPS_FILE) as f:
@@ -1110,104 +1435,42 @@ async def voteSetup(ctx):
         mapVotes[map_choice_3] = []
         map_choice_4 = "South East - Miami"
         mapVotes[map_choice_4] = []
+        vote_embed, progress_bar = generate_server_vote_embed()
+        server_vote_message_view = ServerVoteView()
         vMsg = await ctx.send(
-            "````Vote for your server! (Please wait for everyone to vote, or sub AFK players)\n\n"
-            + "1️⃣ "
-            + map_choice_1
-            + " " * (70 - len(map_choice_1))
-            + mapVoteOutput(map_choice_1)
-            + "\n"
-            + "2️⃣ "
-            + map_choice_2
-            + " " * (70 - len(map_choice_2))
-            + mapVoteOutput(map_choice_2)
-            + "\n"
-            + "3️⃣ "
-            + map_choice_3
-            + " " * (70 - len(map_choice_3))
-            + mapVoteOutput(map_choice_3)
-            + "\n"
-            + "4️⃣ "
-            + map_choice_4
-            + " " * (70 - len(map_choice_4))
-            + mapVoteOutput(map_choice_4)
-            + toVoteString
+            embed=vote_embed, view=server_vote_message_view, file=progress_bar
         )
-        await vMsg.add_reaction("1️⃣")
-        await vMsg.add_reaction("2️⃣")
-        await vMsg.add_reaction("3️⃣")
-        await vMsg.add_reaction("4️⃣")
         votable = 1
-    elif (reVote == 0) and (server_vote == 0):
-        vote_embed_1 = discord.Embed(
+    elif server_vote == 0:
+        vote_image_embed_1 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
-        vote_embed_2 = discord.Embed(
+        vote_image_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
+        vote_image_embed_2 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
-        vote_embed_3 = discord.Embed(
+        vote_image_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
+        vote_image_embed_3 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
-        vote_embed_4 = discord.Embed(
+        vote_image_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
+        vote_image_embed_4 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
-        vote_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
-        await ctx.send(embeds=[vote_embed_1, vote_embed_2, vote_embed_3, vote_embed_4])
-        vMsg = await ctx.send(
-            get_map_vote_output(reVote, mapList, mapList2, toVoteString)
-        )
-        await vMsg.add_reaction("1️⃣")
-        await vMsg.add_reaction("2️⃣")
-        await vMsg.add_reaction("3️⃣")
-        await vMsg.add_reaction("4️⃣")
-        await vMsg.add_reaction("5️⃣")
-        votable = 1
-    elif (reVote == 1) and (server_vote == 0):
-        vote_embed_1 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
-        )
-        vote_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
-        vote_embed_2 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
-        )
-        vote_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
-        vote_embed_3 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
-        )
-        vote_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
-        vote_embed_4 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
-        )
-        vote_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
-        # Not sure which map pool option 5 is coming from so we have to do it hacky
-        if mapList.get(map_choice_5) is None:
-            carryover_image_url = mapList2[map_choice_5]["image_url"]
-        else:
-            carryover_image_url = mapList[map_choice_5]["image_url"]
-        vote_embed_5 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
-        )
-        vote_embed_5.set_image(url=carryover_image_url)
+        vote_image_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
+        vote_embed, progress_bar = generate_map_vote_embed(reVote)
+        map_vote_message_view = MapVoteView()
         await ctx.send(
             embeds=[
-                vote_embed_1,
-                vote_embed_2,
-                vote_embed_3,
-                vote_embed_4,
-                vote_embed_5,
+                vote_image_embed_1,
+                vote_image_embed_2,
+                vote_image_embed_3,
+                vote_image_embed_4,
             ]
         )
         vMsg = await ctx.send(
-            get_map_vote_output(reVote, mapList, mapList2, toVoteString)
+            embed=vote_embed, view=map_vote_message_view, file=progress_bar
         )
-        await vMsg.add_reaction("1️⃣")
-        await vMsg.add_reaction("2️⃣")
-        await vMsg.add_reaction("3️⃣")
-        await vMsg.add_reaction("4️⃣")
-        await vMsg.add_reaction("5️⃣")
         votable = 1
 
 
@@ -2198,9 +2461,9 @@ async def teams(ctx, playerCount=4):
                         if idle_cancel.is_running():
                             idle_cancel.stop()
                     if vote_timer.is_running():
-                        vote_timer.restart()
+                        vote_timer.restart(vMsg)
                     else:
-                        vote_timer.start()
+                        vote_timer.start(vMsg)
             else:
                 await ctx.send("you dont have enough people for that game size..")
 
@@ -3147,10 +3410,10 @@ async def forceVote(ctx):
             logging.info("Force Vote Called")
             vote.reset_cooldown(ctx)
             if vote_timer.is_running():
-                vote_timer.restart()
+                vote_timer.restart(vMsg)
 
             if not vote_timer.is_running():
-                vote_timer.start()
+                vote_timer.start(vMsg)
             winningMap = None
             alreadyVoted = []
             if server_vote == 1:
@@ -3658,7 +3921,7 @@ async def on_reaction_add(reaction, user):
                     else:
                         await reaction.message.remove_reaction(reaction, user)
                         await user.send("You are not among the first 8 added...")
-
+            # TODO: Remove dead code branch
             if reaction.message == vMsg:
                 if votable == 1:
                     if (
