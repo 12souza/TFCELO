@@ -105,6 +105,7 @@ RANK_BOUNDARIES_LIST = [220, 450, 690, 940, 1200, 1460, 1730, 2010, 2300, 2600]
 MAIN_MAPS_FILE = "classic_maps.json"
 SECONDARY_MAPS_FILE = "spring_2024_maps.json"
 SHOW_VISUAL_RANKS = False
+VOTE_TIME_LIMIT = 121
 
 cap1 = None
 cap1Name = None
@@ -150,6 +151,7 @@ winningServer = None
 last_add_timestamp = datetime.datetime.utcnow()
 last_add_context = None
 map_url_dictionary = {}
+server_vote_message_view = None
 map_vote_message_view = None
 
 # =====================================
@@ -200,7 +202,7 @@ def process_vote(player: discord.Member = None, vote=None):
                 mapVotes[map_choice_4].append(playerName)
             if vote == map_choice_5:
                 mapVotes[map_choice_5].append(playerName)
-            if playerName not in alreadyVoted:
+            if userID not in alreadyVoted:
                 alreadyVoted.append(userID)
 
             playersAbstained = []
@@ -229,7 +231,7 @@ def drawProgressBar(d, x, y, w, h, progress, bg="black", fg="gold"):
     return d
 
 
-def generate_map_vote_embed(vote_round, time_remaining=120):
+def generate_map_vote_embed(vote_round, time_remaining=VOTE_TIME_LIMIT):
     global map_choice_1
     global map_choice_2
     global map_choice_3
@@ -350,7 +352,7 @@ def generate_map_vote_embed(vote_round, time_remaining=120):
     return main_embed, image_file
 
 
-def generate_server_vote_embed(time_remaining=120):
+def generate_server_vote_embed(time_remaining=VOTE_TIME_LIMIT):
     global map_choice_1
     global map_choice_2
     global map_choice_3
@@ -405,7 +407,8 @@ async def handle_map_button_callback(
 ):
     global reVote
     process_vote(interaction.user, button.custom_id)
-    embed, progress_bar = generate_map_vote_embed(reVote)
+    time_remaining = f"{VOTE_TIME_LIMIT - vote_timer.current_loop}"
+    embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
     await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
 
 
@@ -413,7 +416,8 @@ async def handle_server_button_callback(
     self, interaction: discord.Interaction, button: discord.ui.Button
 ):
     process_vote(interaction.user, button.custom_id)
-    embed, progress_bar = generate_server_vote_embed()
+    time_remaining = f"{VOTE_TIME_LIMIT - vote_timer.current_loop}"
+    embed, progress_bar = generate_server_vote_embed(time_remaining)
     await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
 
 
@@ -425,7 +429,7 @@ class ServerVoteView(discord.ui.View):
     global map_choice_5
 
     def __init__(self):
-        super().__init__(timeout=120)
+        super().__init__(timeout=VOTE_TIME_LIMIT)
         self.add_buttons()
 
     def add_buttons(self):
@@ -453,7 +457,7 @@ class ServerVoteView(discord.ui.View):
         button.callback = server_button_callback
         return button
 
-    async def on_timeout():
+    async def on_timeout(self):
         await handle_slow_voters()
 
 
@@ -465,7 +469,7 @@ class MapVoteView(discord.ui.View):
     global map_choice_5
 
     def __init__(self):
-        super().__init__(timeout=120)
+        super().__init__(timeout=VOTE_TIME_LIMIT)
         self.add_buttons()
 
     def add_buttons(self):
@@ -496,7 +500,7 @@ class MapVoteView(discord.ui.View):
         button.callback = map_button_callback
         return button
 
-    async def on_timeout():
+    async def on_timeout(self):
         await handle_slow_voters()
 
 
@@ -1140,7 +1144,7 @@ async def idle_cancel():
 
 
 # TODO: Vote timer loop that shows amount of time left, calls a separate function via after_loop at the end that checks if the length of players_abstained is > 2 and if it does it requeues and kicks the non-voters
-@tasks.loop(seconds=1, count=120)
+@tasks.loop(seconds=1, count=VOTE_TIME_LIMIT)
 async def vote_timer(vote_message):
     global inVote
     global server_vote
@@ -1149,13 +1153,15 @@ async def vote_timer(vote_message):
     if inVote == 0:
         logging.info("Bailing out of vote timer because we aren't in a vote anymore")
         vote_timer.cancel()
+        return
     if vote_message is None:
         # TODO: Figure out _when_ this is happening, but vMsg is None AFTER a pickup started. We shouldn't even be here if this is the case!
         logging.info(
             "The vote message global was none, check why we are in the loop here"
         )
         vote_timer.cancel()
-    time_remaining = f"{120 - vote_timer.current_loop}"
+        return
+    time_remaining = f"{VOTE_TIME_LIMIT - vote_timer.current_loop}"
     # Check if it's a server vote or map vote
     if server_vote == 1:
         vote_embed, progress_bar = generate_server_vote_embed(time_remaining)
@@ -1403,6 +1409,8 @@ async def voteSetup(ctx):
     global votable
     global playersAbstained
     global players_abstained_discord_id
+    global server_vote_message_view
+    global map_vote_message_view
 
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
@@ -1422,6 +1430,9 @@ async def voteSetup(ctx):
     with open(SECONDARY_MAPS_FILE) as f:
         mapList2 = json.load(f)
 
+    if vote_timer.is_running():
+        vote_timer.cancel()
+
     if server_vote == 1:
         map_choice_1 = "West - North California"
         mapVotes[map_choice_1] = []
@@ -1436,7 +1447,6 @@ async def voteSetup(ctx):
         vMsg = await ctx.send(
             embed=vote_embed, view=server_vote_message_view, file=progress_bar
         )
-        votable = 1
     elif server_vote == 0:
         vote_image_embed_1 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
@@ -1467,7 +1477,9 @@ async def voteSetup(ctx):
         vMsg = await ctx.send(
             embed=vote_embed, view=map_vote_message_view, file=progress_bar
         )
-        votable = 1
+    votable = 1
+    logging.info("Starting vote timer NOW")
+    vote_timer.start(vMsg)
 
 
 @client.command(pass_context=True)
@@ -2418,13 +2430,6 @@ async def teams(ctx, playerCount=4):
                                     )
                                 )
                             await dev_channel.send(embeds=debug_embeds)
-
-                        server_vote = 1
-                        await voteSetup(ctx)
-                        inVote = 1
-                        if idle_cancel.is_running():
-                            idle_cancel.stop()
-
                     elif len(capList) >= 2:
                         with open("ELOpop.json") as f:
                             ELOpop = json.load(f)
@@ -2448,15 +2453,11 @@ async def teams(ctx, playerCount=4):
                         await ctx.send(
                             "Please react to the server you want to play on.."
                         )
-                        server_vote = 1
-                        await voteSetup(ctx)
-                        inVote = 1
-                        if idle_cancel.is_running():
-                            idle_cancel.stop()
-                    if vote_timer.is_running():
-                        vote_timer.restart(vMsg)
-                    else:
-                        vote_timer.start(vMsg)
+                    server_vote = 1
+                    inVote = 1
+                    await voteSetup(ctx)
+                    if idle_cancel.is_running():
+                        idle_cancel.stop()
             else:
                 await ctx.send("you dont have enough people for that game size..")
 
@@ -3372,44 +3373,46 @@ async def requeue(ctx, show_queue=True):
 @commands.cooldown(1, 10, commands.BucketType.channel)
 @commands.has_role(v["runner"])
 async def forceVote(ctx):
+    global mapVotes
+    global map_choice_4
+    global map_choice_3
+    global map_choice_2
+    global map_choice_1
+    global map_choice_5
+    global winningIP
+    global server_vote
+    global eligiblePlayers
+    global pTotalPlayers
+    global inVote
+    global reVote
+    global captMode
+    global pMsg
+    global cap1
+    global cap1Name
+    global cap2
+    global cap2Name
+    global winningMap
+    global winningServer
+    global alreadyVoted
+    global lastFive
+    global vMsg
+    global blueTeam
+    global redTeam
+    global server_vote_message_view
+    global map_vote_message_view
+
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
-            global mapVotes
-            global map_choice_4
-            global map_choice_3
-            global map_choice_2
-            global map_choice_1
-            global map_choice_5
-            global winningIP
-            global server_vote
-            global eligiblePlayers
-            global pTotalPlayers
-            global inVote
-            global reVote
-            global captMode
-            global pMsg
-            global cap1
-            global cap1Name
-            global cap2
-            global cap2Name
-            global winningMap
-            global winningServer
-            global alreadyVoted
-            global lastFive
-            global vMsg
-            global blueTeam
-            global redTeam
-            logging.info("Force Vote Called")
+            if inVote == 0:
+                await ctx.send("ERROR: Tried calling !fv outside of a vote!")
+                return
             vote.reset_cooldown(ctx)
-            if vote_timer.is_running():
-                vote_timer.restart(vMsg)
 
-            if not vote_timer.is_running():
-                vote_timer.start(vMsg)
             winningMap = None
             alreadyVoted = []
             if server_vote == 1:
+                server_vote_message_view.stop()
                 votes = [
                     len(mapVotes[map_choice_1]),
                     len(mapVotes[map_choice_2]),
@@ -3431,10 +3434,10 @@ async def forceVote(ctx):
                     vote_index = vote_index + 1
 
                 if len(candidate_server_names) > 1:
-                    await ctx.send(
-                        "There was a tie in server votes! Making a random selection between them..."
-                    )
                     winning_server = random.choice(candidate_server_names)
+                    await ctx.send(
+                        f"There was a tie in server votes! Making a random selection between them... - {winning_server}"
+                    )
                 else:
                     winning_server = candidate_server_names[0]
                 # Pick a random final winner from the candidate maps
@@ -3458,6 +3461,7 @@ async def forceVote(ctx):
                 map_choice_5 = "New Maps"
                 await voteSetup(ctx)
             elif server_vote == 0:
+                map_vote_message_view.stop()
                 # We are currently in map voting round
                 if reVote == 0:
                     # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
