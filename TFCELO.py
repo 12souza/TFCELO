@@ -105,7 +105,7 @@ RANK_BOUNDARIES_LIST = [220, 450, 690, 940, 1200, 1460, 1730, 2010, 2300, 2600]
 MAIN_MAPS_FILE = "classic_maps.json"
 SECONDARY_MAPS_FILE = "spring_2024_maps.json"
 SHOW_VISUAL_RANKS = False
-VOTE_TIME_LIMIT = 121
+VOTE_TIME_LIMIT = 181
 
 cap1 = None
 cap1Name = None
@@ -1063,6 +1063,8 @@ def DePopulatePickup():
     global pickCount
     global msg
     global pTotalPlayers
+    global server_vote_message_view
+    global map_vote_message_view
 
     cap1 = None
     cap1Name = None
@@ -1099,6 +1101,8 @@ def DePopulatePickup():
     pickCount = 0
     msg = None
     pTotalPlayers = []
+    server_vote_message_view.stop()
+    map_vote_message_view.stop()
 
 
 # Populates a list of players whom have voted for a particular map
@@ -1430,8 +1434,7 @@ async def voteSetup(ctx):
     with open(SECONDARY_MAPS_FILE) as f:
         mapList2 = json.load(f)
 
-    if vote_timer.is_running():
-        vote_timer.cancel()
+    vote_timer.cancel()
 
     if server_vote == 1:
         map_choice_1 = "West - North California"
@@ -1479,7 +1482,8 @@ async def voteSetup(ctx):
         )
     votable = 1
     logging.info("Starting vote timer NOW")
-    vote_timer.start(vMsg)
+    if not vote_timer.is_running():
+        vote_timer.start(vMsg)
 
 
 @client.command(pass_context=True)
