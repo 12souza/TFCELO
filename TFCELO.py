@@ -3048,7 +3048,7 @@ async def win(ctx, team, pNumber="None"):
                 adjustTeam1 = int(blueRank + 50 * (0 - blueProb)) - blueRank
                 adjustTeam2 = int(redRank + 50 * (1 - redProb)) - redRank
                 winner = 2
-            if team == "draw":
+            if team in ("0", "draw"):
                 adjustTeam1 = int(blueRank + 50 * (0.5 - blueProb)) - blueRank
                 adjustTeam2 = int(redRank + 50 * (0.5 - redProb)) - redRank
             if "Bot's Choice" in pMap:
