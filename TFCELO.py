@@ -3446,8 +3446,6 @@ async def forceVote(ctx):
                     winning_server = candidate_server_names[0]
                 # Pick a random final winner from the candidate maps
 
-                winning_server = random.choice(candidate_server_names)
-                logging.info(f"Winning server is - {winning_server}")
                 winningServer = winning_server  # keeping this random variable around til I refactor it into oblivion
                 if winning_server == "West - North California":
                     winningIP = f"http://tinyurl.com/tfpwestaws - connect {logins['west']['server_ip']}:27015; password letsplay!"
