@@ -1102,8 +1102,10 @@ def DePopulatePickup():
     pickCount = 0
     msg = None
     pTotalPlayers = []
-    server_vote_message_view.stop()
-    map_vote_message_view.stop()
+    if server_vote_message_view is not None:
+        server_vote_message_view.stop()
+    if map_vote_message_view is not None:
+        map_vote_message_view.stop()
 
 
 # Populates a list of players whom have voted for a particular map
@@ -2027,7 +2029,7 @@ def savePickup():
         ]
         with open("activePickups.json", "w") as cd:
             json.dump(activePickups, cd, indent=4)
-        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         current_game = {
             "match_id": pSerial,
             "created_at": current_timestamp,
@@ -2035,10 +2037,10 @@ def savePickup():
             "deleted_at": None,
             "blue_probability": team1prob,
             "blue_rank": blueRank,
-            "blue_team": blueTeam,
+            "blue_team": ','.join(blueTeam),
             "red_probability": team2prob,
             "red_rank": redRank,
-            "red_team": redTeam,
+            "red_team": ','.join(redTeam),
             "map": winningMap,
             "server": winningServer,
             "game_type": "4v4",
@@ -3010,7 +3012,7 @@ async def draw(ctx, pNumber="None"):
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
-            current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
             mycursor.execute(update_query, ('0', current_timestamp, pNumber))
             logging.info(update_query)
@@ -3151,7 +3153,7 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
-            current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
             mycursor.execute(update_query, (team, current_timestamp, pNumber))
             logging.info(update_query)
@@ -3254,7 +3256,7 @@ async def undo(ctx, pNumber="None"):
             )
 
         sql = "UPDATE matches SET updated_at = %s, deleted_at = %s WHERE match_id = %s"
-        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         logging.info(sql)
         logging.info((current_timestamp, current_timestamp, pNumber))
         mycursor.execute(
