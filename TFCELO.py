@@ -952,6 +952,7 @@ async def top15(ctx):
             user=logins["mysql"]["user"],
             passwd=logins["mysql"]["passwd"],
             database=logins["mysql"]["database"],
+            autocommit=True,
         )
         mycursor = db.cursor()
 
@@ -2935,6 +2936,7 @@ async def draw(ctx, pNumber="None"):
         user=logins["mysql"]["user"],
         passwd=logins["mysql"]["passwd"],
         database=logins["mysql"]["database"],
+        autocommit=True,
     )
 
     mycursor = db.cursor()
@@ -3055,6 +3057,7 @@ async def win(ctx, team, pNumber="None"):
         user=logins["mysql"]["user"],
         passwd=logins["mysql"]["passwd"],
         database=logins["mysql"]["database"],
+        autocommit=True,
     )
 
     mycursor = db.cursor()
@@ -3214,6 +3217,7 @@ async def undo(ctx, pNumber="None"):
             user=logins["mysql"]["user"],
             passwd=logins["mysql"]["passwd"],
             database=logins["mysql"]["database"],
+            autocommit=True,
         )
 
         mycursor = db.cursor()
@@ -4076,6 +4080,7 @@ async def generate_elo_chart(discord_user):
         user=logins["mysql"]["user"],
         passwd=logins["mysql"]["passwd"],
         database=logins["mysql"]["database"],
+        autocommit=True,
     )
 
     mycursor = db.cursor()
