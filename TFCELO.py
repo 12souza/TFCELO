@@ -3373,7 +3373,10 @@ async def removegame(ctx, number):
         if number in activePickups:
             del activePickups[number]
         elif number in pastTen:
-            await undo(ctx, number)
+            await ctx.send(
+                f"ERROR: Game {number} needs to be undone via !undo first!"
+            )
+            return
         else:
             await ctx.send(
                 f"ERROR: Game {number} not found in active games nor in past ten games!"
