@@ -20,6 +20,7 @@ from discord.ext import commands, tasks
 from discord.utils import get
 from discord import TextChannel
 from PIL import Image, ImageFont, ImageDraw, ImageEnhance
+from datetime import timezone
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -951,6 +952,7 @@ async def top15(ctx):
             user=logins["mysql"]["user"],
             passwd=logins["mysql"]["passwd"],
             database=logins["mysql"]["database"],
+            autocommit=True,
         )
         mycursor = db.cursor()
 
@@ -1101,8 +1103,10 @@ def DePopulatePickup():
     pickCount = 0
     msg = None
     pTotalPlayers = []
-    server_vote_message_view.stop()
-    map_vote_message_view.stop()
+    if server_vote_message_view is not None:
+        server_vote_message_view.stop()
+    if map_vote_message_view is not None:
+        map_vote_message_view.stop()
 
 
 # Populates a list of players whom have voted for a particular map
@@ -2026,6 +2030,42 @@ def savePickup():
         ]
         with open("activePickups.json", "w") as cd:
             json.dump(activePickups, cd, indent=4)
+        current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        current_game = {
+            "match_id": pSerial,
+            "created_at": current_timestamp,
+            "updated_at": current_timestamp,
+            "deleted_at": None,
+            "blue_probability": team1prob,
+            "blue_rank": blueRank,
+            "blue_team": ','.join(blueTeam),
+            "red_probability": team2prob,
+            "red_rank": redRank,
+            "red_team": ','.join(redTeam),
+            "map": winningMap,
+            "server": winningServer,
+            "game_type": "4v4",
+            "match_outcome": None,
+        }
+        # Write to db
+        placeholders = ", ".join(["%s"] * len(current_game))
+        columns = ", ".join(current_game.keys())
+        sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
+            "matches",
+            columns,
+            placeholders,
+        )
+        logging.info(sql)
+        logging.info(list(current_game.values()))
+        db = mysql.connector.connect(
+            host=logins["mysql"]["host"],
+            user=logins["mysql"]["user"],
+            passwd=logins["mysql"]["passwd"],
+            database=logins["mysql"]["database"],
+            autocommit=True,
+        )
+        cursor = db.cursor()
+        cursor.execute(sql, list(current_game.values()))
 
 
 # Utility function for adding a player to the pickup if they aren't already added
@@ -2896,6 +2936,7 @@ async def draw(ctx, pNumber="None"):
         user=logins["mysql"]["user"],
         passwd=logins["mysql"]["passwd"],
         database=logins["mysql"]["database"],
+        autocommit=True,
     )
 
     mycursor = db.cursor()
@@ -2973,6 +3014,10 @@ async def draw(ctx, pNumber="None"):
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
+            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
+            mycursor.execute(update_query, ('0', current_timestamp, pNumber))
+            logging.info(update_query)
 
             if len(list(pastTen)) >= 10:
                 while len(list(pastTen)) > 9:
@@ -3012,6 +3057,7 @@ async def win(ctx, team, pNumber="None"):
         user=logins["mysql"]["user"],
         passwd=logins["mysql"]["passwd"],
         database=logins["mysql"]["database"],
+        autocommit=True,
     )
 
     mycursor = db.cursor()
@@ -3110,6 +3156,10 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
+            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
+            mycursor.execute(update_query, (team, current_timestamp, pNumber))
+            logging.info(update_query)
 
             if len(list(pastTen)) >= 10:
                 while len(list(pastTen)) > 9:
@@ -3167,6 +3217,7 @@ async def undo(ctx, pNumber="None"):
             user=logins["mysql"]["user"],
             passwd=logins["mysql"]["passwd"],
             database=logins["mysql"]["database"],
+            autocommit=True,
         )
 
         mycursor = db.cursor()
@@ -3207,6 +3258,15 @@ async def undo(ctx, pNumber="None"):
                 "DELETE FROM player_elo WHERE match_id = %s AND discord_id = %s",
                 (pNumber, int(i)),
             )
+
+        sql = "UPDATE matches SET updated_at = %s, deleted_at = %s WHERE match_id = %s"
+        current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        logging.info(sql)
+        logging.info((current_timestamp, current_timestamp, pNumber))
+        mycursor.execute(
+            sql,
+            (current_timestamp, current_timestamp, pNumber),
+        )
 
         # pastTen[pNumber] = [blueTeam, blueProb, adjustTeam1, blueRank, redTeam, redProb, adjustTeam2, redRank, winner, activePickups[pNumber][7]]
         activePickups[pNumber] = [
@@ -4023,6 +4083,7 @@ async def generate_elo_chart(discord_user):
         user=logins["mysql"]["user"],
         passwd=logins["mysql"]["passwd"],
         database=logins["mysql"]["database"],
+        autocommit=True,
     )
 
     mycursor = db.cursor()
