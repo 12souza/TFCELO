@@ -2513,6 +2513,16 @@ async def stats(
 ):
     with open("login.json") as f:
         logins = json.load(f)
+
+    db = mysql.connector.connect(
+        host=logins["mysql"]["host"],
+        user=logins["mysql"]["user"],
+        passwd=logins["mysql"]["passwd"],
+        database=logins["mysql"]["database"],
+        autocommit=True,
+    )
+    mycursor = db.cursor()
+
     schannel = await client.fetch_channel(
         1000847501194174675
     )  # 1000847501194174675 original channelID
@@ -2535,8 +2545,11 @@ async def stats(
             ftp.cwd("..")
             ftp.cwd(f"HLTV{region.upper()}")
             output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
+            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
             if hampalyzer_output is not None:
+                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
+                mycursor.execute(update_query, (winning_score, losing_score, hampalyzer_output, current_timestamp, match_number))
                 if output_zipfile is None:
                     await schannel.send(
                         f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
@@ -2548,6 +2561,8 @@ async def stats(
                     )
                     os.remove(output_zipfile)
             else:
+                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
+                mycursor.execute(update_query, (winning_score, losing_score, blarghalyzer_fallback, current_timestamp, match_number))
                 if output_zipfile is None:
                     await schannel.send(
                         f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
