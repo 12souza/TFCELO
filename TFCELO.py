@@ -358,6 +358,7 @@ def generate_server_vote_embed(time_remaining=VOTE_TIME_LIMIT):
     global map_choice_2
     global map_choice_3
     global map_choice_4
+    global map_choice_5
     global playersAbstained
 
     main_embed = discord.Embed(
@@ -385,6 +386,11 @@ def generate_server_vote_embed(time_remaining=VOTE_TIME_LIMIT):
     main_embed.add_field(
         name="",
         value="4️⃣ " + map_choice_4 + "\n" + mapVoteOutput(map_choice_4),
+        inline=False,
+    )
+    main_embed.add_field(
+        name="",
+        value="5️⃣ " + map_choice_5 + "\n" + mapVoteOutput(map_choice_5),
         inline=False,
     )
     unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
@@ -445,6 +451,9 @@ class ServerVoteView(discord.ui.View):
         )
         self.add_item(
             self.create_button(label=f"4️⃣ {map_choice_4}", custom_id=map_choice_4)
+        )
+        self.add_item(
+            self.create_button(label=f"5️⃣ {map_choice_5}", custom_id=map_choice_5)
         )
 
     def create_button(self, label, custom_id):
@@ -1449,6 +1458,8 @@ async def voteSetup(ctx):
         mapVotes[map_choice_3] = []
         map_choice_4 = "South East - Miami"
         mapVotes[map_choice_4] = []
+        map_choice_5 = "East2 - New York City"
+        mapVotes[map_choice_5] = []
         vote_embed, progress_bar = generate_server_vote_embed()
         server_vote_message_view = ServerVoteView()
         vMsg = await ctx.send(
@@ -1471,6 +1482,10 @@ async def voteSetup(ctx):
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
         )
         vote_image_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
+        vote_image_embed_5 = discord.Embed(
+            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+        )
+        vote_image_embed_5.set_image(url=mapList2[map_choice_4]["image_url"])
         vote_embed, progress_bar = generate_map_vote_embed(reVote)
         map_vote_message_view = MapVoteView()
         await ctx.send(
@@ -1479,6 +1494,7 @@ async def voteSetup(ctx):
                 vote_image_embed_2,
                 vote_image_embed_3,
                 vote_image_embed_4,
+                vote_image_embed_5,
             ]
         )
         vMsg = await ctx.send(
@@ -3500,12 +3516,14 @@ async def forceVote(ctx):
                     len(mapVotes[map_choice_2]),
                     len(mapVotes[map_choice_3]),
                     len(mapVotes[map_choice_4]),
+                    len(mapVotes[map_choice_5]),
                 ]
                 server_names = [
                     map_choice_1,
                     map_choice_2,
                     map_choice_3,
                     map_choice_4,
+                    map_choice_5,
                 ]
                 vote_index = 0
                 max_vote_count = max(votes)
@@ -3533,6 +3551,8 @@ async def forceVote(ctx):
                     winningIP = f"https://tinyurl.com/tfpcentralaws - connect {logins['central']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "South East - Miami":
                     winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
+                elif winning_server == "East2 - New York City":
+                    winningIP = f"http://tinyurl.com/tfpeast2vultr - connect {logins['east2']['server_ip']}:27015; password letsplay!"
                 else:
                     # Just pick one so things aren't completely broken
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
