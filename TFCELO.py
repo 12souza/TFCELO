@@ -102,7 +102,7 @@ PAST_TEN_MAP_INDEX = 9
 LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
 MAP_VOTE_FIRST = False
-RANK_BOUNDARIES_LIST = [220, 450, 690, 940, 1200, 1460, 1730, 2010, 2300, 2600]
+RANK_BOUNDARIES_LIST = [720, 950, 1190, 1440, 1700, 1960, 2230, 2510, 2800, 3100]
 MAIN_MAPS_FILE = "classic_maps.json"
 SECONDARY_MAPS_FILE = "spring_2024_maps.json"
 SHOW_VISUAL_RANKS = False
@@ -1597,7 +1597,6 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         isMapVoteFirstPickupStarted = True
 
     msgList = []
-    msgListLight = []
     for i in playersAdded:
         achList = ELOpop[i][7]
         if "norank" in ELOpop[i][3]:
@@ -1640,14 +1639,6 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
                 + ach
                 + "\n"
             )
-            msgListLight.append(
-                visualRank
-                + " "
-                + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX]
-                + " "
-                + v["cptimg"]
-                + "\n"
-            )
         else:
             msgList.append(
                 visualRank
@@ -1659,17 +1650,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
                 + ach
                 + "\n"
             )
-            msgListLight.append(
-                visualRank + " " + ELOpop[i][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n"
-            )
     msg = "".join(msgList)
-    msgLight = "".join(msgListLight)
-
-    # TODO: We are building a very long string for a single field value.  Max
-    # length is 1024.  We should do something smarter if we want to show the achievements
-    # for the player ready embed.
-    if len(msg) > 1000:
-        msg = msgLight
 
     if len(playersAdded) >= 8:
         # Create the ready message
@@ -1688,12 +1669,11 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         if len(playersAdded) > 0:
             if isMapVoteFirstPickupStarted is True:
                 embed.add_field(name="Players Selected (Please Vote!)", value=msg)
+                embed.description = msg
             else:
-                embed.add_field(
-                    name=f"Players Added - {len(playersAdded)} Queued", value=msg
-                )
+                embed.description = msg
         elif len(playersAdded) == 0:
-            embed.add_field(name="Players Added", value="PUG IS EMPTY!")
+            embed.description = "Nobody..."
 
         oMsg = await ctx.send(embed=embed)
 
@@ -1711,13 +1691,11 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
 
     elif len(playersAdded) < 8:
         oMsg = None
-        embed = discord.Embed(title="Pickup Started!")
+        embed = discord.Embed(title=f"Players Added - {len(playersAdded)} Queued")
         if len(playersAdded) > 0:
-            embed.add_field(
-                name=f"Players Added - {len(playersAdded)} Queued", value=msg
-            )
+            embed.description = msg
         elif len(playersAdded) == 0:
-            embed.add_field(name="Players Added", value="PUG IS EMPTY!")
+            embed.description = "Nobody..."
         await ctx.send(embed=embed)
 
     if inVote == 1 and vMsg is not None:
