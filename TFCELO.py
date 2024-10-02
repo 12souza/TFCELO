@@ -1620,7 +1620,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
                     i
                 )  # Always show the rank of the dunce as a punishment
             else:
-                visualRank = "#"
+                visualRank = ""
             win_emblem = ""  # Dunces don't get an emblem to show off
         else:
             ach = "".join(achList)  # Not a dunce, use their real achievements
@@ -1664,7 +1664,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
         if isMapVoteFirstPickupStarted is True:
             embed = discord.Embed(title="Pickup Voting Phase!")
         else:
-            embed = discord.Embed(title="Pickup Has 8 or more Players")
+            embed = discord.Embed(title=f"Pickup Has 8 or more Players - {len(playersAdded)} Queued")
 
         if len(playersAdded) > 0:
             if isMapVoteFirstPickupStarted is True:
@@ -3949,7 +3949,7 @@ async def on_reaction_add(reaction, user):
                                 else:
                                     visualRank = getRank(i)
                                 if not SHOW_VISUAL_RANKS:
-                                    visualRank = "#"
+                                    visualRank = ""
                                 if i in capList:
                                     msgList.append(
                                         visualRank
