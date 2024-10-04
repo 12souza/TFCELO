@@ -16,6 +16,8 @@ import discord
 import matplotlib.pyplot as plt
 import mplcyberpunk
 import mysql.connector
+import psycopg2
+from psycopg2 import sql
 from discord.ext import commands, tasks
 from discord.utils import get
 from discord import TextChannel
@@ -2517,6 +2519,9 @@ async def stats(
     )
     mycursor = db.cursor()
 
+    pg_conn = psycopg2.connect(logins["postgres"]["connection_string"])
+    pg_cursor = pg_conn.cursor()
+
     schannel = await client.fetch_channel(
         1000847501194174675
     )  # 1000847501194174675 original channelID
@@ -2544,6 +2549,8 @@ async def stats(
             if hampalyzer_output is not None:
                 update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
                 mycursor.execute(update_query, (winning_score, losing_score, hampalyzer_output, current_timestamp, match_number))
+                pg_cursor.execute(sql.SQL(update_query), (winning_score, losing_score, hampalyzer_output, current_timestamp, match_number))
+                pg_conn.commit()
                 if output_zipfile is None:
                     await schannel.send(
                         f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
@@ -2557,6 +2564,8 @@ async def stats(
             else:
                 update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
                 mycursor.execute(update_query, (winning_score, losing_score, blarghalyzer_fallback, current_timestamp, match_number))
+                pg_cursor.execute(sql.SQL(update_query), (winning_score, losing_score, hampalyzer_output, current_timestamp, match_number))
+                pg_conn.commit()
                 if output_zipfile is None:
                     await schannel.send(
                         f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
@@ -2568,6 +2577,8 @@ async def stats(
                     )
                     os.remove(output_zipfile)
 
+            pg_cursor.close()
+            pg_conn.close()
             ftp.close()
         except ZeroDivisionError:
             print(traceback.format_exc())
@@ -3070,6 +3081,10 @@ async def win(ctx, team, pNumber="None"):
     )
 
     mycursor = db.cursor()
+
+    pg_conn = psycopg2.connect(logins["postgres"]["connection_string"])
+    pg_cursor = pg_conn.cursor()
+
     async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
