@@ -21,6 +21,7 @@ from discord.utils import get
 from discord import TextChannel
 from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 from datetime import timezone
+from pathlib import Path
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -74,6 +75,11 @@ with open("variables.json") as f:
 
 with open("login.json") as f:
     logins = json.load(f)
+
+filename = Path('mute_list.json')
+filename.touch(exist_ok=True)
+with open(filename) as f:
+    mute_list = json.load(f)
 
 # =====================================
 # =========== DEFINE GLOBALS ==========
@@ -4182,6 +4188,53 @@ async def generate_elo_chart(discord_user):
         await dev_channel.send(e)
 
 
+#command to mute a player
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def mute(ctx, player: discord.Member):
+    global mute_list
+
+    filename = Path('mute_list.json')
+    filename.touch(exist_ok=True)
+    with open(filename) as f:
+        mute_list = json.load(f)
+    if(str(player.id) not in list(mute_list)):  
+        mute_list[str(player.id)] = [0, 0]
+        await player.send("You have been muted from posting links and attachments. Further doing so could result in a timeout.")
+        await ctx.send(f"{player.display_name} has been muted from posting links and attachments. Further doing so could result in a timeout.")
+    else:
+        await ctx.send("Player already on the mute list.")
+
+    with open(filename, "w") as cd:
+        json.dump(mute_list, cd, indent=4)
+
+
+#command to unmute a player
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
+async def unmute(ctx, player: discord.Member):
+    global mute_list
+
+    filename = Path('mute_list.json')
+    filename.touch(exist_ok=True)
+    with open(filename) as f:
+        mute_list = json.load(f)
+    if(str(player.id) in list(mute_list)):  
+        del mute_list[str(player.id)]
+        await player.send("You have been unmuted from posting links and attachments. Don't fuck up again")
+        await ctx.send(f"{player.display_name} has been unmuted from posting links and attachments.")
+    else:
+        await ctx.send("Player was not in the mute list.")
+
+    with open(filename, "w") as cd:
+        json.dump(mute_list, cd, indent=4)
+
+
+def is_link(message):
+    test_list = ['.com', '.ru', '.net', '.org', '.info', '.biz', '.io', '.co', "https://", "http://"]
+    return [ele for ele in test_list if(ele in message)]
+
+
 @client.event
 async def on_message(message):
     global eligiblePlayers
@@ -4194,6 +4247,7 @@ async def on_message(message):
     global map_choice_2
     global map_choice_3
     global map_choice_4
+    global mute_list
 
     if message.content == "elo":
         user = await client.fetch_user(message.author.id)
@@ -4201,6 +4255,20 @@ async def on_message(message):
         await message.author.send(embed=embed, file=file)
     # Check for auto-report
     user = await client.fetch_user(message.author.id)
+
+    user_id = str(message.author.id)
+    # TODO: Move to function
+    if user_id in mute_list and (is_link(message.content) or message.attachments):
+        await message.delete()
+        await message.author.send("You are banned from sending links, images, or attachments. Further messages will result in a timeout.") 
+        mute_list[user_id][0] += 1
+        duration = datetime.timedelta(seconds=0, minutes=5, hours= 0, days=0)
+        #apply timeout if user is trying to spam images.  Was giving me a "Missing Permissions" in my test server but could be because I am owner in test server.  Timeout lasts for 5 minutes and can be changed.
+        if (mute_list[user_id][0] > 2):
+            await message.author.timeout(duration, reason="Muted on GIFs")
+        with open("mute_list.json", "w") as cd:
+            json.dump(mute_list, cd, indent=4)
+
     ctx = await client.get_context(message)
     if user.bot:
         if "!stats1v1" in message.content:
