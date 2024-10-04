@@ -2062,7 +2062,10 @@ def savePickup():
         )
         cursor = db.cursor()
         cursor.execute(sql, list(current_game.values()))
-
+        pg_conn = psycopg2.connect(logins["postgres"]["connection_string"])
+        pg_cursor = pg_conn.cursor()
+        pg_cursor.execute(sql.SQL(sql), list(current_game.values()))
+        pg_conn.commit()
 
 # Utility function for adding a player to the pickup if they aren't already added
 def addplayerImpl(playerID, playerDisplayName, cap=None):
@@ -2960,6 +2963,8 @@ async def draw(ctx, pNumber="None"):
     )
 
     mycursor = db.cursor()
+    pg_conn = psycopg2.connect(logins["postgres"]["connection_string"])
+    pg_cursor = pg_conn.cursor()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
@@ -2998,12 +3003,13 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
+                    input_query = "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)"
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        input_query,
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
+                    pg_cursor.execute(sql.SQL(input_query), (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
+                    pg_conn.commit()
                 except Exception as e:
                     await dev_channel.send(
                         f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]} {e}"
@@ -3020,12 +3026,13 @@ async def draw(ctx, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
+                    input_query = "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)"
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        input_query,
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
+                    pg_cursor.execute(sql.SQL(input_query), (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
+                    pg_conn.commit()
                 except Exception as e:
                     await dev_channel.send(
                         f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
@@ -3037,6 +3044,8 @@ async def draw(ctx, pNumber="None"):
             current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
             mycursor.execute(update_query, ('0', current_timestamp, pNumber))
+            pg_cursor.execute(sql.SQL(update_query), ('0', current_timestamp, pNumber))
+            pg_conn.commit()
             logging.info(update_query)
 
             if len(list(pastTen)) >= 10:
@@ -3134,12 +3143,13 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
+                    input_query = "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)"
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        input_query,
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
+                    pg_cursor.execute(sql.SQL(input_query), (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
+                    pg_conn.commit()
                 except Exception as e:
                     await dev_channel.send(
                         f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
@@ -3161,12 +3171,13 @@ async def win(ctx, team, pNumber="None"):
                     ELOpop[i][1] = 0
                 # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
                 try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
+                    input_query = "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)"
                     mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                        input_query,
                         (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
                     )
+                    pg_cursor.execute(sql.SQL(input_query), (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
+                    pg_conn.commit()
                 except Exception as e:
                     await dev_channel.send(
                         f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
@@ -3183,6 +3194,8 @@ async def win(ctx, team, pNumber="None"):
             current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
             mycursor.execute(update_query, (team, current_timestamp, pNumber))
+            pg_cursor.execute(sql.SQL(update_query), (team, current_timestamp, pNumber))
+            pg_conn.commit()
             logging.info(update_query)
 
             if len(list(pastTen)) >= 10:
@@ -3245,6 +3258,9 @@ async def undo(ctx, pNumber="None"):
         )
 
         mycursor = db.cursor()
+        pg_conn = psycopg2.connect(logins["postgres"]["connection_string"])
+        pg_cursor = pg_conn.cursor()
+
         blueTeam = pastTen[pNumber][0]
         redTeam = pastTen[pNumber][4]
         winningTeam = pastTen[pNumber][8]
@@ -3266,7 +3282,8 @@ async def undo(ctx, pNumber="None"):
                 "DELETE FROM player_elo WHERE match_id = %s AND discord_id = %s",
                 (pNumber, int(i)),
             )
-
+            pg_cursor.execute(sql.SQL("DELETE FROM player_elo WHERE match_id = %s AND discord_id = %s"), (pNumber, int(i)))
+            pg_conn.commit()
         for i in redTeam:
             ELOpop[i][1] += -1 * team2Adjust
             if winningTeam == 2:
@@ -3282,6 +3299,8 @@ async def undo(ctx, pNumber="None"):
                 "DELETE FROM player_elo WHERE match_id = %s AND discord_id = %s",
                 (pNumber, int(i)),
             )
+            pg_cursor.execute(sql.SQL("DELETE FROM player_elo WHERE match_id = %s AND discord_id = %s"), (pNumber, int(i)))
+            pg_conn.commit()
 
         sql = "UPDATE matches SET updated_at = %s, deleted_at = %s WHERE match_id = %s"
         current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -3291,6 +3310,8 @@ async def undo(ctx, pNumber="None"):
             sql,
             (current_timestamp, current_timestamp, pNumber),
         )
+        pg_cursor.execute(sql.SQL("UPDATE matches SET updated_at = %s, deleted_at = %s WHERE match_id = %s"), (current_timestamp, current_timestamp, pNumber))
+        pg_conn.commit()
 
         # pastTen[pNumber] = [blueTeam, blueProb, adjustTeam1, blueRank, redTeam, redProb, adjustTeam2, redRank, winner, activePickups[pNumber][7]]
         activePickups[pNumber] = [
