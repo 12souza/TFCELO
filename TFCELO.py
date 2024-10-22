@@ -81,6 +81,11 @@ filename.touch(exist_ok=True)
 with open(filename) as f:
     mute_list = json.load(f)
 
+filename = Path('hellban_list.json')
+filename.touch(exist_ok=True)
+with open(filename) as f:
+    hellban_list = json.load(f)
+
 # =====================================
 # =========== DEFINE GLOBALS ==========
 # =====================================
@@ -4230,6 +4235,46 @@ async def unmute(ctx, player: discord.Member):
         json.dump(mute_list, cd, indent=4)
 
 
+@client.command(pass_context=True)
+@commands.has_role(v["admin"])
+async def hellban(ctx, player: discord.Member):
+    global hellban_list
+
+    filename = Path('hellban_list.json')
+    filename.touch(exist_ok=True)
+    with open(filename) as f:
+        hellban_list = json.load(f)
+    if(str(player.id) not in list(hellban_list)):  
+        hellban_list[str(player.id)] = [0, 0]
+        await player.send("You have been hellbanned. You may only add or remove from pickups, other messages will be deleted.")
+        await ctx.send(f"{player.display_name} has been hellbanned - all messages not related to pickups will be deleted.")
+    else:
+        await ctx.send("Player already on the hellban list.")
+
+    with open(filename, "w") as cd:
+        json.dump(hellban_list, cd, indent=4)
+
+
+@client.command(pass_context=True)
+@commands.has_role(v["admin"])
+async def unhellban(ctx, player: discord.Member):
+    global hellban_list
+
+    filename = Path('hellban_list.json')
+    filename.touch(exist_ok=True)
+    with open(filename) as f:
+        hellban_list = json.load(f)
+    if(str(player.id) in list(hellban_list)):  
+        del hellban_list[str(player.id)]
+        await player.send("You have been unhellbanned. Don't fuck up again")
+        await ctx.send(f"{player.display_name} has been unhellbanned.")
+    else:
+        await ctx.send("Player was not in the hellban list.")
+
+    with open(filename, "w") as cd:
+        json.dump(hellban_list, cd, indent=4)
+
+
 def is_link(message):
     test_list = ['.com', '.ru', '.net', '.org', '.info', '.biz', '.io', '.co', "https://", "http://"]
     return [ele for ele in test_list if(ele in message)]
@@ -4248,6 +4293,7 @@ async def on_message(message):
     global map_choice_3
     global map_choice_4
     global mute_list
+    global hellban_list
 
     if message.content == "elo":
         user = await client.fetch_user(message.author.id)
@@ -4268,6 +4314,9 @@ async def on_message(message):
             await message.author.timeout(duration, reason="Muted on GIFs")
         with open("mute_list.json", "w") as cd:
             json.dump(mute_list, cd, indent=4)
+    
+    if user_id in hellban_list and (not message.content.startswith("!")):
+        await message.delete()
 
     ctx = await client.get_context(message)
     if user.bot:
