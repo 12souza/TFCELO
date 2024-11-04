@@ -3602,15 +3602,7 @@ async def forceVote(ctx):
 
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
-                    if "Bot's Choice" in winningMap:
-                        wMap = await pick_double_elo_map(channel)
-                        winningMap = "Bot's Choice - " + wMap
-                        await channel.send(
-                            f"BOT'S CHOICE! The winning map is **{wMap}** and will be played at {winningIP}"
-                        )
-                    else:
-                        # Re-show teams output for clarity
-                        await channel.send(
+                    await channel.send(
                             embed=teamsDisplay(
                                 blueTeam,
                                 redTeam,
@@ -3622,9 +3614,9 @@ async def forceVote(ctx):
                                 False,
                             )
                         )
-                        await channel.send(
-                            f"The winning map is **{winningMap}** and will be played at {winningIP}"
-                        )
+                    await channel.send(
+                        f"The winning map is **{winningMap}** and will be played at {winningIP}"
+                    )
                     inVote = 0
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
