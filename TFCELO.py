@@ -22,6 +22,7 @@ from discord import TextChannel
 from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 from datetime import timezone
 from pathlib import Path
+import boto3
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -1531,42 +1532,6 @@ async def addach(ctx, key, value):
         await ctx.send("value has been added to the list of achievements")
 
 
-# will pick a random map
-@client.command(pass_context=True, aliases=["map"])
-@commands.has_role(v["runner"])
-async def pickRandomMap(ctx):
-    with open(MAIN_MAPS_FILE) as f:
-        mapList = json.load(f)
-    global lastFive
-
-    rMap = random.choice(list(mapList))
-    channel = await client.fetch_channel(v["pID"])
-
-    while rMap in lastFive:
-        rMap = random.choice(list(mapList))
-    await channel.send(f"The map chosen is **{rMap}**")
-
-    return rMap
-
-
-# will pick a random map
-@client.command(pass_context=True, aliases=["doubleelomap"])
-@commands.has_role(v["runner"])
-async def pick_double_elo_map(ctx):
-    with open("double_elo_maps.json") as f:
-        mapList = json.load(f)
-    global lastFive
-
-    rMap = random.choice(list(mapList))
-    channel = await client.fetch_channel(v["pID"])
-
-    while rMap in lastFive:
-        rMap = random.choice(list(mapList))
-    await channel.send(f"The map chosen is **{rMap}**")
-
-    return rMap
-
-
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def ach(ctx, player: discord.Member, ach):
@@ -2606,6 +2571,19 @@ async def tfcmap(ctx, map_name_string):
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
+async def startserver(ctx, region: str):
+    async with GLOBAL_LOCK:
+        boto_region = "us-east-1" if region != 'west' else 'us-west-1'
+        client = boto3.client('ec2', region_name=boto_region)
+        client.start_instances(InstanceIds=[logins[region]["instance_id"]])
+        # TODO: Add a check to see if the instance is already running
+        await ctx.send(f"Starting {region} server...")
+        waiter = client.get_waiter('instance_running')
+        waiter.wait(InstanceIds=[logins[region]["instance_id"]]) # TODO: this might not jive with async
+        await ctx.send(f"{region} server started!")
+
+@client.command(pass_context=True)
+@commands.has_role(v["runner"])
 async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=None):
     global inVote
     global eligiblePlayers
@@ -3533,15 +3511,15 @@ async def forceVote(ctx):
 
                 winningServer = winning_server  # keeping this random variable around til I refactor it into oblivion
                 if winning_server == "West - North California":
-                    winningIP = f"http://tinyurl.com/tfpwestaws - connect {logins['west']['server_ip']}:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpwestaws - {winning_server} connect {logins['west']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "East - North Virginia":
-                    winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpeastaws - {winning_server} connect {logins['east']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "Central - Dallas":
-                    winningIP = f"https://tinyurl.com/tfpcentralaws - connect {logins['central']['server_ip']}:27015; password letsplay!"
+                    winningIP = f"https://tinyurl.com/tfpcentralaws - {winning_server} connect {logins['central']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "South East - Miami":
-                    winningIP = f"http://tinyurl.com/tfpsoutheastvultr - connect {logins['southeast']['server_ip']}:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpsoutheastvultr - {winning_server} connect {logins['southeast']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "East2 - New York City":
-                    winningIP = f"http://tinyurl.com/tfpeast2vultr - connect {logins['east2']['server_ip']}:27015; password letsplay!"
+                    winningIP = f"http://tinyurl.com/tfpeast2vultr - {winning_server} connect {logins['east2']['server_ip']}:27015; password letsplay!"
                 else:
                     # Just pick one so things aren't completely broken
                     winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"

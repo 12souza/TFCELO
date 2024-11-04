@@ -9,6 +9,7 @@ mysql-connector-python = "*"
 requests = "*"
 matplotlib = "*"
 mplcyberpunk = "*"
+boto3 = "*"
 
 [dev-packages]
 black = "*"
