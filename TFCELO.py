@@ -3529,8 +3529,8 @@ async def forceVote(ctx):
                     winningServer = "East (North Virginia)"
                 server_vote = 0
                 map_choice_5 = "New Maps"
-                if winningIP.find('aws') != '-1':
-                    boto_region = "us-east-1" if winningIP.find('west') == '-1' else 'us-west-1'
+                if winningIP.find('aws') != -1:
+                    boto_region = "us-east-1" if winningIP.find('west') == -1 else 'us-west-1'
                     boto_client = boto3.client('ec2', region_name=boto_region)
                     server = winning_server.split(' - ')[0].lower()
                     instance_state_raw = boto_client.describe_instance_status(InstanceIds=[logins[server]["instance_id"]])['InstanceStatuses']
