@@ -2574,11 +2574,14 @@ async def tfcmap(ctx, map_name_string):
 async def startserver(ctx, region: str):
     async with GLOBAL_LOCK:
         boto_region = "us-east-1" if region != 'west' else 'us-west-1'
-        client = boto3.client('ec2', region_name=boto_region)
-        client.start_instances(InstanceIds=[logins[region]["instance_id"]])
-        # TODO: Add a check to see if the instance is already running
+        boto_client = boto3.client('ec2', region_name=boto_region)
+        instance_state = boto_client.describe_instance_status(InstanceIds=[logins[region]["instance_id"]])['InstanceStatuses'][0]['InstanceState']['Name']
+        if instance_state == 'running':
+            await ctx.send(f"{region} server is already running!")
+            return
+        boto_client.start_instances(InstanceIds=[logins[region]["instance_id"]])
         await ctx.send(f"Starting {region} server...")
-        waiter = client.get_waiter('instance_running')
+        waiter = boto_client.get_waiter('instance_running')
         waiter.wait(InstanceIds=[logins[region]["instance_id"]]) # TODO: this might not jive with async
         await ctx.send(f"{region} server started!")
 
@@ -3526,6 +3529,18 @@ async def forceVote(ctx):
                     winningServer = "East (North Virginia)"
                 server_vote = 0
                 map_choice_5 = "New Maps"
+                if winningIP.find('aws') != -1:
+                    boto_region = "us-east-1" if winningIP.find('west') == -1 else 'us-west-1'
+                    boto_client = boto3.client('ec2', region_name=boto_region)
+                    server = winning_server.split(' - ')[0].lower()
+                    instance_state_raw = boto_client.describe_instance_status(InstanceIds=[logins[server]["instance_id"]])['InstanceStatuses']
+                    if instance_state_raw == []:
+                        instance_state = 'stopped'
+                    else:
+                        instance_state = instance_state_raw[0]['InstanceState']['Name']
+                    if instance_state != 'running':
+                        await ctx.send(f"{server} server is not running! Starting it up now")
+                        boto_client.start_instances(InstanceIds=[logins[server]["instance_id"]])
                 await voteSetup(ctx)
             elif server_vote == 0:
                 map_vote_message_view.stop()
