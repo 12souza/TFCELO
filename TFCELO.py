@@ -1055,7 +1055,6 @@ def DePopulatePickup():
     global cap2
     global cap1Name
     global cap2Name
-    global playersAdded
     global blueTeam
     global redTeam
     global winner
@@ -1093,7 +1092,6 @@ def DePopulatePickup():
     cap1Name = None
     cap2 = None
     cap2Name = None
-    playersAdded = []
     capList = []
     blueTeam = []
     ready = []
