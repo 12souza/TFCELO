@@ -3324,6 +3324,7 @@ async def undo(ctx, pNumber="None"):
             json.dump(ELOpop, cd, indent=4)
         with open("pastten.json", "w") as cd:
             json.dump(pastTen, cd, indent=4)
+        await sync_players(ctx)
 
 
 @client.command(pass_context=True)
