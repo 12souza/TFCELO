@@ -3045,6 +3045,7 @@ async def draw(ctx, pNumber="None"):
                 json.dump(pastTen, cd, indent=4)
 
             await ctx.send("Match reported.. thank you!")
+            await sync_players(ctx)
 
 
 @client.command(pass_context=True)
@@ -3223,6 +3224,7 @@ async def win(ctx, team, pNumber="None"):
             pastTen[pNumber] = []
 
             await ctx.send("Match reported!")
+            await sync_players(ctx)
 
 
 @client.command(pass_context=True)
@@ -3322,6 +3324,7 @@ async def undo(ctx, pNumber="None"):
             json.dump(ELOpop, cd, indent=4)
         with open("pastten.json", "w") as cd:
             json.dump(pastTen, cd, indent=4)
+        await sync_players(ctx)
 
 
 @client.command(pass_context=True)
