@@ -58,7 +58,8 @@ async def on_command_error(ctx, error):
             "The command that you sent failed with an error on the backend. Sending debug-output to admins!"
         )
         dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
-        await dev_channel.send(error)
+        exception_string = ''.join(traceback.format_exception(type(error), error, error.__traceback__))
+        await dev_channel.send(exception_string[:2000])
         raise error
     else:
         raise error  # re-raise the error so all the errors will still show up in console
@@ -3045,6 +3046,39 @@ async def draw(ctx, pNumber="None"):
 
             await ctx.send("Match reported.. thank you!")
 
+
+@client.command(pass_context=True)
+@commands.has_role(v["admin"])
+async def sync_players(ctx):
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+    
+    db = mysql.connector.connect(
+        host=logins["mysql"]["host"],
+        user=logins["mysql"]["user"],
+        passwd=logins["mysql"]["passwd"],
+        database=logins["mysql"]["database"],
+        autocommit=True,
+    )
+
+    columns = "id, discord_id, created_at, updated_at, deleted_at, player_name, current_elo, visual_rank_override, pug_wins, pug_losses, pug_draws, dm_wins, dm_losses, achievements, dunce, steam_id"
+    placeholders = ", ".join(["%s"] * 16)
+
+    players = []
+
+    for index, player in enumerate(ELOpop):
+        row = (index+1,player,'2024-11-11 20:00:00','2024-11-11 20:00:00',None,ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX],ELOpop[player][PLAYER_MAP_CURRENT_ELO_INDEX],ELOpop[player][PLAYER_MAP_VISUAL_RANK_INDEX],ELOpop[player][PLAYER_MAP_WIN_INDEX],ELOpop[player][PLAYER_MAP_LOSS_INDEX],ELOpop[player][PLAYER_MAP_DRAW_INDEX],0,0,f"';'.join(ELOpop[player][PLAYER_MAP_ACHIEVEMENT_INDEX])",None,None)
+        players.append(row)
+
+    sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
+        "players",
+        columns,
+        placeholders,
+    )
+
+    cursor = db.cursor()
+    cursor.execute("TRUNCATE TABLE players")
+    cursor.executemany(sql, players)
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
