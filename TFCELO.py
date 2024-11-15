@@ -23,6 +23,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 from datetime import timezone
 from pathlib import Path
 import boto3
+import signal
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -847,12 +848,38 @@ def hltv_file_handler(ftp, pickup_date, pickup_map):
 @client.event
 async def on_ready():
     global GLOBAL_LOCK
+    global playersAdded
+    global capList
     logging.info("on_ready!")
     await load_extensions()
+    try:
+        with open("player_list.json") as temp_file:
+            playersAdded = json.load(temp_file)
+        with open("cap_list.json") as temp_file:
+            capList = json.load(temp_file)
+    except FileNotFoundError:
+        playersAdded = []
+        capList = []
     # Remake the global lock to try to get it compatible with the bot's event loop
     # TODO: I don't fully understand why or if this helps exactly.
     GLOBAL_LOCK = asyncio.Lock()
 
+
+@client.event
+async def on_disconnect():
+    global playersAdded
+    global capList
+
+    with open("player_list.json", "w") as temp_file:
+        json.dump(playersAdded, temp_file)
+    with open("cap_list.json", "w") as temp_file:
+        json.dump(capList, temp_file)
+
+
+def handle_signal(signal, frame):
+    client.loop.create_task(client.close())
+
+signal.signal(signal.SIGINT, handle_signal)
 
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
@@ -921,39 +948,6 @@ async def private(ctx):
 
         with open("ELOpop.json", "w") as cd:
             json.dump(ELOpop, cd, indent=4)
-
-
-"""@client.command(pass_context=True)
-async def load_player_database(ctx):
-    global ELOpop
-
-    async with GLOBAL_LOCK:
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-
-        db = mysql.connector.connect(
-            host=logins["mysql"]["host"],
-            user=logins["mysql"]["user"],
-            passwd=logins["mysql"]["passwd"],
-            database=logins["mysql"]["database"],
-        )
-        mycursor = db.cursor()
-        columns = "discord_id, created_at, updated_at, deleted_at, player_name, current_elo, visual_rank_override, pug_wins, pug_losses, pug_draws, dm_wins, dm_losses, achievements, dunce, steam_id"
-        placeholders = ", ".join(["%s"] * 15)
-
-        sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
-            "matches",
-            columns,
-            placeholders,
-        )
-        logging.info(sql)
-        logging.info(list(current_game.values()))
-        player_rows = []
-        current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        for player in ELOpop:
-            current_row = [player, current_timestamp, current_timestamp, None,
-                            ELOpop[player]]
-        cursor.execute(sql, list(current_game.values()))"""
 
 
 @client.command(pass_context=True)
