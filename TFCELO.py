@@ -303,18 +303,6 @@ async def generate_teams(playerCount, ctx):
     logging.info(blue_team_info_string)
     logging.info(red_team_info_string)
 
-    await ctx.send(
-        embed=teamsDisplay(
-            blueTeam, redTeam, team1prob, team2prob
-        )
-    )
-
-    for i in eligiblePlayers:
-        DMList.append(f"<@{i}> ")
-
-    dmMsg = "".join(DMList)
-    await ctx.send(dmMsg)
-
     await dev_channel.send(
         "Outputting top 5 possible games by absolute ELO difference sorted ascending"
     )
@@ -625,7 +613,7 @@ async def handle_map_button_callback(
 ):
     global reVote
     process_vote(interaction.user, button.custom_id)
-    time_remaining = f"{MAP_VOTE_TIME_LIMIT - vote_timer.current_loop}"
+    time_remaining = f"{MAP_VOTE_TIME_LIMIT - map_vote_timer.current_loop}"
     embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
     await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
 
@@ -635,7 +623,7 @@ async def handle_server_button_callback(
 ):
     global SERVER_VOTE_TIME_LIMIT
     process_vote(interaction.user, button.custom_id)
-    time_remaining = f"{SERVER_VOTE_TIME_LIMIT - vote_timer.current_loop}"
+    time_remaining = f"{SERVER_VOTE_TIME_LIMIT - server_vote_timer.current_loop}"
     embed, progress_bar = generate_server_vote_embed(time_remaining)
     await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
 
@@ -1373,36 +1361,57 @@ async def idle_cancel():
 
 
 # TODO: Vote timer loop that shows amount of time left, calls a separate function via after_loop at the end that checks if the length of players_abstained is > 2 and if it does it requeues and kicks the non-voters
-@tasks.loop(seconds=1, count=MAP_VOTE_TIME_LIMIT)
-async def vote_timer(vote_message):
+@tasks.loop(seconds=1, count=SERVER_VOTE_TIME_LIMIT)
+async def server_vote_timer(vote_message):
     global inVote
     global server_vote
 
     # Double check if we are in a map-vote
     if inVote == 0:
         logging.info("Bailing out of vote timer because we aren't in a vote anymore")
-        vote_timer.cancel()
+        server_vote_timer.cancel()
         return
     if vote_message is None:
         # TODO: Figure out _when_ this is happening, but vMsg is None AFTER a pickup started. We shouldn't even be here if this is the case!
         logging.info(
             "The vote message global was none, check why we are in the loop here"
         )
-        vote_timer.cancel()
+        server_vote_timer.cancel()
         return
-    # Check if it's a server vote or map vote
-    if server_vote == 1:
-        time_remaining = f"{SERVER_VOTE_TIME_LIMIT - vote_timer.current_loop}"
-        vote_embed, progress_bar = generate_server_vote_embed(time_remaining)
-        vote_message = await vote_message.edit(embed=vote_embed)
-    elif server_vote == 0:
-        time_remaining = f"{MAP_VOTE_TIME_LIMIT - vote_timer.current_loop}"
-        vote_embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
-        vote_message = await vote_message.edit(embed=vote_embed)
+    time_remaining = f"{SERVER_VOTE_TIME_LIMIT - server_vote_timer.current_loop}"
+    vote_embed, progress_bar = generate_server_vote_embed(time_remaining)
+    vote_message = await vote_message.edit(embed=vote_embed)
 
 
+@tasks.loop(seconds=1, count=MAP_VOTE_TIME_LIMIT)
+async def map_vote_timer(vote_message):
+    global inVote
+    global server_vote
+
+    # Double check if we are in a map-vote
+    if inVote == 0:
+        logging.info("Bailing out of vote timer because we aren't in a vote anymore")
+        map_vote_timer.cancel()
+        return
+    if vote_message is None:
+        # TODO: Figure out _when_ this is happening, but vMsg is None AFTER a pickup started. We shouldn't even be here if this is the case!
+        logging.info(
+            "The vote message global was none, check why we are in the loop here"
+        )
+        map_vote_timer.cancel()
+        return
+
+    time_remaining = f"{MAP_VOTE_TIME_LIMIT - map_vote_timer.current_loop}"
+    vote_embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
+    vote_message = await vote_message.edit(embed=vote_embed)
+
+
+@server_vote_timer.after_loop
 async def handle_slow_voters():
     global players_abstained_discord_id
+
+    if server_vote_timer.cancelled():
+        return
 
     logging.info(f"Kicking idle users: {players_abstained_discord_id}")
     channel = await client.fetch_channel(v["pID"])
@@ -1661,7 +1670,8 @@ async def voteSetup(ctx):
     with open(SECONDARY_MAPS_FILE) as f:
         mapList2 = json.load(f)
 
-    vote_timer.cancel()
+    map_vote_timer.cancel()
+    server_vote_timer.cancel()
 
     if server_vote == 1:
         map_choice_1 = "West - North California"
@@ -1679,6 +1689,8 @@ async def voteSetup(ctx):
         vMsg = await ctx.send(
             embed=vote_embed, view=server_vote_message_view, file=progress_bar
         )
+        if not server_vote_timer.is_running():
+            server_vote_timer.start(vMsg)
     elif server_vote == 0:
         vote_image_embed_1 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
@@ -1714,10 +1726,10 @@ async def voteSetup(ctx):
         vMsg = await ctx.send(
             embed=vote_embed, view=map_vote_message_view, file=progress_bar
         )
+        if not map_vote_timer.is_running():
+            map_vote_timer.start(vMsg)
     votable = 1
     logging.info("Starting vote timer NOW")
-    if not vote_timer.is_running():
-        vote_timer.start(vMsg)
 
 
 @client.command(pass_context=True)
@@ -2459,7 +2471,12 @@ async def teams(ctx, playerCount=4):
                         if MAP_VOTE_FIRST is True:
                             # Prune down the players added
                             playersAdded = playersAdded[0 : playerCount * 2]
+                            for i in eligiblePlayers:
+                                DMList.append(f"<@{i}> ")
+
+                            dmMsg = "".join(DMList)
                             await showPickup(ctx, False, True)
+                            await ctx.send(dmMsg)
 
                         if MAP_VOTE_FIRST is False:
                             with open("ELOpop.json") as f:
@@ -3498,6 +3515,7 @@ async def requeue(ctx, show_queue=True):
 @client.command(aliases=["fv"], pass_context=True)
 @commands.cooldown(1, 10, commands.BucketType.channel)
 @commands.has_role(v["runner"])
+@map_vote_timer.after_loop
 async def forceVote(ctx):
     global mapVotes
     global map_choice_4
@@ -3527,6 +3545,9 @@ async def forceVote(ctx):
     global server_vote_message_view
     global map_vote_message_view
 
+    if map_vote_timer.cancelled():
+        return
+
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
@@ -3539,6 +3560,7 @@ async def forceVote(ctx):
             alreadyVoted = []
             if server_vote == 1:
                 server_vote_message_view.stop()
+                server_vote_timer.cancel()
                 votes = [
                     len(mapVotes[map_choice_1]),
                     len(mapVotes[map_choice_2]),
@@ -3602,6 +3624,7 @@ async def forceVote(ctx):
                 await voteSetup(ctx)
             elif server_vote == 0:
                 map_vote_message_view.stop()
+                map_vote_timer.cancel()
                 # We are currently in map voting round
                 if reVote == 0:
                     # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
@@ -3695,8 +3718,8 @@ async def forceVote(ctx):
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
                     lastFive.append(winningMap)
-                    if vote_timer.is_running():
-                        vote_timer.cancel()
+                    if map_vote_timer.is_running():
+                        map_vote_timer.cancel()
                     edited_content = "\n".join(vMsg.content.split("\n")[:-1])
                     await vMsg.edit(
                         content=edited_content + "\n" + "Voting is finished!"
