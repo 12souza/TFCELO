@@ -710,7 +710,7 @@ class MapVoteView(discord.ui.View):
         return button
 
     async def on_timeout(self):
-        await forceVote()
+        await force_vote_timer_version()
 
 
 def teamsDisplay(
@@ -1324,7 +1324,7 @@ def mapVoteOutput(mapChoice):
         whoVoted.append(i)
     numVotes = len(whoVoted)
     if SHOW_MAP_VOTE_COUNTS == False:
-        return "MAP VOTES MASKED - VOTE FOR MAPS"
+        return ""
     if numVotes == 0:
         return "0 votes"
 
@@ -1409,7 +1409,7 @@ async def map_vote_timer(vote_message):
 async def handle_slow_voters():
     global players_abstained_discord_id
 
-    if server_vote_timer.cancelled():
+    if server_vote_timer.is_being_cancelled():
         return
 
     logging.info(f"Kicking idle users: {players_abstained_discord_id}")
@@ -1727,6 +1727,8 @@ async def voteSetup(ctx):
         )
         if not map_vote_timer.is_running():
             map_vote_timer.start(vMsg)
+        if map_vote_timer.is_running():
+            map_vote_timer.restart(vMsg)
     votable = 1
     logging.info("Starting vote timer NOW")
 
@@ -3502,13 +3504,19 @@ async def requeue(ctx, show_queue=True):
                 await showPickup(ctx)
 
 
+@map_vote_timer.after_loop
+async def force_vote_timer_version():
+    channel = await client.fetch_channel(v["pID"])
+    await forceVote(channel)
+
+
+
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
 # Examples: !forceVote
 #           !fv
 @client.command(aliases=["fv"], pass_context=True)
 @commands.cooldown(1, 10, commands.BucketType.channel)
 @commands.has_role(v["runner"])
-@map_vote_timer.after_loop
 async def forceVote(ctx):
     global mapVotes
     global map_choice_4
@@ -3538,7 +3546,7 @@ async def forceVote(ctx):
     global server_vote_message_view
     global map_vote_message_view
 
-    if map_vote_timer.cancelled():
+    if map_vote_timer.is_being_cancelled():
         return
 
     async with GLOBAL_LOCK:
@@ -3669,6 +3677,7 @@ async def forceVote(ctx):
                     if windex == 3:
                         map_choice_5 = map_choice_4
                     await channel.send("New maps has won, now selecting new maps..")
+                    map_vote_timer.restart(vMsg)
                     await voteSetup(ctx)
                 else:
                     # A real map has won. Gather all maps that had the maximum count
