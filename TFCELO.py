@@ -201,9 +201,10 @@ async def generate_teams(playerCount, ctx):
     global rankedOrder
     global ready
     DMList = []
+    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
-
+    logging.info(f"eligiblePlayers: {eligiblePlayers}")
     combos = list(
         itertools.combinations(
             eligiblePlayers, int(len(eligiblePlayers) / 2)
@@ -381,7 +382,6 @@ async def generate_teams(playerCount, ctx):
                 True,
             )
         )
-    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
     await dev_channel.send(embeds=debug_embeds)
 
 
@@ -608,7 +608,6 @@ def generate_server_vote_embed(time_remaining=SERVER_VOTE_TIME_LIMIT):
     unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
     main_embed.set_footer(text=unvoted_string)
 
-    # create image or load your existing image with out=Image.open(path)
     out = Image.new("RGBA", (150, 13), (255, 255, 255, 0))
     d = ImageDraw.Draw(out)
 
@@ -1640,6 +1639,7 @@ async def voteSetup(ctx):
     global votable
     global playersAbstained
     global players_abstained_discord_id
+    global eligiblePlayers
     global server_vote_message_view
     global map_vote_message_view
 
@@ -2458,7 +2458,7 @@ async def teams(ctx, playerCount=4):
 
                         if MAP_VOTE_FIRST is True:
                             # Prune down the players added
-                            playersAdded = eligiblePlayers
+                            playersAdded = playersAdded[0 : playerCount * 2]
                             await showPickup(ctx, False, True)
 
                         if MAP_VOTE_FIRST is False:
@@ -2578,7 +2578,7 @@ async def status(ctx):
             await showPickup(ctx)
 
 
-@client.command(pass_context=True)
+@client.command(aliases=["map"], pass_context=True)
 async def tfcmap(ctx, map_name_string):
     async with GLOBAL_LOCK:
         map = map_name_string.lower()
@@ -3671,8 +3671,8 @@ async def forceVote(ctx):
                         if MAP_VOTE_FIRST is True:
                             # Create the teams after the map vote
                             inVote = 0
-                            # TODO: Fix this to use the actual number of players added
-                            await generate_teams(8, ctx)
+                            player_count = len(eligiblePlayers) // 2
+                            await generate_teams(player_count, ctx)
 
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
