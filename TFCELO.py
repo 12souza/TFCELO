@@ -723,7 +723,7 @@ class MapVoteView(discord.ui.View):
         return button
 
     async def on_timeout(self):
-        await handle_slow_voters()
+        await forceVote()
 
 
 def teamsDisplay(
