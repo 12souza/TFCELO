@@ -200,7 +200,6 @@ async def generate_teams(playerCount, ctx):
     global server_vote
     global rankedOrder
     global ready
-    DMList = []
     dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
     with open("ELOpop.json") as f:
         ELOpop = json.load(f)
@@ -2458,7 +2457,6 @@ async def teams(ctx, playerCount=4):
             # global pastTeams
             ready = []
             oMsg = None
-            DMList = []
             if len(playersAdded) >= int(playerCount * 2):
                 if inVote == 0:
                     if len(capList) < 2:
@@ -2471,12 +2469,7 @@ async def teams(ctx, playerCount=4):
                         if MAP_VOTE_FIRST is True:
                             # Prune down the players added
                             playersAdded = playersAdded[0 : playerCount * 2]
-                            for i in eligiblePlayers:
-                                DMList.append(f"<@{i}> ")
-
-                            dmMsg = "".join(DMList)
                             await showPickup(ctx, False, True)
-                            await ctx.send(dmMsg)
 
                         if MAP_VOTE_FIRST is False:
                             with open("ELOpop.json") as f:
