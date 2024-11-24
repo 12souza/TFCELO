@@ -23,6 +23,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 from datetime import timezone
 from pathlib import Path
 import boto3
+from discord.ext.commands import Context
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -3518,22 +3519,25 @@ async def requeue(ctx, show_queue=True):
             if show_queue:
                 await showPickup(ctx)
         else:
-            neligibleplayers = blueTeam + redTeam
-            DePopulatePickup()
-            playersAdded = neligibleplayers.copy() + playersAdded
-            neligibleplayers.clear()
+            if MAP_VOTE_FIRST is False:
+                neligibleplayers = blueTeam + redTeam
+                DePopulatePickup()
+                playersAdded = neligibleplayers.copy() + playersAdded
+                neligibleplayers.clear()
+            else:
+                DePopulatePickup()
             if show_queue:
                 await showPickup(ctx)
 
 
 @map_vote_timer.after_loop
 async def force_vote_timer_version():
-    global vMsg
     if map_vote_timer.is_being_cancelled():
         return
-    ctx = await client.get_context(vMsg)
+
+    channel = await client.fetch_channel(v["pID"])
     # await ctx.invoke(forceVote)
-    await ctx.send("Time's up! Runners please FV!")
+    await channel.send("Time's up! Runners please FV!")
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
