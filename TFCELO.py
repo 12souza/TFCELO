@@ -569,27 +569,27 @@ def generate_server_vote_embed(time_remaining=SERVER_VOTE_TIME_LIMIT):
 
     main_embed.add_field(
         name="",
-        value="1️⃣ " + map_choice_1 + "\n" + mapVoteOutput(map_choice_1),
+        value="1️⃣ " + map_choice_1 + "\n" + server_vote_output(map_choice_1),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="2️⃣ " + map_choice_2 + "\n" + mapVoteOutput(map_choice_2),
+        value="2️⃣ " + map_choice_2 + "\n" + server_vote_output(map_choice_2),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="3️⃣ " + map_choice_3 + "\n" + mapVoteOutput(map_choice_3),
+        value="3️⃣ " + map_choice_3 + "\n" + server_vote_output(map_choice_3),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="4️⃣ " + map_choice_4 + "\n" + mapVoteOutput(map_choice_4),
+        value="4️⃣ " + map_choice_4 + "\n" + server_vote_output(map_choice_4),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="5️⃣ " + map_choice_5 + "\n" + mapVoteOutput(map_choice_5),
+        value="5️⃣ " + map_choice_5 + "\n" + server_vote_output(map_choice_5),
         inline=False,
     )
     unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
@@ -1339,6 +1339,24 @@ def mapVoteOutput(mapChoice):
         return "1 vote (%s)" % whoVoted
     else:
         return "%d votes (%s)" % (numVotes, whoVoted)
+    
+
+def server_vote_output(mapChoice):
+    global mapVotes
+    whoVoted = []
+    for i in mapVotes[mapChoice]:
+        # whoVoted.append(ELOpop[i][0])
+        whoVoted.append(i)
+    numVotes = len(whoVoted)
+
+    if numVotes == 0:
+        return "0 votes"
+
+    whoVoted = "**" + ", ".join(whoVoted) + "**"
+    if numVotes == 1:
+        return "1 vote (%s)" % whoVoted
+    else:
+        return "%d votes (%s)" % (numVotes, whoVoted)
 
 
 @tasks.loop(minutes=30)
@@ -1732,9 +1750,6 @@ async def voteSetup(ctx):
             embed=vote_embed, view=map_vote_message_view, file=progress_bar
         )
         if not map_vote_timer.is_running():
-            map_vote_timer.start(vMsg)
-        elif map_vote_timer.is_running():
-            map_vote_timer.cancel()
             map_vote_timer.start(vMsg)
     votable = 1
     logging.info("Starting vote timer NOW")
@@ -3684,8 +3699,6 @@ async def forceVote(ctx):
                     if windex == 3:
                         map_choice_5 = map_choice_4
                     await channel.send("New maps has won, now selecting new maps..")
-                    if not map_vote_timer.is_running():
-                        map_vote_timer.start(vMsg)
                     await voteSetup(ctx)
                 else:
                     # A real map has won. Gather all maps that had the maximum count
@@ -4141,22 +4154,22 @@ async def on_reaction_add(reaction, user):
                                         + "1️⃣ "
                                         + map_choice_1
                                         + " " * (70 - len(map_choice_1))
-                                        + mapVoteOutput(map_choice_1)
+                                        + server_vote_output(map_choice_1)
                                         + "\n"
                                         + "2️⃣ "
                                         + map_choice_2
                                         + " " * (70 - len(map_choice_2))
-                                        + mapVoteOutput(map_choice_2)
+                                        + server_vote_output(map_choice_2)
                                         + "\n"
                                         + "3️⃣ "
                                         + map_choice_3
                                         + " " * (70 - len(map_choice_3))
-                                        + mapVoteOutput(map_choice_3)
+                                        + server_vote_output(map_choice_3)
                                         + "\n"
                                         + "4️⃣ "
                                         + map_choice_4
                                         + " " * (70 - len(map_choice_4))
-                                        + mapVoteOutput(map_choice_4)
+                                        + server_vote_output(map_choice_4)
                                         + toVoteString
                                     )
                                 elif server_vote == 0:
