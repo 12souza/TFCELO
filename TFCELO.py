@@ -3529,8 +3529,11 @@ async def requeue(ctx, show_queue=True):
 @map_vote_timer.after_loop
 async def force_vote_timer_version():
     global vMsg
-    await forceVote(await client.get_context(vMsg))
-
+    if map_vote_timer.is_being_cancelled():
+        return
+    ctx = await client.get_context(vMsg)
+    # await ctx.invoke(forceVote)
+    await ctx.send("Time's up! Runners please FV!")
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
@@ -3567,9 +3570,6 @@ async def forceVote(ctx):
     global redTeam
     global server_vote_message_view
     global map_vote_message_view
-
-    if map_vote_timer.is_being_cancelled():
-        return
 
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
