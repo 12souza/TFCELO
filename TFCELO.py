@@ -2487,7 +2487,7 @@ async def teams(ctx, playerCount=4):
                     if len(capList) < 2:
                         playerCount = int(playerCount)
                         if len(playersAdded) == playerCount:
-                            eligiblePlayers = playersAdded
+                            eligiblePlayers = playersAdded.copy()
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
 
@@ -2506,7 +2506,7 @@ async def teams(ctx, playerCount=4):
                             ELOpop = json.load(f)
                         playerCount = int(playerCount)
                         if len(playersAdded) == playerCount:
-                            eligiblePlayers = playersAdded
+                            eligiblePlayers = playersAdded.copy()
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
                         captMode = 1
@@ -2701,7 +2701,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         if i != str(playeroutid):
                             playersAddedNew.append(i)
                     playersAdded = playersAddedNew
-                    eligiblePlayers = playersAdded
+                    eligiblePlayers = playersAdded.copy()
                     await showPickup(ctx, False)
 
                 if MAP_VOTE_FIRST is False:
@@ -3513,7 +3513,7 @@ async def requeue(ctx, show_queue=True):
             return
         if captMode == 1:
             logging.info(blueTeam, redTeam, eligiblePlayers)
-            neligibleplayers = eligiblePlayers
+            neligibleplayers = eligiblePlayers.copy()
             DePopulatePickup()
             playersAdded = neligibleplayers.copy() + playersAdded
             if show_queue:
