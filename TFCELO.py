@@ -1274,6 +1274,8 @@ def DePopulatePickup():
     global pTotalPlayers
     global server_vote_message_view
     global map_vote_message_view
+    global map_vote_timer
+    global server_vote_timer
 
     cap1 = None
     cap1Name = None
@@ -1313,6 +1315,10 @@ def DePopulatePickup():
         server_vote_message_view.stop()
     if map_vote_message_view is not None:
         map_vote_message_view.stop()
+    if map_vote_timer.is_running():
+        map_vote_timer.stop()
+    if server_vote_timer.is_running():
+        server_vote_timer.stop()
 
 
 # Populates a list of players whom have voted for a particular map
