@@ -1727,8 +1727,9 @@ async def voteSetup(ctx):
         )
         if not map_vote_timer.is_running():
             map_vote_timer.start(vMsg)
-        if map_vote_timer.is_running():
-            map_vote_timer.restart(vMsg)
+        elif map_vote_timer.is_running():
+            map_vote_timer.cancel()
+            map_vote_timer.start(vMsg)
     votable = 1
     logging.info("Starting vote timer NOW")
 
@@ -3506,8 +3507,8 @@ async def requeue(ctx, show_queue=True):
 
 @map_vote_timer.after_loop
 async def force_vote_timer_version():
-    channel = await client.fetch_channel(v["pID"])
-    await forceVote(channel)
+    global vMsg
+    await forceVote(await client.get_context(vMsg))
 
 
 
@@ -3677,7 +3678,8 @@ async def forceVote(ctx):
                     if windex == 3:
                         map_choice_5 = map_choice_4
                     await channel.send("New maps has won, now selecting new maps..")
-                    map_vote_timer.restart(vMsg)
+                    if not map_vote_timer.is_running():
+                        map_vote_timer.start(vMsg)
                     await voteSetup(ctx)
                 else:
                     # A real map has won. Gather all maps that had the maximum count
