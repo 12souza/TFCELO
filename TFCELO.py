@@ -189,7 +189,7 @@ with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
 
-async def generate_teams(playerCount, ctx):
+async def generate_teams(playerCount):
     global playersAdded
     global capList
     global inVote
@@ -667,9 +667,6 @@ class ServerVoteView(discord.ui.View):
         button.callback = server_button_callback
         return button
 
-    async def on_timeout(self):
-        await handle_slow_voters()
-
 
 class MapVoteView(discord.ui.View):
     global map_choice_1
@@ -709,9 +706,6 @@ class MapVoteView(discord.ui.View):
 
         button.callback = map_button_callback
         return button
-
-    async def on_timeout(self):
-        await force_vote_timer_version()
 
 
 def teamsDisplay(
@@ -1430,7 +1424,7 @@ async def map_vote_timer(vote_message):
     vote_message = await vote_message.edit(embed=vote_embed)
 
 
-@server_vote_timer.after_loop
+# @server_vote_timer.after_loop
 async def handle_slow_voters():
     global players_abstained_discord_id
 
@@ -2500,7 +2494,7 @@ async def teams(ctx, playerCount=4):
                             with open("ELOpop.json") as f:
                                 ELOpop = json.load(f)
 
-                            await generate_teams(playerCount, ctx)
+                            await generate_teams(playerCount)
                     elif len(capList) >= 2:
                         with open("ELOpop.json") as f:
                             ELOpop = json.load(f)
@@ -3535,9 +3529,11 @@ async def force_vote_timer_version():
     if map_vote_timer.is_being_cancelled():
         return
 
-    channel = await client.fetch_channel(v["pID"])
-    # await ctx.invoke(forceVote)
-    await channel.send("Time's up! Runners please FV!")
+    ctx = await client.get_context(vMsg)
+    command = client.get_command("forceVote")
+    await ctx.invoke(command)
+    # channel = await client.fetch_channel(v["pID"])
+    # await channel.send("Time's up! Runners please FV!")
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
@@ -3581,7 +3577,6 @@ async def forceVote(ctx):
             if inVote == 0:
                 await ctx.send("ERROR: Tried calling !fv outside of a vote!")
                 return
-            vote.reset_cooldown(ctx)
 
             winningMap = None
             alreadyVoted = []
@@ -3702,7 +3697,7 @@ async def forceVote(ctx):
                         map_choice_5 = map_choice_3
                     if windex == 3:
                         map_choice_5 = map_choice_4
-                    await channel.send("New maps has won, now selecting new maps..")
+                    await ctx.send("New maps has won, now selecting new maps..")
                     await voteSetup(ctx)
                 else:
                     # A real map has won. Gather all maps that had the maximum count
@@ -3722,11 +3717,11 @@ async def forceVote(ctx):
                             # Create the teams after the map vote
                             inVote = 0
                             player_count = len(eligiblePlayers) // 2
-                            await generate_teams(player_count, ctx)
+                            await generate_teams(player_count)
 
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
-                    await channel.send(
+                    await ctx.send(
                             embed=teamsDisplay(
                                 blueTeam,
                                 redTeam,
@@ -3738,7 +3733,7 @@ async def forceVote(ctx):
                                 False,
                             )
                         )
-                    await channel.send(
+                    await ctx.send(
                         f"The winning map is **{winningMap}** and will be played at {winningIP}"
                     )
                     inVote = 0
@@ -3773,7 +3768,7 @@ async def forceVote(ctx):
                 blueTeam.append(cap2Name)
                 pTotalPlayers = list(enumerate(pTotalPlayers, 1))
                 TeamPickPopulate()
-                pMsg = await channel.send(
+                pMsg = await ctx.send(
                     "```"
                     + str(cap1Name)
                     + " and "
