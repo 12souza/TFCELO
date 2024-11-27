@@ -2329,6 +2329,8 @@ async def add(ctx, cap=None):
                 playerDisplayName = ctx.author.display_name
 
                 retVal = addplayerImpl(playerID, playerDisplayName, cap)
+                if retVal == 2:
+                    await ctx.send("Currently in a mapvote for a pickup, please wait for that to finish before adding!")
                 if retVal == 1:  # Already added
                     await ctx.author.send(
                         "you are already added to this pickup.."
