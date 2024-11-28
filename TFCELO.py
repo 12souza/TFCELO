@@ -1424,7 +1424,7 @@ async def map_vote_timer(vote_message):
     vote_message = await vote_message.edit(embed=vote_embed)
 
 
-# @server_vote_timer.after_loop
+@server_vote_timer.after_loop
 async def handle_slow_voters():
     global players_abstained_discord_id
 
@@ -3531,11 +3531,11 @@ async def force_vote_timer_version():
     if map_vote_timer.is_being_cancelled():
         return
 
-    ctx = await client.get_context(vMsg)
-    command = client.get_command("forceVote")
-    await ctx.invoke(command)
-    # channel = await client.fetch_channel(v["pID"])
-    # await channel.send("Time's up! Runners please FV!")
+    # ctx = await client.get_context(vMsg)
+    # command = client.get_command("forceVote")
+    # await ctx.invoke(command)
+    channel = await client.fetch_channel(v["pID"])
+    await channel.send("Time's up! Runners please FV!")
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
