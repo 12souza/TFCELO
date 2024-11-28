@@ -1311,9 +1311,9 @@ def DePopulatePickup():
     if map_vote_message_view is not None:
         map_vote_message_view.stop()
     if map_vote_timer.is_running():
-        map_vote_timer.stop()
+        map_vote_timer.cancel()
     if server_vote_timer.is_running():
-        server_vote_timer.stop()
+        server_vote_timer.cancel()
 
 
 # Populates a list of players whom have voted for a particular map
