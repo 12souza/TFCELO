@@ -3535,7 +3535,8 @@ async def force_vote_timer_version():
     # command = client.get_command("forceVote")
     # await ctx.invoke(command)
     channel = await client.fetch_channel(v["pID"])
-    await channel.send("Time's up! Runners please FV!")
+    # await channel.send("Time's up! Auto-Force Voting!")
+    await channel.send("!fv")
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
@@ -3577,7 +3578,7 @@ async def forceVote(ctx):
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
             if inVote == 0:
-                await ctx.send("ERROR: Tried calling !fv outside of a vote!")
+                await ctx.send("ERROR: Tried calling force vote outside of a vote!")
                 return
 
             winningMap = None
@@ -4411,6 +4412,9 @@ async def on_message(message):
 
     ctx = await client.get_context(message)
     if user.bot:
+        if "!fv" in message.content:
+            command = client.get_command("forceVote")
+            await ctx.invoke(command)
         if "!stats1v1" in message.content:
             command = client.get_command("stats1v1")
             await ctx.invoke(command)
