@@ -23,6 +23,7 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 from datetime import timezone
 from pathlib import Path
 import boto3
+from discord.ext.commands import Context
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -114,12 +115,14 @@ PAST_TEN_MATCH_OUTCOME_INDEX = 8
 PAST_TEN_MAP_INDEX = 9
 LOCAL_DEV_ENABLED = bool(os.getenv("TFCELO_LOCAL_DEV")) is True
 DEV_TESTING_CHANNEL = 1139762727275995166
-MAP_VOTE_FIRST = False
+MAP_VOTE_FIRST = True
 RANK_BOUNDARIES_LIST = [720, 950, 1190, 1440, 1700, 1960, 2230, 2510, 2800, 3100]
 MAIN_MAPS_FILE = "classic_maps.json"
 SECONDARY_MAPS_FILE = "spring_2024_maps.json"
 SHOW_VISUAL_RANKS = False
-VOTE_TIME_LIMIT = 181
+SERVER_VOTE_TIME_LIMIT = 181
+MAP_VOTE_TIME_LIMIT = 31
+SHOW_MAP_VOTE_COUNTS = False
 
 cap1 = None
 cap1Name = None
@@ -186,6 +189,190 @@ with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
 
+async def generate_teams(playerCount):
+    global playersAdded
+    global capList
+    global inVote
+    global blueTeam
+    global redTeam
+    global eligiblePlayers
+    global oMsg
+    global captMode
+    global server_vote
+    global rankedOrder
+    global ready
+    dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+    logging.info(f"eligiblePlayers: {eligiblePlayers}")
+    combos = list(
+        itertools.combinations(
+            eligiblePlayers, int(len(eligiblePlayers) / 2)
+        )
+    )
+    random.shuffle(combos)
+
+    for i in eligiblePlayers:
+        if i in playersAdded:
+            playersAdded.remove(i)
+    blueTeam = []
+    redTeam = []
+    rankedOrder = []
+    redRank = 0
+    blueRank = 0
+    totalRank = 0
+    half = 0
+    for j in eligiblePlayers:
+        totalRank += int(ELOpop[j][1])
+    half = int(totalRank / 2)
+
+    if playerCount <= 8:
+        for i in list(combos):
+            blueRank = 0
+            for j in list(i):
+                blueRank += int(ELOpop[j][1])
+            # Check if the corresponding opposite team is already in the list before adding
+            # This prevents duplicate lineups from being inserted
+            current_team = list(i)
+            opposing_team = []
+            already_inserted = False
+            for j in eligiblePlayers:
+                if j not in current_team:
+                    opposing_team.append(j)
+            opposing_team = sorted(opposing_team)
+            for index, team in enumerate(rankedOrder):
+                if (
+                    sorted(rankedOrder[index][0])
+                    == opposing_team
+                ):
+                    already_inserted = True
+                    break
+            if not already_inserted:
+                rankedOrder.append(
+                    (list(i), abs(blueRank - half))
+                )
+                rankedOrder = sorted(
+                    rankedOrder, key=lambda x: x[1]
+                )
+        rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+    elif playerCount > 8:
+        teamList = []
+        for i in range(100):
+            rTeam = random.choice(combos)
+            teamList.append(rTeam)
+            combos.remove(rTeam)
+        for i in list(teamList):
+            blueRank = 0
+            for j in list(i):
+                blueRank += int(ELOpop[j][1])
+            rankedOrder.append((list(i), abs(blueRank - half)))
+        rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
+
+    blueTeam = list(rankedOrder[0][0])
+
+    for j in eligiblePlayers:
+        if j not in blueTeam:
+            redTeam.append(j)
+    blueRank = 0
+    for j in blueTeam:
+        blueRank += int(ELOpop[j][1])
+    blue_diff = abs(blueRank - half)
+    for j in redTeam:
+        redRank += int(ELOpop[j][1])
+    red_diff = abs(redRank - half)
+
+    # Make blue team the favored team as it allows them to be lenient on defense
+    # if desired/needed for sportsmanship.
+    if redRank > blueRank:
+        logging.info("Swapping team colors so blue is favored")
+        tempTeam = blueTeam
+        tempRank = blueRank
+        blueTeam = redTeam
+        blueRank = redRank
+        redTeam = tempTeam
+        redRank = tempRank
+
+    team1prob = round(
+        1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2
+    )
+    team2prob = round(
+        1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
+    )
+    blue_team_info_string = f"blueTeam: {blueTeam}, diff: {blue_diff}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+    red_team_info_string = f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}, red_win_probability {team2prob}"
+    logging.info(blue_team_info_string)
+    logging.info(red_team_info_string)
+
+    await dev_channel.send(
+        "Outputting top 5 possible games by absolute ELO difference sorted ascending"
+    )
+    debug_embeds = []
+    for index, item in enumerate(rankedOrder):
+        if index > 4:
+            break
+        dev_blue_team = rankedOrder[index][0]
+        dev_blue_rank = 0
+        dev_red_team = []
+        dev_red_rank = 0
+        for j in eligiblePlayers:
+            if j not in dev_blue_team:
+                dev_red_team.append(j)
+        for j in dev_blue_team:
+            dev_blue_rank += int(ELOpop[j][1])
+        dev_blue_diff = abs(dev_blue_rank - half)
+        for j in dev_red_team:
+            dev_red_rank += int(ELOpop[j][1])
+        dev_red_diff = abs(dev_red_rank - half)
+
+        # Make blue team the favored team as it allows them to be lenient on defense
+        # if desired/needed for sportsmanship.
+        if dev_red_rank > dev_blue_rank:
+            logging.info(
+                "DEV LOGGING: Swapping team colors so blue is favored"
+            )
+            tempTeam = dev_blue_team
+            tempRank = dev_blue_rank
+            dev_blue_team = dev_red_team
+            dev_blue_rank = dev_red_rank
+            dev_red_team = tempTeam
+            dev_red_rank = tempRank
+
+        logging.info(
+            f"blueTeam: {dev_blue_team}, diff: {dev_blue_diff}, blueRank: {dev_blue_rank}"
+        )
+        logging.info(
+            f"redTeam: {dev_red_team}, diff {dev_red_diff}, redRank: {dev_red_rank}"
+        )
+
+        dev_team1prob = round(
+            1
+            / (
+                1 + 10 ** ((dev_red_rank - dev_blue_rank) / 400)
+            ),
+            2,
+        )
+        dev_team2prob = round(
+            1
+            / (
+                1 + 10 ** ((dev_blue_rank - dev_red_rank) / 400)
+            ),
+            2,
+        )
+        debug_embeds.append(
+            teamsDisplay(
+                dev_blue_team,
+                dev_red_team,
+                dev_team1prob,
+                dev_team2prob,
+                dev_blue_rank,
+                dev_red_rank,
+                True,
+                True,
+            )
+        )
+    await dev_channel.send(embeds=debug_embeds)
+
+
 def process_vote(player: discord.Member = None, vote=None):
     global eligiblePlayers
     global inVote
@@ -245,7 +432,7 @@ def drawProgressBar(d, x, y, w, h, progress, bg="black", fg="gold"):
     return d
 
 
-def generate_map_vote_embed(vote_round, time_remaining=VOTE_TIME_LIMIT):
+def generate_map_vote_embed(vote_round, time_remaining=MAP_VOTE_TIME_LIMIT):
     global map_choice_1
     global map_choice_2
     global map_choice_3
@@ -366,7 +553,7 @@ def generate_map_vote_embed(vote_round, time_remaining=VOTE_TIME_LIMIT):
     return main_embed, image_file
 
 
-def generate_server_vote_embed(time_remaining=VOTE_TIME_LIMIT):
+def generate_server_vote_embed(time_remaining=SERVER_VOTE_TIME_LIMIT):
     global map_choice_1
     global map_choice_2
     global map_choice_3
@@ -383,33 +570,32 @@ def generate_server_vote_embed(time_remaining=VOTE_TIME_LIMIT):
 
     main_embed.add_field(
         name="",
-        value="1️⃣ " + map_choice_1 + "\n" + mapVoteOutput(map_choice_1),
+        value="1️⃣ " + map_choice_1 + "\n" + server_vote_output(map_choice_1),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="2️⃣ " + map_choice_2 + "\n" + mapVoteOutput(map_choice_2),
+        value="2️⃣ " + map_choice_2 + "\n" + server_vote_output(map_choice_2),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="3️⃣ " + map_choice_3 + "\n" + mapVoteOutput(map_choice_3),
+        value="3️⃣ " + map_choice_3 + "\n" + server_vote_output(map_choice_3),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="4️⃣ " + map_choice_4 + "\n" + mapVoteOutput(map_choice_4),
+        value="4️⃣ " + map_choice_4 + "\n" + server_vote_output(map_choice_4),
         inline=False,
     )
     main_embed.add_field(
         name="",
-        value="5️⃣ " + map_choice_5 + "\n" + mapVoteOutput(map_choice_5),
+        value="5️⃣ " + map_choice_5 + "\n" + server_vote_output(map_choice_5),
         inline=False,
     )
     unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
     main_embed.set_footer(text=unvoted_string)
 
-    # create image or load your existing image with out=Image.open(path)
     out = Image.new("RGBA", (150, 13), (255, 255, 255, 0))
     d = ImageDraw.Draw(out)
 
@@ -427,7 +613,7 @@ async def handle_map_button_callback(
 ):
     global reVote
     process_vote(interaction.user, button.custom_id)
-    time_remaining = f"{VOTE_TIME_LIMIT - vote_timer.current_loop}"
+    time_remaining = f"{MAP_VOTE_TIME_LIMIT - map_vote_timer.current_loop}"
     embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
     await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
 
@@ -435,8 +621,9 @@ async def handle_map_button_callback(
 async def handle_server_button_callback(
     self, interaction: discord.Interaction, button: discord.ui.Button
 ):
+    global SERVER_VOTE_TIME_LIMIT
     process_vote(interaction.user, button.custom_id)
-    time_remaining = f"{VOTE_TIME_LIMIT - vote_timer.current_loop}"
+    time_remaining = f"{SERVER_VOTE_TIME_LIMIT - server_vote_timer.current_loop}"
     embed, progress_bar = generate_server_vote_embed(time_remaining)
     await interaction.response.edit_message(embed=embed, attachments=[progress_bar])
 
@@ -449,7 +636,7 @@ class ServerVoteView(discord.ui.View):
     global map_choice_5
 
     def __init__(self):
-        super().__init__(timeout=VOTE_TIME_LIMIT)
+        super().__init__(timeout=SERVER_VOTE_TIME_LIMIT)
         self.add_buttons()
 
     def add_buttons(self):
@@ -480,9 +667,6 @@ class ServerVoteView(discord.ui.View):
         button.callback = server_button_callback
         return button
 
-    async def on_timeout(self):
-        await handle_slow_voters()
-
 
 class MapVoteView(discord.ui.View):
     global map_choice_1
@@ -492,7 +676,7 @@ class MapVoteView(discord.ui.View):
     global map_choice_5
 
     def __init__(self):
-        super().__init__(timeout=VOTE_TIME_LIMIT)
+        super().__init__(timeout=MAP_VOTE_TIME_LIMIT)
         self.add_buttons()
 
     def add_buttons(self):
@@ -522,9 +706,6 @@ class MapVoteView(discord.ui.View):
 
         button.callback = map_button_callback
         return button
-
-    async def on_timeout(self):
-        await handle_slow_voters()
 
 
 def teamsDisplay(
@@ -1088,6 +1269,8 @@ def DePopulatePickup():
     global pTotalPlayers
     global server_vote_message_view
     global map_vote_message_view
+    global map_vote_timer
+    global server_vote_timer
 
     cap1 = None
     cap1Name = None
@@ -1127,6 +1310,10 @@ def DePopulatePickup():
         server_vote_message_view.stop()
     if map_vote_message_view is not None:
         map_vote_message_view.stop()
+    if map_vote_timer.is_running():
+        map_vote_timer.cancel()
+    if server_vote_timer.is_running():
+        server_vote_timer.cancel()
 
 
 # Populates a list of players whom have voted for a particular map
@@ -1137,6 +1324,26 @@ def mapVoteOutput(mapChoice):
         # whoVoted.append(ELOpop[i][0])
         whoVoted.append(i)
     numVotes = len(whoVoted)
+    if SHOW_MAP_VOTE_COUNTS == False:
+        return ""
+    if numVotes == 0:
+        return "0 votes"
+
+    whoVoted = "**" + ", ".join(whoVoted) + "**"
+    if numVotes == 1:
+        return "1 vote (%s)" % whoVoted
+    else:
+        return "%d votes (%s)" % (numVotes, whoVoted)
+    
+
+def server_vote_output(mapChoice):
+    global mapVotes
+    whoVoted = []
+    for i in mapVotes[mapChoice]:
+        # whoVoted.append(ELOpop[i][0])
+        whoVoted.append(i)
+    numVotes = len(whoVoted)
+
     if numVotes == 0:
         return "0 votes"
 
@@ -1172,35 +1379,57 @@ async def idle_cancel():
 
 
 # TODO: Vote timer loop that shows amount of time left, calls a separate function via after_loop at the end that checks if the length of players_abstained is > 2 and if it does it requeues and kicks the non-voters
-@tasks.loop(seconds=1, count=VOTE_TIME_LIMIT)
-async def vote_timer(vote_message):
+@tasks.loop(seconds=1, count=SERVER_VOTE_TIME_LIMIT)
+async def server_vote_timer(vote_message):
     global inVote
     global server_vote
 
     # Double check if we are in a map-vote
     if inVote == 0:
         logging.info("Bailing out of vote timer because we aren't in a vote anymore")
-        vote_timer.cancel()
+        server_vote_timer.cancel()
         return
     if vote_message is None:
         # TODO: Figure out _when_ this is happening, but vMsg is None AFTER a pickup started. We shouldn't even be here if this is the case!
         logging.info(
             "The vote message global was none, check why we are in the loop here"
         )
-        vote_timer.cancel()
+        server_vote_timer.cancel()
         return
-    time_remaining = f"{VOTE_TIME_LIMIT - vote_timer.current_loop}"
-    # Check if it's a server vote or map vote
-    if server_vote == 1:
-        vote_embed, progress_bar = generate_server_vote_embed(time_remaining)
-        vote_message = await vote_message.edit(embed=vote_embed)
-    elif server_vote == 0:
-        vote_embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
-        vote_message = await vote_message.edit(embed=vote_embed)
+    time_remaining = f"{SERVER_VOTE_TIME_LIMIT - server_vote_timer.current_loop}"
+    vote_embed, progress_bar = generate_server_vote_embed(time_remaining)
+    vote_message = await vote_message.edit(embed=vote_embed)
 
 
+@tasks.loop(seconds=1, count=MAP_VOTE_TIME_LIMIT)
+async def map_vote_timer(vote_message):
+    global inVote
+    global server_vote
+
+    # Double check if we are in a map-vote
+    if inVote == 0:
+        logging.info("Bailing out of vote timer because we aren't in a vote anymore")
+        map_vote_timer.cancel()
+        return
+    if vote_message is None:
+        # TODO: Figure out _when_ this is happening, but vMsg is None AFTER a pickup started. We shouldn't even be here if this is the case!
+        logging.info(
+            "The vote message global was none, check why we are in the loop here"
+        )
+        map_vote_timer.cancel()
+        return
+
+    time_remaining = f"{MAP_VOTE_TIME_LIMIT - map_vote_timer.current_loop}"
+    vote_embed, progress_bar = generate_map_vote_embed(reVote, time_remaining)
+    vote_message = await vote_message.edit(embed=vote_embed)
+
+
+@server_vote_timer.after_loop
 async def handle_slow_voters():
     global players_abstained_discord_id
+
+    if server_vote_timer.is_being_cancelled():
+        return
 
     logging.info(f"Kicking idle users: {players_abstained_discord_id}")
     channel = await client.fetch_channel(v["pID"])
@@ -1437,6 +1666,7 @@ async def voteSetup(ctx):
     global votable
     global playersAbstained
     global players_abstained_discord_id
+    global eligiblePlayers
     global server_vote_message_view
     global map_vote_message_view
 
@@ -1458,7 +1688,8 @@ async def voteSetup(ctx):
     with open(SECONDARY_MAPS_FILE) as f:
         mapList2 = json.load(f)
 
-    vote_timer.cancel()
+    map_vote_timer.cancel()
+    server_vote_timer.cancel()
 
     if server_vote == 1:
         map_choice_1 = "West - North California"
@@ -1476,6 +1707,8 @@ async def voteSetup(ctx):
         vMsg = await ctx.send(
             embed=vote_embed, view=server_vote_message_view, file=progress_bar
         )
+        if not server_vote_timer.is_running():
+            server_vote_timer.start(vMsg)
     elif server_vote == 0:
         vote_image_embed_1 = discord.Embed(
             url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
@@ -1511,10 +1744,10 @@ async def voteSetup(ctx):
         vMsg = await ctx.send(
             embed=vote_embed, view=map_vote_message_view, file=progress_bar
         )
+        if not map_vote_timer.is_running():
+            map_vote_timer.start(vMsg)
     votable = 1
     logging.info("Starting vote timer NOW")
-    if not vote_timer.is_running():
-        vote_timer.start(vMsg)
 
 
 @client.command(pass_context=True)
@@ -1642,11 +1875,7 @@ async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
             embed = discord.Embed(title=f"Pickup Has 8 or more Players - {len(playersAdded)} Queued")
 
         if len(playersAdded) > 0:
-            if isMapVoteFirstPickupStarted is True:
-                embed.add_field(name="Players Selected (Please Vote!)", value=msg)
-                embed.description = msg
-            else:
-                embed.description = msg
+            embed.description = msg
         elif len(playersAdded) == 0:
             embed.description = "Nobody..."
 
@@ -2100,6 +2329,8 @@ async def add(ctx, cap=None):
                 playerDisplayName = ctx.author.display_name
 
                 retVal = addplayerImpl(playerID, playerDisplayName, cap)
+                if retVal == 2:
+                    await ctx.send("Currently in a mapvote for a pickup, please wait for that to finish before adding!")
                 if retVal == 1:  # Already added
                     await ctx.author.send(
                         "you are already added to this pickup.."
@@ -2247,208 +2478,31 @@ async def teams(ctx, playerCount=4):
             # global pastTeams
             ready = []
             oMsg = None
-            DMList = []
             if len(playersAdded) >= int(playerCount * 2):
                 if inVote == 0:
                     if len(capList) < 2:
                         playerCount = int(playerCount)
                         if len(playersAdded) == playerCount:
-                            eligiblePlayers = playersAdded
+                            eligiblePlayers = playersAdded.copy()
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
 
                         if MAP_VOTE_FIRST is True:
                             # Prune down the players added
-                            playersAdded = eligiblePlayers
+                            playersAdded = playersAdded[0 : playerCount * 2]
                             await showPickup(ctx, False, True)
 
                         if MAP_VOTE_FIRST is False:
                             with open("ELOpop.json") as f:
                                 ELOpop = json.load(f)
 
-                            combos = list(
-                                itertools.combinations(
-                                    eligiblePlayers, int(len(eligiblePlayers) / 2)
-                                )
-                            )
-                            random.shuffle(combos)
-
-                            for i in eligiblePlayers:
-                                if i in playersAdded:
-                                    playersAdded.remove(i)
-                            blueTeam = []
-                            redTeam = []
-                            rankedOrder = []
-                            redRank = 0
-                            blueRank = 0
-                            totalRank = 0
-                            half = 0
-                            for j in eligiblePlayers:
-                                totalRank += int(ELOpop[j][1])
-                            half = int(totalRank / 2)
-
-                            if playerCount <= 8:
-                                for i in list(combos):
-                                    blueRank = 0
-                                    for j in list(i):
-                                        blueRank += int(ELOpop[j][1])
-                                    # Check if the corresponding opposite team is already in the list before adding
-                                    # This prevents duplicate lineups from being inserted
-                                    current_team = list(i)
-                                    opposing_team = []
-                                    already_inserted = False
-                                    for j in eligiblePlayers:
-                                        if j not in current_team:
-                                            opposing_team.append(j)
-                                    opposing_team = sorted(opposing_team)
-                                    for index, team in enumerate(rankedOrder):
-                                        if (
-                                            sorted(rankedOrder[index][0])
-                                            == opposing_team
-                                        ):
-                                            already_inserted = True
-                                            break
-                                    if not already_inserted:
-                                        rankedOrder.append(
-                                            (list(i), abs(blueRank - half))
-                                        )
-                                        rankedOrder = sorted(
-                                            rankedOrder, key=lambda x: x[1]
-                                        )
-                                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-                            elif playerCount > 8:
-                                teamList = []
-                                for i in range(100):
-                                    rTeam = random.choice(combos)
-                                    teamList.append(rTeam)
-                                    combos.remove(rTeam)
-                                for i in list(teamList):
-                                    blueRank = 0
-                                    for j in list(i):
-                                        blueRank += int(ELOpop[j][1])
-                                    rankedOrder.append((list(i), abs(blueRank - half)))
-                                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-
-                            blueTeam = list(rankedOrder[0][0])
-
-                            for j in eligiblePlayers:
-                                if j not in blueTeam:
-                                    redTeam.append(j)
-                            blueRank = 0
-                            for j in blueTeam:
-                                blueRank += int(ELOpop[j][1])
-                            blue_diff = abs(blueRank - half)
-                            for j in redTeam:
-                                redRank += int(ELOpop[j][1])
-                            red_diff = abs(redRank - half)
-
-                            # Make blue team the favored team as it allows them to be lenient on defense
-                            # if desired/needed for sportsmanship.
-                            if redRank > blueRank:
-                                logging.info("Swapping team colors so blue is favored")
-                                tempTeam = blueTeam
-                                tempRank = blueRank
-                                blueTeam = redTeam
-                                blueRank = redRank
-                                redTeam = tempTeam
-                                redRank = tempRank
-
-                            team1prob = round(
-                                1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2
-                            )
-                            team2prob = round(
-                                1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2
-                            )
-                            blue_team_info_string = f"blueTeam: {blueTeam}, diff: {blue_diff}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
-                            red_team_info_string = f"redTeam: {redTeam}, diff {red_diff}, redRank: {redRank}, red_win_probability {team2prob}"
-                            logging.info(blue_team_info_string)
-                            logging.info(red_team_info_string)
-
-                            await ctx.send(
-                                embed=teamsDisplay(
-                                    blueTeam, redTeam, team1prob, team2prob
-                                )
-                            )
-                            for i in eligiblePlayers:
-                                DMList.append(f"<@{i}> ")
-
-                            dmMsg = "".join(DMList)
-                            await ctx.send(dmMsg)
-
-                            await dev_channel.send(
-                                "Outputting top 5 possible games by absolute ELO difference sorted ascending"
-                            )
-                            debug_embeds = []
-                            for index, item in enumerate(rankedOrder):
-                                if index > 4:
-                                    break
-                                dev_blue_team = rankedOrder[index][0]
-                                dev_blue_rank = 0
-                                dev_red_team = []
-                                dev_red_rank = 0
-                                for j in eligiblePlayers:
-                                    if j not in dev_blue_team:
-                                        dev_red_team.append(j)
-                                for j in dev_blue_team:
-                                    dev_blue_rank += int(ELOpop[j][1])
-                                dev_blue_diff = abs(dev_blue_rank - half)
-                                for j in dev_red_team:
-                                    dev_red_rank += int(ELOpop[j][1])
-                                dev_red_diff = abs(dev_red_rank - half)
-
-                                # Make blue team the favored team as it allows them to be lenient on defense
-                                # if desired/needed for sportsmanship.
-                                if dev_red_rank > dev_blue_rank:
-                                    logging.info(
-                                        "DEV LOGGING: Swapping team colors so blue is favored"
-                                    )
-                                    tempTeam = dev_blue_team
-                                    tempRank = dev_blue_rank
-                                    dev_blue_team = dev_red_team
-                                    dev_blue_rank = dev_red_rank
-                                    dev_red_team = tempTeam
-                                    dev_red_rank = tempRank
-
-                                logging.info(
-                                    f"blueTeam: {dev_blue_team}, diff: {dev_blue_diff}, blueRank: {dev_blue_rank}"
-                                )
-                                logging.info(
-                                    f"redTeam: {dev_red_team}, diff {dev_red_diff}, redRank: {dev_red_rank}"
-                                )
-
-                                dev_team1prob = round(
-                                    1
-                                    / (
-                                        1 + 10 ** ((dev_red_rank - dev_blue_rank) / 400)
-                                    ),
-                                    2,
-                                )
-                                dev_team2prob = round(
-                                    1
-                                    / (
-                                        1 + 10 ** ((dev_blue_rank - dev_red_rank) / 400)
-                                    ),
-                                    2,
-                                )
-                                debug_embeds.append(
-                                    teamsDisplay(
-                                        dev_blue_team,
-                                        dev_red_team,
-                                        dev_team1prob,
-                                        dev_team2prob,
-                                        dev_blue_rank,
-                                        dev_red_rank,
-                                        True,
-                                        True,
-                                    )
-                                )
-                            await dev_channel.send(embeds=debug_embeds)
+                            await generate_teams(playerCount)
                     elif len(capList) >= 2:
                         with open("ELOpop.json") as f:
                             ELOpop = json.load(f)
                         playerCount = int(playerCount)
                         if len(playersAdded) == playerCount:
-                            eligiblePlayers = playersAdded
+                            eligiblePlayers = playersAdded.copy()
                         else:
                             eligiblePlayers = playersAdded[0 : playerCount * 2]
                         captMode = 1
@@ -2555,7 +2609,7 @@ async def status(ctx):
             await showPickup(ctx)
 
 
-@client.command(pass_context=True)
+@client.command(aliases=["map"], pass_context=True)
 async def tfcmap(ctx, map_name_string):
     async with GLOBAL_LOCK:
         map = map_name_string.lower()
@@ -2643,7 +2697,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
                         if i != str(playeroutid):
                             playersAddedNew.append(i)
                     playersAdded = playersAddedNew
-                    eligiblePlayers = playersAdded
+                    eligiblePlayers = playersAdded.copy()
                     await showPickup(ctx, False)
 
                 if MAP_VOTE_FIRST is False:
@@ -3455,18 +3509,34 @@ async def requeue(ctx, show_queue=True):
             return
         if captMode == 1:
             logging.info(blueTeam, redTeam, eligiblePlayers)
-            neligibleplayers = eligiblePlayers
+            neligibleplayers = eligiblePlayers.copy()
             DePopulatePickup()
             playersAdded = neligibleplayers.copy() + playersAdded
             if show_queue:
                 await showPickup(ctx)
         else:
-            neligibleplayers = blueTeam + redTeam
-            DePopulatePickup()
-            playersAdded = neligibleplayers.copy() + playersAdded
-            neligibleplayers.clear()
+            if MAP_VOTE_FIRST is False:
+                neligibleplayers = blueTeam + redTeam
+                DePopulatePickup()
+                playersAdded = neligibleplayers.copy() + playersAdded
+                neligibleplayers.clear()
+            else:
+                DePopulatePickup()
             if show_queue:
                 await showPickup(ctx)
+
+
+@map_vote_timer.after_loop
+async def force_vote_timer_version():
+    if map_vote_timer.is_being_cancelled():
+        return
+
+    # ctx = await client.get_context(vMsg)
+    # command = client.get_command("forceVote")
+    # await ctx.invoke(command)
+    channel = await client.fetch_channel(v["pID"])
+    # await channel.send("Time's up! Auto-Force Voting!")
+    await channel.send("!fv")
 
 
 # End the current voting round (server, map, etc) potentially early if not everyone has cast their votes yet.
@@ -3508,14 +3578,14 @@ async def forceVote(ctx):
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
             if inVote == 0:
-                await ctx.send("ERROR: Tried calling !fv outside of a vote!")
+                await ctx.send("ERROR: Tried calling force vote outside of a vote!")
                 return
-            vote.reset_cooldown(ctx)
 
             winningMap = None
             alreadyVoted = []
             if server_vote == 1:
                 server_vote_message_view.stop()
+                server_vote_timer.cancel()
                 votes = [
                     len(mapVotes[map_choice_1]),
                     len(mapVotes[map_choice_2]),
@@ -3579,6 +3649,7 @@ async def forceVote(ctx):
                 await voteSetup(ctx)
             elif server_vote == 0:
                 map_vote_message_view.stop()
+                map_vote_timer.cancel()
                 # We are currently in map voting round
                 if reVote == 0:
                     # Tally the votes for each choice, putting new maps in the first slot to give precedence for a tie
@@ -3629,7 +3700,7 @@ async def forceVote(ctx):
                         map_choice_5 = map_choice_3
                     if windex == 3:
                         map_choice_5 = map_choice_4
-                    await channel.send("New maps has won, now selecting new maps..")
+                    await ctx.send("New maps has won, now selecting new maps..")
                     await voteSetup(ctx)
                 else:
                     # A real map has won. Gather all maps that had the maximum count
@@ -3648,11 +3719,12 @@ async def forceVote(ctx):
                         if MAP_VOTE_FIRST is True:
                             # Create the teams after the map vote
                             inVote = 0
-                            await teams(channel)
+                            player_count = len(eligiblePlayers) // 2
+                            await generate_teams(player_count)
 
                     # Pick a random final winner from the candidate maps
                     winningMap = random.choice(candidateMapNames)
-                    await channel.send(
+                    await ctx.send(
                             embed=teamsDisplay(
                                 blueTeam,
                                 redTeam,
@@ -3664,15 +3736,15 @@ async def forceVote(ctx):
                                 False,
                             )
                         )
-                    await channel.send(
+                    await ctx.send(
                         f"The winning map is **{winningMap}** and will be played at {winningIP}"
                     )
                     inVote = 0
                     if len(lastFive) >= 5:
                         lastFive.remove(lastFive[0])
                     lastFive.append(winningMap)
-                    if vote_timer.is_running():
-                        vote_timer.cancel()
+                    if map_vote_timer.is_running():
+                        map_vote_timer.cancel()
                     edited_content = "\n".join(vMsg.content.split("\n")[:-1])
                     await vMsg.edit(
                         content=edited_content + "\n" + "Voting is finished!"
@@ -3699,7 +3771,7 @@ async def forceVote(ctx):
                 blueTeam.append(cap2Name)
                 pTotalPlayers = list(enumerate(pTotalPlayers, 1))
                 TeamPickPopulate()
-                pMsg = await channel.send(
+                pMsg = await ctx.send(
                     "```"
                     + str(cap1Name)
                     + " and "
@@ -4084,22 +4156,22 @@ async def on_reaction_add(reaction, user):
                                         + "1️⃣ "
                                         + map_choice_1
                                         + " " * (70 - len(map_choice_1))
-                                        + mapVoteOutput(map_choice_1)
+                                        + server_vote_output(map_choice_1)
                                         + "\n"
                                         + "2️⃣ "
                                         + map_choice_2
                                         + " " * (70 - len(map_choice_2))
-                                        + mapVoteOutput(map_choice_2)
+                                        + server_vote_output(map_choice_2)
                                         + "\n"
                                         + "3️⃣ "
                                         + map_choice_3
                                         + " " * (70 - len(map_choice_3))
-                                        + mapVoteOutput(map_choice_3)
+                                        + server_vote_output(map_choice_3)
                                         + "\n"
                                         + "4️⃣ "
                                         + map_choice_4
                                         + " " * (70 - len(map_choice_4))
-                                        + mapVoteOutput(map_choice_4)
+                                        + server_vote_output(map_choice_4)
                                         + toVoteString
                                     )
                                 elif server_vote == 0:
@@ -4340,6 +4412,9 @@ async def on_message(message):
 
     ctx = await client.get_context(message)
     if user.bot:
+        if "!fv" in message.content:
+            command = client.get_command("forceVote")
+            await ctx.invoke(command)
         if "!stats1v1" in message.content:
             command = client.get_command("stats1v1")
             await ctx.invoke(command)
