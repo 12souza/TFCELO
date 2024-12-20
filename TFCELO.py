@@ -121,7 +121,7 @@ MAIN_MAPS_FILE = "classic_maps.json"
 SECONDARY_MAPS_FILE = "spring_2024_maps.json"
 SHOW_VISUAL_RANKS = False
 SERVER_VOTE_TIME_LIMIT = 181
-MAP_VOTE_TIME_LIMIT = 31
+MAP_VOTE_TIME_LIMIT = 61
 SHOW_MAP_VOTE_COUNTS = False
 
 cap1 = None
@@ -1744,6 +1744,11 @@ async def voteSetup(ctx):
         vMsg = await ctx.send(
             embed=vote_embed, view=map_vote_message_view, file=progress_bar
         )
+        tag_list = []
+        for i in eligiblePlayers:
+            tag_list.append(f"<@{i}> ")
+        tag_msg = "".join(tag_list)
+        await ctx.send(tag_msg)
         if not map_vote_timer.is_running():
             map_vote_timer.start(vMsg)
     votable = 1
@@ -3122,7 +3127,7 @@ async def sync_players(ctx):
     players = []
 
     for index, player in enumerate(ELOpop):
-        row = (index+1,player,'2024-11-11 20:00:00','2024-11-11 20:00:00',None,ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX],ELOpop[player][PLAYER_MAP_CURRENT_ELO_INDEX],ELOpop[player][PLAYER_MAP_VISUAL_RANK_INDEX],ELOpop[player][PLAYER_MAP_WIN_INDEX],ELOpop[player][PLAYER_MAP_LOSS_INDEX],ELOpop[player][PLAYER_MAP_DRAW_INDEX],0,0,f"';'.join(ELOpop[player][PLAYER_MAP_ACHIEVEMENT_INDEX])",None,None)
+        row = (index+1,player,'2024-11-11 20:00:00','2024-11-11 20:00:00',None,ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX],ELOpop[player][PLAYER_MAP_CURRENT_ELO_INDEX],ELOpop[player][PLAYER_MAP_VISUAL_RANK_INDEX],ELOpop[player][PLAYER_MAP_WIN_INDEX],ELOpop[player][PLAYER_MAP_LOSS_INDEX],ELOpop[player][PLAYER_MAP_DRAW_INDEX],0,0,';'.join(ELOpop[player][PLAYER_MAP_ACHIEVEMENT_INDEX]),None,None)
         players.append(row)
 
     sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
