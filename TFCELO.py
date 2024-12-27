@@ -24,6 +24,8 @@ from datetime import timezone
 from pathlib import Path
 import boto3
 from discord.ext.commands import Context
+import requests
+from bs4 import BeautifulSoup
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -187,6 +189,44 @@ for playerIDKey, playerValues in ELOpop.items():
 # Write ELO database changes out
 with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
+
+
+def get_mvp_steam_id(url):
+    # Fetch the page content
+    response = requests.get(url)
+    
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    # Find the MVP by looking for the span with class="mvp"
+    mvp_span = soup.find('span', class_='mvp')
+    if not mvp_span:
+        return None
+        
+    # Get the parent td element that contains both the MVP span and the player link
+    player_td = mvp_span.find_parent('td', class_='player-name')
+    if not player_td:
+        return None
+        
+    # Find the player link within this td
+    player_link = player_td.find('a')
+    if not player_link:
+        return None
+    
+    # Get the MVP's player ID
+    player_id = player_link.get('href').replace('p', '').replace('.html', '')
+    
+    # Find all catacombs tracker links
+    catacombs_links = soup.find_all('a', href=lambda href: href and 'steamid=' in href)
+    
+    # Find the catacombs link that matches our player ID
+    for link in catacombs_links:
+        if player_id in link['href']:
+            # Extract Steam ID from the URL
+            match = re.search(r'steamid=(\d:\d:\d+)', link['href'])
+            if match:
+                steam_id = "STEAM_" + match.group(1)
+                return steam_id
+    return None
 
 
 async def generate_teams(playerCount):
@@ -1137,7 +1177,7 @@ async def load_player_database(ctx):
         cursor.execute(sql, list(current_game.values()))"""
 
 
-@client.command(pass_context=True)
+@client.command(pass_context=True, aliases=["leaderboard"])
 async def top15(ctx):
     """ "
     Show the list of top, non-private players in the discord
@@ -1145,61 +1185,7 @@ async def top15(ctx):
     Example usage: "!top15"
     ctx: Discord context object
     """
-    global ELOpop
-    async with GLOBAL_LOCK:
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-
-        db = mysql.connector.connect(
-            host=logins["mysql"]["host"],
-            user=logins["mysql"]["user"],
-            passwd=logins["mysql"]["passwd"],
-            database=logins["mysql"]["database"],
-            autocommit=True,
-        )
-        mycursor = db.cursor()
-
-        try:
-            mycursor.execute(
-                """
-                    with elo_row_numbered as (
-                        select player_name, discord_id, player_elos, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
-                    ),
-                    filtered_players as (
-                      select distinct discord_id from player_elo where created_at >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 45 DAY) and match_id != 0
-                    )
-
-                    select player_name, discord_id, player_elos from elo_row_numbered where row_num = 1
-                    and discord_id in (select discord_id from filtered_players)
-                    order by player_elos desc;
-"""
-            )
-            top_15 = []
-
-            for row in mycursor:
-                logging.info(row)
-                discord_id = str(row[1])
-                if ELOpop[discord_id][PLAYER_MAP_VISUAL_RANK_INDEX] and (
-                    (
-                        ELOpop[discord_id][PLAYER_MAP_WIN_INDEX]
-                        + ELOpop[discord_id][PLAYER_MAP_LOSS_INDEX]
-                        + ELOpop[discord_id][PLAYER_MAP_DRAW_INDEX]
-                    )
-                    > 10
-                ):
-                    top_15.append(
-                        ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n"
-                    )
-                if len(top_15) == 15:
-                    break
-
-            message_formatted = "".join(top_15)
-            embed = discord.Embed(title="Top 15 Players")
-            embed.add_field(name="Player List", value=message_formatted, inline=True)
-            await ctx.send(embed=embed)
-        except Exception as e:
-            logging.error(e)
-            await ctx.send(e)
+    await ctx.send("https://tfpugs.online/leaderboard")
 
 
 # Toggle the "dunce" on a player (for being naughty) at admin discretion
@@ -2574,10 +2560,11 @@ async def stats(
             ftp.cwd(f"HLTV{region.upper()}")
             output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
             current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            mvp_steam_id = get_mvp_steam_id(hampalyzer_output)
 
             if hampalyzer_output is not None:
-                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
-                mycursor.execute(update_query, (winning_score, losing_score, hampalyzer_output, current_timestamp, match_number))
+                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, mvp = %s, updated_at = %s WHERE match_id = %s"
+                mycursor.execute(update_query, (winning_score, losing_score, hampalyzer_output, mvp_steam_id, current_timestamp, match_number))
                 if output_zipfile is None:
                     await schannel.send(
                         f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
