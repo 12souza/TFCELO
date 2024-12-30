@@ -234,6 +234,16 @@ async def get_mvp_steam_id(url):
     return None
 
 
+async def get_db_pool():
+    return await aiomysql.create_pool(
+        host=logins["mysql"]["host"],
+        user=logins["mysql"]["user"],
+        password=logins["mysql"]["passwd"],
+        db=logins["mysql"]["database"],
+        autocommit=True
+    )
+
+
 async def generate_teams(playerCount):
     global playersAdded
     global capList
@@ -1816,6 +1826,40 @@ async def ach(ctx, player: discord.Member, ach):
         )
 
 
+@client.command(pass_context=True)
+@commands.has_role(v["admin"])
+async def sync_players(ctx):
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+    
+    db = mysql.connector.connect(
+        host=logins["mysql"]["host"],
+        user=logins["mysql"]["user"],
+        passwd=logins["mysql"]["passwd"],
+        database=logins["mysql"]["database"],
+        autocommit=True,
+    )
+
+    columns = "id, discord_id, created_at, updated_at, deleted_at, player_name, current_elo, visual_rank_override, pug_wins, pug_losses, pug_draws, dm_wins, dm_losses, achievements, dunce, steam_id"
+    placeholders = ", ".join(["%s"] * 16)
+
+    players = []
+
+    for index, player in enumerate(ELOpop):
+        row = (index+1,player,'2024-11-11 20:00:00','2024-11-11 20:00:00',None,ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX],ELOpop[player][PLAYER_MAP_CURRENT_ELO_INDEX],ELOpop[player][PLAYER_MAP_VISUAL_RANK_INDEX],ELOpop[player][PLAYER_MAP_WIN_INDEX],ELOpop[player][PLAYER_MAP_LOSS_INDEX],ELOpop[player][PLAYER_MAP_DRAW_INDEX],0,0,';'.join(ELOpop[player][PLAYER_MAP_ACHIEVEMENT_INDEX]),None,None)
+        players.append(row)
+
+    sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
+        "players",
+        columns,
+        placeholders,
+    )
+
+    cursor = db.cursor()
+    cursor.execute("TRUNCATE TABLE players")
+    cursor.executemany(sql, players)
+
+
 # Utility function for showing the pickup
 async def showPickup(ctx, showReact=False, mapVoteFirstPickupStarted=False):
     global playersAdded
@@ -2635,9 +2679,6 @@ async def stats(
                     )
                 else:
                     await ctx.send("Could not generate stats URLs")
-
-
-
         except Exception as e:
             logging.error(traceback.format_exc())
             await ctx.send(f"Error processing stats: {str(e)}")
@@ -3026,15 +3067,7 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 async def draw(ctx, pNumber="None"):
     global ELOpop
     dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
-
-    mycursor = db.cursor()
+    
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
@@ -3065,54 +3098,48 @@ async def draw(ctx, pNumber="None"):
                 adjustTeam2 = adjustTeam2 * 2
                 logging.info("giving double ELO")
 
+            # Prepare player data for bulk insert
+            player_elo_data = []
+            
+            # Process blue team
             for i in blueTeam:
                 ELOpop[i][1] += adjustTeam1
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]} {e}"
-                    )
-                    await dev_channel.send(input_query)
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
+
+            # Process red team
             for i in redTeam:
                 ELOpop[i][1] += adjustTeam2
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
-                    )
-                    await dev_channel.send(input_query)
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
-            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
-            mycursor.execute(update_query, ('0', current_timestamp, pNumber))
-            logging.info(update_query)
+
+            # Perform database operations
+            async with await get_db_pool() as pool:
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cursor:
+                        try:
+                            # Bulk insert player ELO data
+                            await cursor.executemany(
+                                "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                                player_elo_data
+                            )
+                            
+                            # Update match outcome
+                            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                            await cursor.execute(
+                                "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s",
+                                ('0', current_timestamp, pNumber)
+                            )
+                        except Exception as e:
+                            await dev_channel.send(f"SQL QUERY ERROR: {e}")
 
             if len(list(pastTen)) >= 10:
                 while len(list(pastTen)) > 9:
@@ -3130,8 +3157,9 @@ async def draw(ctx, pNumber="None"):
                 redRank,
                 0,
                 activePickups[pNumber][7],
-            ]  # winningTeam, team1prob, adjustmentTeam1, losingteam, team2prob, adjustmentTeam2
+            ]
             del activePickups[pNumber]
+            
             with open("activePickups.json", "w") as cd:
                 json.dump(activePickups, cd, indent=4)
             with open("ELOpop.json", "w") as cd:
@@ -3142,66 +3170,24 @@ async def draw(ctx, pNumber="None"):
             await ctx.send("Match reported.. thank you!")
             await sync_players(ctx)
 
-
-@client.command(pass_context=True)
-@commands.has_role(v["admin"])
-async def sync_players(ctx):
-    with open("ELOpop.json") as f:
-        ELOpop = json.load(f)
-    
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
-
-    columns = "id, discord_id, created_at, updated_at, deleted_at, player_name, current_elo, visual_rank_override, pug_wins, pug_losses, pug_draws, dm_wins, dm_losses, achievements, dunce, steam_id"
-    placeholders = ", ".join(["%s"] * 16)
-
-    players = []
-
-    for index, player in enumerate(ELOpop):
-        row = (index+1,player,'2024-11-11 20:00:00','2024-11-11 20:00:00',None,ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX],ELOpop[player][PLAYER_MAP_CURRENT_ELO_INDEX],ELOpop[player][PLAYER_MAP_VISUAL_RANK_INDEX],ELOpop[player][PLAYER_MAP_WIN_INDEX],ELOpop[player][PLAYER_MAP_LOSS_INDEX],ELOpop[player][PLAYER_MAP_DRAW_INDEX],0,0,';'.join(ELOpop[player][PLAYER_MAP_ACHIEVEMENT_INDEX]),None,None)
-        players.append(row)
-
-    sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
-        "players",
-        columns,
-        placeholders,
-    )
-
-    cursor = db.cursor()
-    cursor.execute("TRUNCATE TABLE players")
-    cursor.executemany(sql, players)
-
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def win(ctx, team, pNumber="None"):
     global ELOpop
     dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
-
-    mycursor = db.cursor()
+    
     async with GLOBAL_LOCK:
-        if (
-            (ctx.channel.name == v["pc"])
-            or (ctx.channel.name == "tfc-admins")
-            or (ctx.channel.name == "tfc-runners")
-        ):
+        if ((ctx.channel.name == v["pc"]) or 
+            (ctx.channel.name == "tfc-admins") or 
+            (ctx.channel.name == "tfc-runners")):
+            
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
             with open("ELOpop.json") as f:
                 ELOpop = json.load(f)
             with open("pastten.json") as f:
                 pastTen = json.load(f)
+
             if pNumber == "None":
                 pNumber = list(activePickups)[-1]
 
@@ -3215,6 +3201,7 @@ async def win(ctx, team, pNumber="None"):
             adjustTeam1 = 0
             adjustTeam2 = 0
             winner = 0
+
             if team == "1":
                 adjustTeam1 = int(blueRank + 50 * (1 - blueProb)) - blueRank
                 adjustTeam2 = int(redRank + 50 * (0 - redProb)) - redRank
@@ -3223,72 +3210,60 @@ async def win(ctx, team, pNumber="None"):
                 adjustTeam1 = int(blueRank + 50 * (0 - blueProb)) - blueRank
                 adjustTeam2 = int(redRank + 50 * (1 - redProb)) - redRank
                 winner = 2
-            if team in ("0", "draw"):
-                adjustTeam1 = int(blueRank + 50 * (0.5 - blueProb)) - blueRank
-                adjustTeam2 = int(redRank + 50 * (0.5 - redProb)) - redRank
+
             if "Bot's Choice" in pMap:
                 adjustTeam1 = adjustTeam1 * 2
                 adjustTeam2 = adjustTeam2 * 2
                 logging.info("giving double ELO")
 
+            # Prepare player data for bulk insert
+            player_elo_data = []
+            
+            # Process blue team
             for i in blueTeam:
                 ELOpop[i][1] += adjustTeam1
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
-                    )
-                    await dev_channel.send(input_query)
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 if team == "1":
                     ELOpop[i][4] += 1
                 if team == "2":
                     ELOpop[i][5] += 1
-                if team == "draw":
-                    ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
+
+            # Process red team
             for i in redTeam:
                 ELOpop[i][1] += adjustTeam2
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
-                    )
-                    await dev_channel.send(input_query)
-                if team == "1":
-                    ELOpop[i][5] += 1
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 if team == "2":
                     ELOpop[i][4] += 1
-                if team == "draw":
-                    ELOpop[i][6] += 1
+                if team == "1":
+                    ELOpop[i][5] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
-            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
-            mycursor.execute(update_query, (team, current_timestamp, pNumber))
-            logging.info(update_query)
+
+            # Perform database operations
+            async with await get_db_pool() as pool:
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cursor:
+                        try:
+                            # Bulk insert player ELO data
+                            await cursor.executemany(
+                                "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                                player_elo_data
+                            )
+                            
+                            # Update match outcome
+                            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                            await cursor.execute(
+                                "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s",
+                                (team, current_timestamp, pNumber)
+                            )
+                        except Exception as e:
+                            await dev_channel.send(f"SQL QUERY ERROR: {e}")
 
             if len(list(pastTen)) >= 10:
                 while len(list(pastTen)) > 9:
@@ -3306,7 +3281,7 @@ async def win(ctx, team, pNumber="None"):
                 redRank,
                 winner,
                 activePickups[pNumber][7],
-            ]  # winningTeam, team1prob, adjustmentTeam1, losingteam, team2prob, adjustmentTeam2
+            ]
             del activePickups[pNumber]
 
             with open("activePickups.json", "w") as cd:
@@ -3315,8 +3290,6 @@ async def win(ctx, team, pNumber="None"):
                 json.dump(ELOpop, cd, indent=4)
             with open("pastten.json", "w") as cd:
                 json.dump(pastTen, cd, indent=4)
-
-            pastTen[pNumber] = []
 
             await ctx.send("Match reported!")
             await sync_players(ctx)
