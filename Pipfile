@@ -11,6 +11,10 @@ matplotlib = "*"
 mplcyberpunk = "*"
 boto3 = "*"
 beautifulsoup4 = "*"
+bs4 = "*"
+aioftp = "*"
+aiofiles = "*"
+aiomysql = "*"
 
 [dev-packages]
 black = "*"

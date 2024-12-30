@@ -24,8 +24,11 @@ from datetime import timezone
 from pathlib import Path
 import boto3
 from discord.ext.commands import Context
-import requests
+import aiohttp
 from bs4 import BeautifulSoup
+import aioftp
+import aiofiles
+import aiomysql
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -191,11 +194,12 @@ with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
 
-def get_mvp_steam_id(url):
-    # Fetch the page content
-    response = requests.get(url)
+async def get_mvp_steam_id(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            html = await response.text()
     
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(html, 'html.parser')
     
     # Find the MVP by looking for the span with class="mvp"
     mvp_span = soup.find('span', class_='mvp')
@@ -226,6 +230,7 @@ def get_mvp_steam_id(url):
             if match:
                 steam_id = "STEAM_" + match.group(1)
                 return steam_id
+    
     return None
 
 
@@ -937,133 +942,167 @@ def find(haystack, needle, n):
     return start
 
 
-def stat_log_file_handler(ftp, region):
-    # Note: We are taking a dependency on newer logs having a higher ascending name
-    logListNameAsc = ftp.nlst()  # Get list of logs sorted in ascending order by name.
-    logListNameDesc = reversed(
-        logListNameAsc
-    )  # We want to evaluate most recent first for efficiency, so reverse it
-
-    lastTwoBigLogList = []
-    for logFile in logListNameDesc:
-        size = ftp.size(logFile)
-        # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
-        # if we find any edge cases.
-        if (size > 100000) and (
-            ".log" in logFile
-        ):  # Rounds with logs of players and time will be big
-            lastTwoBigLogList.append(logFile)
-            if len(lastTwoBigLogList) >= 2:
-                break
-
-    logToParse1 = lastTwoBigLogList[1]
-    logToParse2 = lastTwoBigLogList[0]
-
-    try:
-        ftp.retrbinary("RETR " + logToParse1, open(logToParse1, "wb").write)
-        ftp.retrbinary("RETR " + logToParse2, open(logToParse2, "wb").write)
-    except Exception:
-        logging.warning(f"Issue Downloading logfiles from FTP - {Exception}")
-
-    os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
-    os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
-
-    logToParse1 = f"{logToParse1[0:-4]}-coach{region}.log"
-    logToParse2 = f"{logToParse2[0:-4]}-coach{region}.log"
-    f = open(logToParse1)
-    pickup_date = None
-    pickup_map = None
-    for line in f:
-        if "Loading map" in line:
-            mapstart = line.find('map "') + 5
-            mapend = line.find('"', mapstart)
-            datestart = line.find("L ") + 2
-            dateend = line.find("-", datestart)
-            pickup_date = line[datestart:dateend]
-            pickup_map = line[mapstart:mapend]
-    blarghalyzer_fallback = None
-    hampalyzer_output = None
-    newCMD = (
-        "curl -X POST -F force=on -F logs[]=@"
-        + logToParse1
-        + " -F logs[]=@"
-        + logToParse2
-        + " http://app.hampalyzer.com/api/parseGame"
-    )
-    output3 = os.popen(newCMD).read()
-    if "nginx" not in output3 or output3 is None:
-        hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
-    else:
-        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        newCMD = (
-            'curl -v -m 5 -F "process=true" -F "inptImage=@'
-            + logToParse1
-            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        )
-        os.popen(newCMD).read()
-        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        newCMD = (
-            'curl -v -m 5 -F "process=true" -F "inptImage=@'
-            + logToParse2
-            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        )
-        os.popen(newCMD).read()
-        blarghalyzer_fallback = (
-            "**Round 1:** https://blarghalyzer.com/parsedlogs/"
-            + logToParse1[:-4].lower()
-            + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/"
-            + logToParse2[:-4].lower()
-            + "/"
-        )
-
-    os.remove(logToParse1)
-    os.remove(logToParse2)
-    return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
-
-
-def hltv_file_handler(ftp, pickup_date, pickup_map):
-    try:
-        output_filename = None
-        # getting lists
-        HLTVListNameAsc = (
-            ftp.nlst()
-        )  # Get list of demos sorted in ascending order by name.
-        HLTVListNameDesc = list(reversed(HLTVListNameAsc))
-        lastTwoBigHLTVList = []
-        for HLTVFile in HLTVListNameDesc:
-            size = ftp.size(HLTVFile)
-            # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
-            # if we find any edge cases.
-            if (size > 11000000) and (
-                ".dem" in HLTVFile
-            ):  # Rounds with logs of players and time will be big
-                print("passed heuristic!")
-                lastTwoBigHLTVList.append(HLTVFile)
-                if len(lastTwoBigHLTVList) >= 2:
+async def stat_log_file_handler(region):
+    async with aioftp.Client.context(
+        logins[region]["server_ip"],
+        user=logins[region]["ftp_username"],
+        password=logins[region]["ftp_password"]
+    ) as ftp_client:
+        await ftp_client.change_directory("logs")
+        
+        # Get list of logs and sort them
+        log_files = await ftp_client.list()
+        # Extract filenames from tuples and sort
+        log_files = sorted(log_files, key=lambda x: x[0], reverse=True)  # Most recent first
+        
+        last_two_big_logs = []
+        for log_file in log_files:
+            file_size = int(log_file[1]['size'])  # Access size from the dictionary
+            if file_size > 100000 and ".log" in log_file[0].name:
+                last_two_big_logs.append(log_file[0])
+                if len(last_two_big_logs) >= 2:
                     break
 
-        if len(lastTwoBigHLTVList) >= 2:
-            HLTVToZip1 = lastTwoBigHLTVList[1]
-            HLTVToZip2 = lastTwoBigHLTVList[0]
+        if len(last_two_big_logs) < 2:
+            raise Exception("Could not find enough log files")
 
-            # zip file stuff.. get rid of slashes so we dont error.
+        log_to_parse1 = last_two_big_logs[1]
+        log_to_parse2 = last_two_big_logs[0]
+
+        # Download logs asynchronously
+        for log_file in [log_to_parse1, log_to_parse2]:
+            async with aiofiles.open(str(log_file), mode='wb') as f:
+                try:
+                    async with ftp_client.download_stream(log_file) as stream:
+                        data = await stream.read()
+                        await f.write(data)
+                except aioftp.StatusCodeError as e:
+                    if '226' in str(e):  # Transfer complete
+                        logging.info(f"Successfully downloaded {log_file}")
+                    else:
+                        raise
+
+        # Rename files
+        await asyncio.to_thread(os.rename, str(log_to_parse1), f"{str(log_to_parse1)[0:-4]}-coach{region}.log")
+        await asyncio.to_thread(os.rename, str(log_to_parse2), f"{str(log_to_parse2)[0:-4]}-coach{region}.log")
+
+        log_to_parse1 = f"{str(log_to_parse1)[0:-4]}-coach{region}.log"
+        log_to_parse2 = f"{str(log_to_parse2)[0:-4]}-coach{region}.log"
+
+        # Read log file asynchronously
+        pickup_date = None
+        pickup_map = None
+        async with aiofiles.open(log_to_parse1, mode='r') as f:
+            async for line in f:
+                if "Loading map" in line:
+                    mapstart = line.find('map "') + 5
+                    mapend = line.find('"', mapstart)
+                    datestart = line.find("L ") + 2
+                    dateend = line.find("-", datestart)
+                    pickup_date = line[datestart:dateend]
+                    pickup_map = line[mapstart:mapend]
+                    break
+
+        # Make HTTP requests asynchronously
+        async with aiohttp.ClientSession() as session:
+            data = aiohttp.FormData()
+            data.add_field('force', 'on')
+            data.add_field('logs[]', open(log_to_parse1, 'rb'))
+            data.add_field('logs[]', open(log_to_parse2, 'rb'))
+            
+            async with session.post('http://app.hampalyzer.com/api/parseGame', data=data) as response:
+                output3 = await response.text()
+
+        hampalyzer_output = None
+        blarghalyzer_fallback = None
+        if "nginx" not in output3 and output3:
+            hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
+        else:
+            # Fallback to blarghalyzer
+            async with aiohttp.ClientSession() as session:
+                for log_file in [log_to_parse1, log_to_parse2]:
+                    data = aiohttp.FormData()
+                    data.add_field('process', 'true')
+                    data.add_field('inptImage', open(log_file, 'rb'))
+                    data.add_field('language', 'en')
+                    data.add_field('blarghalyze', 'Blarghalyze!')
+                    
+                    async with session.post('http://blarghalyzer.com/Blarghalyzer.php', data=data) as response:
+                        await response.text()
+
+            blarghalyzer_fallback = (
+                f"**Round 1:** https://blarghalyzer.com/parsedlogs/{log_to_parse1[:-4].lower()}/ "
+                f"**Round 2:** https://blarghalyzer.com/parsedlogs/{log_to_parse2[:-4].lower()}/"
+            )
+
+        # Clean up files asynchronously
+        await asyncio.to_thread(os.remove, log_to_parse1)
+        await asyncio.to_thread(os.remove, log_to_parse2)
+
+        return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
+
+async def hltv_file_handler(region, pickup_date, pickup_map):
+    try:
+        async with aioftp.Client.context(
+            logins[region]["server_ip"],
+            user=logins[region]["ftp_username"],
+            password=logins[region]["ftp_password"]
+        ) as ftp_client:
+            await ftp_client.change_directory(f"HLTV{region.upper()}")
+            
+            # Get list of demos
+            hltv_files = await ftp_client.list()
+            # Extract filenames from tuples and sort
+            hltv_files = sorted(hltv_files, key=lambda x: x[0], reverse=True)  # Most recent first
+
+            last_two_big_hltvs = []
+            for hltv_file in hltv_files:
+                file_size = int(hltv_file[1]['size'])
+                if file_size > 11000000 and ".dem" in hltv_file[0].name:
+                    last_two_big_hltvs.append(hltv_file[0])
+                    if len(last_two_big_hltvs) >= 2:
+                        break
+
+            if len(last_two_big_hltvs) < 2:
+                return None
+
+            hltv_to_zip1 = last_two_big_hltvs[1]
+            hltv_to_zip2 = last_two_big_hltvs[0]
+
+            # Download HLTV files asynchronously
+            for hltv_file in [hltv_to_zip1, hltv_to_zip2]:
+                async with aiofiles.open(str(hltv_file), mode='wb') as f:
+                    try:
+                        async with ftp_client.download_stream(hltv_file) as stream:
+                            data = await stream.read()
+                            await f.write(data)
+                    except aioftp.StatusCodeError as e:
+                        if '226' in str(e):  # Transfer complete
+                            logging.info(f"Successfully downloaded {hltv_file}")
+                        else:
+                            raise
+
+            # Create zip file
             formatted_date = pickup_date.replace("/", "")
-            ftp.retrbinary("RETR " + HLTVToZip1, open(HLTVToZip1, "wb").write)
-            ftp.retrbinary("RETR " + HLTVToZip2, open(HLTVToZip2, "wb").write)
-            mode = zipfile.ZIP_DEFLATED
-            output_filename = pickup_map + "-" + formatted_date + ".zip"
-            zip = zipfile.ZipFile(output_filename, "w", mode)
-            zip.write(HLTVToZip1)
-            zip.write(HLTVToZip2)
-            zip.close()
-            os.remove(HLTVToZip1)
-            os.remove(HLTVToZip2)
-        return output_filename
+            output_filename = f"{pickup_map}-{formatted_date}.zip"
+            
+            # Zip files asynchronously
+            await asyncio.to_thread(
+                lambda: zipfile.ZipFile(output_filename, 'w', zipfile.ZIP_DEFLATED).write(str(hltv_to_zip1))
+            )
+            await asyncio.to_thread(
+                lambda: zipfile.ZipFile(output_filename, 'a', zipfile.ZIP_DEFLATED).write(str(hltv_to_zip2))
+            )
+
+            # Clean up files asynchronously
+            await asyncio.to_thread(os.remove, str(hltv_to_zip1))
+            await asyncio.to_thread(os.remove, str(hltv_to_zip2))
+
+            return output_filename
     except Exception as e:
         logging.warning(traceback.format_exc())
-        logging.warning(f"error here. {e}")
+        logging.warning(f"Error in HLTV handling: {e}")
         return None
-
 
 @client.event
 async def on_ready():
@@ -2525,73 +2564,83 @@ async def teams(ctx, playerCount=4):
 async def stats(
     ctx, region=None, match_number=None, winning_score=None, losing_score=None
 ):
-    with open("login.json") as f:
-        logins = json.load(f)
+    async with GLOBAL_LOCK:
+        if not region or region.lower() == "none":
+            await ctx.send("Please specify region..")
+            return
+            
+        region = region.lower()
+        if region not in ("east", "east2", "eu", "central", "west", "southeast"):
+            await ctx.send("Invalid region specified")
+            return
 
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
-    mycursor = db.cursor()
-
-    schannel = await client.fetch_channel(
-        1000847501194174675
-    )  # 1000847501194174675 original channelID
-    region_formatted = region.lower()
-    output_zipfile = None
-    if region_formatted == "none" or region_formatted is None:
-        await ctx.send("please specify region..")
-    elif region_formatted in ("east", "east2", "eu", "central", "west", "southeast"):
         try:
-            ftp = FTP(logins[region_formatted]["server_ip"])
-            ftp.login(
-                user=logins[region_formatted]["ftp_username"],
-                passwd=logins[region_formatted]["ftp_password"],
-            )
-            ftp.cwd("logs")
+            # Get stats channel
+            schannel = await client.fetch_channel(1000847501194174675)
 
-            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = (
-                stat_log_file_handler(ftp, region)
-            )
-            ftp.cwd("..")
-            ftp.cwd(f"HLTV{region.upper()}")
-            output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
+            # Process log files
+            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = await stat_log_file_handler(region)
+            
+            # Process HLTV files
+            output_zipfile = await hltv_file_handler(region, pickup_date, pickup_map)
+
+            # Get MVP steam ID
+            mvp_steam_id = await get_mvp_steam_id(hampalyzer_output)
+
+            # Update database
             current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            mvp_steam_id = get_mvp_steam_id(hampalyzer_output)
+            
+            async with aiomysql.connect(
+                host=logins["mysql"]["host"],
+                user=logins["mysql"]["user"],
+                password=logins["mysql"]["passwd"],
+                db=logins["mysql"]["database"],
+                autocommit=True
+            ) as conn:
+                async with conn.cursor() as cursor:
+                    if hampalyzer_output:
+                        update_query = """
+                            UPDATE matches 
+                            SET winning_score = %s, losing_score = %s, stats_url = %s, mvp = %s, updated_at = %s 
+                            WHERE match_id = %s
+                        """
+                        await cursor.execute(
+                            update_query, 
+                            (winning_score, losing_score, hampalyzer_output, mvp_steam_id, current_timestamp, match_number)
+                        )
 
-            if hampalyzer_output is not None:
-                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, mvp = %s, updated_at = %s WHERE match_id = %s"
-                mycursor.execute(update_query, (winning_score, losing_score, hampalyzer_output, mvp_steam_id, current_timestamp, match_number))
-                if output_zipfile is None:
+            # Send results
+            if output_zipfile:
+                if hampalyzer_output:
                     await schannel.send(
-                        f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
-                    )
-                elif output_zipfile is not None:
-                    await schannel.send(
-                        file=discord.File(output_zipfile),
-                        content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
-                    )
-                    os.remove(output_zipfile)
-            else:
-                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
-                mycursor.execute(update_query, (winning_score, losing_score, blarghalyzer_fallback, current_timestamp, match_number))
-                if output_zipfile is None:
-                    await schannel.send(
-                        f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
-                    )
-                elif output_zipfile is not None:
+                            file=discord.File(output_zipfile),
+                            content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
+                        )
+                elif blarghalyzer_fallback:
                     await schannel.send(
                         file=discord.File(output_zipfile),
                         content=f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
                     )
-                    os.remove(output_zipfile)
+                else:
+                    await ctx.send("Could not generate stats URLs")
+                await asyncio.to_thread(os.remove, output_zipfile)
+            else:
+                if hampalyzer_output:
+                    await schannel.send(
+                        f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                elif blarghalyzer_fallback:
+                    await schannel.send(
+                        f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                else:
+                    await ctx.send("Could not generate stats URLs")
 
-            ftp.close()
-        except ZeroDivisionError:
-            print(traceback.format_exc())
+
+
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            await ctx.send(f"Error processing stats: {str(e)}")
 
 
 @client.command(pass_context=True)

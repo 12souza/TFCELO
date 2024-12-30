@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "5451d2d5c864bbd9dbbc5cac279c67c93edd1044dd8f7c6a99bd69cab52d90d2"
+            "sha256": "13b39401c66b6cbba0bd181caff1b68b9a1ce21b8110e3c1369277ce79932cdd"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -16,6 +16,24 @@
         ]
     },
     "default": {
+        "aiofiles": {
+            "hashes": [
+                "sha256:22a075c9e5a3810f0c2e48f3008c94d68c65d763b9b03857924c99e57355166c",
+                "sha256:b4ec55f4195e3eb5d7abd1bf7e061763e864dd4954231fb8539a0ef8bb8260e5"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.8'",
+            "version": "==24.1.0"
+        },
+        "aioftp": {
+            "hashes": [
+                "sha256:50e3102c48a4fc9057bc6044616ce94bddf837968f945c60669f6292a34290e1",
+                "sha256:74ac7c6ee4855e4db8ffa2c2fb1597789a697817c47ba21a54eb9039f43568af"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.9'",
+            "version": "==0.24.1"
+        },
         "aiohappyeyeballs": {
             "hashes": [
                 "sha256:5fdd7d87889c63183afc18ce9271f9b0a7d32c2303e394468dd45d514a757745",
@@ -106,6 +124,15 @@
             "markers": "python_version >= '3.9'",
             "version": "==3.11.11"
         },
+        "aiomysql": {
+            "hashes": [
+                "sha256:558b9c26d580d08b8c5fd1be23c5231ce3aeff2dadad989540fee740253deb67",
+                "sha256:b7c26da0daf23a5ec5e0b133c03d20657276e4eae9b73e040b72787f6f6ade0a"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.7'",
+            "version": "==0.2.0"
+        },
         "aiosignal": {
             "hashes": [
                 "sha256:45cde58e409a301715980c2b01d0c28bdde3770d8290b5eb2173759d9acb31a5",
@@ -155,6 +182,14 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==1.35.88"
+        },
+        "bs4": {
+            "hashes": [
+                "sha256:a48685c58f50fe127722417bae83fe6badf500d54b55f7e39ffe43b798653925",
+                "sha256:abf8742c0805ef7f662dce4b51cca104cffe52b835238afc169142ab9b3fbccc"
+            ],
+            "index": "pypi",
+            "version": "==0.0.2"
         },
         "certifi": {
             "hashes": [
@@ -1021,6 +1056,14 @@
             ],
             "markers": "python_version >= '3.9'",
             "version": "==0.2.1"
+        },
+        "pymysql": {
+            "hashes": [
+                "sha256:4de15da4c61dc132f4fb9ab763063e693d521a80fd0e87943b9a453dd4c19d6c",
+                "sha256:e127611aaf2b417403c60bf4dc570124aeb4a57f5f37b8e95ae399a42f904cd0"
+            ],
+            "markers": "python_version >= '3.7'",
+            "version": "==1.1.1"
         },
         "pyparsing": {
             "hashes": [

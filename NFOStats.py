@@ -55,15 +55,12 @@ async def on_ready():
             else:
                 if len(activePickups) > 0:
                     reported_match = list(activePickups)[-1]
-                    await pChannel.send(
-                        f"**AUTO-REPORTING** Reporting for game {reported_match}"
-                    )
                     if "Team 1 Wins" in (str(data)):
                         # team 1 wins
                         await pChannel.send("!win 1")
                         # [MATCH RESULT] Team 1 Wins <10> (0)
                         await pChannel.send(
-                            f"**AUTO-REPORTING** Team 1 wins {winningScore} to {losingScore}"
+                            f"**AUTO-REPORTING** Team 1 wins {winningScore} to {losingScore} for game {reported_match}"
                         )
                         await pChannel.send(
                             f"!stats {region.lower()} {reported_match} {winningScore} {losingScore}"
@@ -72,7 +69,7 @@ async def on_ready():
                         await pChannel.send("!win 2")
                         # [MATCH RESULT] Team 2 Wins <10> (0)
                         await pChannel.send(
-                            f"**AUTO-REPORTING** Team 2 wins {winningScore} to {losingScore}"
+                            f"**AUTO-REPORTING** Team 2 wins {winningScore} to {losingScore} for game {reported_match}"
                         )
                         await pChannel.send(
                             f"!stats {region.lower()} {reported_match} {winningScore} {losingScore}"
@@ -80,7 +77,7 @@ async def on_ready():
                     elif "DRAW" in (str(data)):
                         await pChannel.send("!draw")
                         # [MATCH RESULT] DRAW at <0>
-                        await pChannel.send(f"**AUTO-REPORTING** DRAW at {losingScore}")
+                        await pChannel.send(f"**AUTO-REPORTING** DRAW at {losingScore} for game {reported_match}")
                         await pChannel.send(
                             f"!stats {region.lower()} {reported_match} {losingScore}"
                         )
