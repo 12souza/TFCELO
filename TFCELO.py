@@ -1139,6 +1139,9 @@ async def search(ctx, searchkey):
     ctx: Discord context object
     searchkey: string to search for in list of players
     """
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == "tfc-ratings") or (
             LOCAL_DEV_ENABLED and ctx.channel.name == "test-zero"
@@ -1181,6 +1184,9 @@ async def search(ctx, searchkey):
 @client.command(pass_context=True)
 async def private(ctx):
     global ELOpop
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
@@ -1248,6 +1254,9 @@ async def top15(ctx):
 @commands.has_role(v["admin"])
 async def dunce(ctx, player: discord.Member, reason=None):
     global PLAYER_MAP_DUNCE_FLAG_INDEX
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         # Open ELO database
         with open("ELOpop.json") as f:
@@ -1683,6 +1692,9 @@ def TeamPickPopulate():
 
 @client.command(pass_context=True)
 async def testVote(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
@@ -1798,6 +1810,9 @@ async def voteSetup(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def addach(ctx, key, value):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("emotes.json") as f:
             e = json.load(f)
@@ -1812,6 +1827,9 @@ async def addach(ctx, key, value):
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def ach(ctx, player: discord.Member, ach):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
@@ -2114,6 +2132,9 @@ def newRank(ID):
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def avatar(ctx, player: discord.Member, emote):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
@@ -2129,6 +2150,9 @@ async def avatar(ctx, player: discord.Member, emote):
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def adjustELO(ctx, player, ELO):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["ratingsChannel"]:
             with open("ELOpop.json") as f:
@@ -2163,6 +2187,9 @@ async def hello(ctx):
 async def swapteam(
     ctx, player1: discord.Member, player2: discord.Member, number="None"
 ):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             if number == "None":
@@ -2432,6 +2459,9 @@ async def add(ctx, cap=None):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def addplayer(ctx, player: discord.Member):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(player.id)
@@ -2447,6 +2477,9 @@ async def addplayer(ctx, player: discord.Member):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def test7(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             cancelImpl()  # Clear out any existing pickup
@@ -2466,6 +2499,9 @@ async def test7(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def test8(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             cancelImpl()  # Clear out any existing pickup
@@ -2509,6 +2545,9 @@ async def removePlayerImpl(ctx, player_id_list):
 
 @client.command(pass_context=True, aliases=["-"])
 async def remove(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(ctx.author.id)
@@ -2518,6 +2557,9 @@ async def remove(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def kick(ctx, player: discord.Member):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(player.id)
@@ -2528,6 +2570,9 @@ async def kick(ctx, player: discord.Member):
 @commands.has_role(v["runner"])
 async def noELO(ctx):
     global vnoELO
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         logging.info(vnoELO)
         if vnoELO == 0:
@@ -2544,6 +2589,9 @@ async def noELO(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def teams(ctx, playerCount=4):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
@@ -2617,6 +2665,9 @@ async def teams(ctx, playerCount=4):
 async def stats(
     ctx, region=None, match_number=None, winning_score=None, losing_score=None
 ):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if not region or region.lower() == "none":
             await ctx.send("Please specify region..")
@@ -2695,6 +2746,9 @@ async def stats(
 
 @client.command(pass_context=True)
 async def status(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             await showPickup(ctx)
@@ -2702,6 +2756,9 @@ async def status(ctx):
 
 @client.command(aliases=["map"], pass_context=True)
 async def tfcmap(ctx, map_name_string):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         map = map_name_string.lower()
         with urllib.request.urlopen(r"http://mrclan.com/tfcmaps/") as mapIndex:
@@ -2716,6 +2773,9 @@ async def tfcmap(ctx, map_name_string):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def startserver(ctx, region: str):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         boto_region = "us-east-1" if region != 'west' else 'us-west-1'
         boto_client = boto3.client('ec2', region_name=boto_region)
@@ -2739,6 +2799,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
     global playersAdded
     global MAP_VOTE_FIRST
 
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
@@ -3076,7 +3139,10 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 async def draw(ctx, pNumber="None"):
     global ELOpop
     dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
-    
+
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
@@ -3185,6 +3251,9 @@ async def win(ctx, team, pNumber="None"):
     global ELOpop
     dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
     
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ((ctx.channel.name == v["pc"]) or 
             (ctx.channel.name == "tfc-admins") or 
@@ -3317,6 +3386,9 @@ async def tfc(ctx, person: discord.Member):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def undo(ctx, pNumber="None"):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("pastten.json") as f:
             pastTen = json.load(f)
@@ -3406,6 +3478,9 @@ async def undo(ctx, pNumber="None"):
 
 @client.command(pass_context=True)
 async def games(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
@@ -3417,6 +3492,9 @@ async def games(ctx):
 
 @client.command(pass_context=True)
 async def recent(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
@@ -3430,6 +3508,9 @@ async def recent(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def checkgame(ctx, number):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("pastten.json") as f:
             past_ten = json.load(f)
@@ -3476,6 +3557,9 @@ async def checkgame(ctx, number):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def removegame(ctx, number):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("activePickups.json") as f:
             activePickups = json.load(f)
@@ -3512,6 +3596,9 @@ def cancelImpl():
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def cancel(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             cancelImpl()
@@ -3526,6 +3613,9 @@ async def requeue(ctx, show_queue=True):
     global playersAdded
     global inVote
 
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if inVote == 0:
             await ctx.send("ERROR: Tried calling !requeue outside of mapvote!")
@@ -3597,6 +3687,9 @@ async def forceVote(ctx):
     global server_vote_message_view
     global map_vote_message_view
 
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
@@ -3822,6 +3915,10 @@ async def shuffle(ctx, idx=None, game="None"):
     global blueRank
     global redRank
     global tMsg
+    
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             if idx is None:
@@ -3899,6 +3996,9 @@ async def shuffle(ctx, idx=None, game="None"):
 @client.command(pass_context=True)
 @commands.cooldown(1, 30, commands.BucketType.channel)
 async def notice(ctx, anumber=8):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global playersAdded
@@ -3914,6 +4014,9 @@ async def vote(ctx):
     """
     Nagging message to get people to vote who haven't picked their server or map choice yet
     """
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"] or ctx.channel.id == DEV_TESTING_CHANNEL:
             global players_abstained_discord_id
@@ -3934,6 +4037,9 @@ async def slap(ctx, player: discord.Member):
 
 @client.event
 async def on_reaction_add(reaction, user):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if not user.bot:
             global vMsg
