@@ -98,7 +98,7 @@ with open(filename) as f:
 # =========== DEFINE GLOBALS ==========
 # =====================================
 
-GLOBAL_LOCK = asyncio.Lock()
+GLOBAL_LOCK = None
 
 # ELOpop scheme
 # ELOpop contains at the root a map of player ID (i.e. str(ctx.author.id)) to a list of variables metadata slots
@@ -243,6 +243,10 @@ async def get_db_pool():
         autocommit=True
     )
 
+
+async def setup_global_lock():
+    global GLOBAL_LOCK
+    GLOBAL_LOCK = asyncio.Lock()
 
 async def generate_teams(playerCount):
     global playersAdded
@@ -1121,7 +1125,8 @@ async def on_ready():
     await load_extensions()
     # Remake the global lock to try to get it compatible with the bot's event loop
     # TODO: I don't fully understand why or if this helps exactly.
-    GLOBAL_LOCK = asyncio.Lock()
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
 
 
 @client.command(pass_context=True)
@@ -2396,6 +2401,10 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
 async def add(ctx, cap=None):
     global last_add_timestamp
     global last_add_context
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
+
     async with GLOBAL_LOCK:
         try:
             if ctx.channel.name == v["pc"] or (ctx.channel.id == DEV_TESTING_CHANNEL):
@@ -3823,91 +3832,68 @@ async def shuffle(ctx, idx=None, game="None"):
                 ELOpop = json.load(f)
 
             if game == "None":
+                game = list(activePickups)[-1]
+            
+            rankedOrder = []
+            nblueTeam = activePickups[game][2]
+            nredTeam = activePickups[game][5]
+            neligiblePlayers = []
+            for i in nblueTeam:
+                neligiblePlayers.append(i)
+            for i in nredTeam:
+                neligiblePlayers.append(i)
+
+            combos = list(
+                itertools.combinations(
+                    neligiblePlayers, int(len(neligiblePlayers) / 2)
+                )
+            )
+            random.shuffle(combos)
+            blueTeam = []
+            redTeam = []
+            rankedOrder = []
+            redRank = 0
+            blueRank = 0
+            totalRank = 0
+            half = 0
+            for j in neligiblePlayers:
+                totalRank += int(ELOpop[j][1])
+            half = int(totalRank / 2)
+            for i in list(combos):
                 blueRank = 0
-                redRank = 0
-                blueTeam = []
-                redTeam = []
-                logging.info(rankedOrder)
-                blueTeam = list(rankedOrder[int(idx)][0])
-                for j in eligiblePlayers:
-                    if j not in blueTeam:
-                        redTeam.append(j)
-                for j in blueTeam:
+                for j in i:
                     blueRank += int(ELOpop[j][1])
-                for j in redTeam:
-                    redRank += int(ELOpop[j][1])
+                rankedOrder.append((i, abs(blueRank - half)))
+            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
 
-                team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-                team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
-                red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
-                logging.info(blue_team_info_string)
-                logging.info(red_team_info_string)
+            blueTeam = list(rankedOrder[int(idx)][0])
+            for j in neligiblePlayers:
+                if j not in blueTeam:
+                    redTeam.append(j)
+            blueRank = 0
+            for j in blueTeam:
+                blueRank += int(ELOpop[j][1])
+            for j in redTeam:
+                redRank += int(ELOpop[j][1])
+            team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
+            team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
+            blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+            red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
+            logging.info(blue_team_info_string)
+            logging.info(red_team_info_string)
 
-                await ctx.send(
-                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
-                )
-            else:
-                rankedOrder = []
-                nblueTeam = activePickups[game][2]
-                nredTeam = activePickups[game][5]
-                neligiblePlayers = []
-                for i in nblueTeam:
-                    neligiblePlayers.append(i)
-                for i in nredTeam:
-                    neligiblePlayers.append(i)
+            await ctx.send(
+                embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+            )
+            activePickups[game][0] = team1prob
+            activePickups[game][1] = blueRank
+            activePickups[game][2] = blueTeam
+            activePickups[game][3] = team2prob
+            activePickups[game][4] = redRank
+            activePickups[game][5] = redTeam
 
-                combos = list(
-                    itertools.combinations(
-                        neligiblePlayers, int(len(neligiblePlayers) / 2)
-                    )
-                )
-                random.shuffle(combos)
-                blueTeam = []
-                redTeam = []
-                rankedOrder = []
-                redRank = 0
-                blueRank = 0
-                totalRank = 0
-                half = 0
-                for j in neligiblePlayers:
-                    totalRank += int(ELOpop[j][1])
-                half = int(totalRank / 2)
-                for i in list(combos):
-                    blueRank = 0
-                    for j in i:
-                        blueRank += int(ELOpop[j][1])
-                    rankedOrder.append((i, abs(blueRank - half)))
-                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-
-                blueTeam = list(rankedOrder[int(idx)][0])
-                for j in neligiblePlayers:
-                    if j not in blueTeam:
-                        redTeam.append(j)
-                blueRank = 0
-                for j in blueTeam:
-                    blueRank += int(ELOpop[j][1])
-                for j in redTeam:
-                    redRank += int(ELOpop[j][1])
-                team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-                team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
-                red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
-                logging.info(blue_team_info_string)
-                logging.info(red_team_info_string)
-
-                await ctx.send(
-                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
-                )
-                activePickups[game][0] = team1prob
-                activePickups[game][1] = blueRank
-                activePickups[game][2] = blueTeam
-                activePickups[game][3] = team2prob
-                activePickups[game][4] = redRank
-                activePickups[game][5] = redTeam
-
-                with open("activePickups.json", "w") as cd:
-                    json.dump(activePickups, cd, indent=4)
+            with open("activePickups.json", "w") as cd:
+                json.dump(activePickups, cd, indent=4)
 
 
 @client.command(pass_context=True)
