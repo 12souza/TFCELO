@@ -3129,6 +3129,19 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
+                async with await get_db_pool() as pool:
+                    async with pool.acquire() as conn:
+                        async with conn.cursor() as cursor:
+                            try:
+                                current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                                blueTeamString = ','.join(blueTeam)
+                                redTeamString = ','.join(redTeam)
+                                await cursor.execute(
+                                    "UPDATE matches SET blue_probability = %s, blue_team = %s, blue_rank = %s, red_probability = %s, red_team = %s, red_rank = %s, updated_at = %s WHERE match_id = %s",
+                                    (team1prob, blueTeamString, blueRank, team2prob, redTeamString, redRank, current_timestamp, number)
+                                )
+                            except Exception as e:
+                                await dev_channel.send(f"SQL QUERY ERROR: {e}")
                 await ctx.send(
                     embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
                 )
@@ -3920,6 +3933,7 @@ async def shuffle(ctx, idx=None, game="None"):
     if GLOBAL_LOCK is None:
         await setup_global_lock()
     async with GLOBAL_LOCK:
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             if idx is None:
                 idx = random.randint(1, 11)
@@ -3991,6 +4005,19 @@ async def shuffle(ctx, idx=None, game="None"):
 
             with open("activePickups.json", "w") as cd:
                 json.dump(activePickups, cd, indent=4)
+            async with await get_db_pool() as pool:
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cursor:
+                        try:
+                            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                            blueTeamString = ','.join(blueTeam)
+                            redTeamString = ','.join(redTeam)
+                            await cursor.execute(
+                                "UPDATE matches SET blue_probability = %s, blue_team = %s, blue_rank = %s, red_probability = %s, red_team = %s, red_rank = %s, updated_at = %s WHERE match_id = %s",
+                                (team1prob, blueTeamString, blueRank, team2prob, redTeamString, redRank, current_timestamp, game)
+                            )
+                        except Exception as e:
+                            await dev_channel.send(f"SQL QUERY ERROR: {e}")
 
 
 @client.command(pass_context=True)
