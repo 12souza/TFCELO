@@ -24,6 +24,11 @@ from datetime import timezone
 from pathlib import Path
 import boto3
 from discord.ext.commands import Context
+import aiohttp
+from bs4 import BeautifulSoup
+import aioftp
+import aiofiles
+import aiomysql
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -93,7 +98,7 @@ with open(filename) as f:
 # =========== DEFINE GLOBALS ==========
 # =====================================
 
-GLOBAL_LOCK = asyncio.Lock()
+GLOBAL_LOCK = None
 
 # ELOpop scheme
 # ELOpop contains at the root a map of player ID (i.e. str(ctx.author.id)) to a list of variables metadata slots
@@ -188,6 +193,60 @@ for playerIDKey, playerValues in ELOpop.items():
 with open("ELOpop.json", "w") as cd:
     json.dump(ELOpop, cd, indent=4)
 
+
+async def get_mvp_steam_id(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            html = await response.text()
+    
+    soup = BeautifulSoup(html, 'html.parser')
+    
+    # Find the MVP by looking for the span with class="mvp"
+    mvp_span = soup.find('span', class_='mvp')
+    if not mvp_span:
+        return None
+        
+    # Get the parent td element that contains both the MVP span and the player link
+    player_td = mvp_span.find_parent('td', class_='player-name')
+    if not player_td:
+        return None
+        
+    # Find the player link within this td
+    player_link = player_td.find('a')
+    if not player_link:
+        return None
+    
+    # Get the MVP's player ID
+    player_id = player_link.get('href').replace('p', '').replace('.html', '')
+    
+    # Find all catacombs tracker links
+    catacombs_links = soup.find_all('a', href=lambda href: href and 'steamid=' in href)
+    
+    # Find the catacombs link that matches our player ID
+    for link in catacombs_links:
+        if player_id in link['href']:
+            # Extract Steam ID from the URL
+            match = re.search(r'steamid=(\d:\d:\d+)', link['href'])
+            if match:
+                steam_id = "STEAM_" + match.group(1)
+                return steam_id
+    
+    return None
+
+
+async def get_db_pool():
+    return await aiomysql.create_pool(
+        host=logins["mysql"]["host"],
+        user=logins["mysql"]["user"],
+        password=logins["mysql"]["passwd"],
+        db=logins["mysql"]["database"],
+        autocommit=True
+    )
+
+
+async def setup_global_lock():
+    global GLOBAL_LOCK
+    GLOBAL_LOCK = asyncio.Lock()
 
 async def generate_teams(playerCount):
     global playersAdded
@@ -897,133 +956,167 @@ def find(haystack, needle, n):
     return start
 
 
-def stat_log_file_handler(ftp, region):
-    # Note: We are taking a dependency on newer logs having a higher ascending name
-    logListNameAsc = ftp.nlst()  # Get list of logs sorted in ascending order by name.
-    logListNameDesc = reversed(
-        logListNameAsc
-    )  # We want to evaluate most recent first for efficiency, so reverse it
-
-    lastTwoBigLogList = []
-    for logFile in logListNameDesc:
-        size = ftp.size(logFile)
-        # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
-        # if we find any edge cases.
-        if (size > 100000) and (
-            ".log" in logFile
-        ):  # Rounds with logs of players and time will be big
-            lastTwoBigLogList.append(logFile)
-            if len(lastTwoBigLogList) >= 2:
-                break
-
-    logToParse1 = lastTwoBigLogList[1]
-    logToParse2 = lastTwoBigLogList[0]
-
-    try:
-        ftp.retrbinary("RETR " + logToParse1, open(logToParse1, "wb").write)
-        ftp.retrbinary("RETR " + logToParse2, open(logToParse2, "wb").write)
-    except Exception:
-        logging.warning(f"Issue Downloading logfiles from FTP - {Exception}")
-
-    os.rename(logToParse1, f"{logToParse1[0:-4]}-coach{region}.log")
-    os.rename(logToParse2, f"{logToParse2[0:-4]}-coach{region}.log")
-
-    logToParse1 = f"{logToParse1[0:-4]}-coach{region}.log"
-    logToParse2 = f"{logToParse2[0:-4]}-coach{region}.log"
-    f = open(logToParse1)
-    pickup_date = None
-    pickup_map = None
-    for line in f:
-        if "Loading map" in line:
-            mapstart = line.find('map "') + 5
-            mapend = line.find('"', mapstart)
-            datestart = line.find("L ") + 2
-            dateend = line.find("-", datestart)
-            pickup_date = line[datestart:dateend]
-            pickup_map = line[mapstart:mapend]
-    blarghalyzer_fallback = None
-    hampalyzer_output = None
-    newCMD = (
-        "curl -X POST -F force=on -F logs[]=@"
-        + logToParse1
-        + " -F logs[]=@"
-        + logToParse2
-        + " http://app.hampalyzer.com/api/parseGame"
-    )
-    output3 = os.popen(newCMD).read()
-    if "nginx" not in output3 or output3 is None:
-        hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
-    else:
-        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse1 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        newCMD = (
-            'curl -v -m 5 -F "process=true" -F "inptImage=@'
-            + logToParse1
-            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        )
-        os.popen(newCMD).read()
-        # newCMD = 'curl --connection-timeout 10 -v -F "process=true" -F "inptImage=@' + logToParse2 + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        newCMD = (
-            'curl -v -m 5 -F "process=true" -F "inptImage=@'
-            + logToParse2
-            + '" -F "language=en" -F "blarghalyze=Blarghalyze!" http://blarghalyzer.com/Blarghalyzer.php'
-        )
-        os.popen(newCMD).read()
-        blarghalyzer_fallback = (
-            "**Round 1:** https://blarghalyzer.com/parsedlogs/"
-            + logToParse1[:-4].lower()
-            + "/ **Round 2:** https://blarghalyzer.com/parsedlogs/"
-            + logToParse2[:-4].lower()
-            + "/"
-        )
-
-    os.remove(logToParse1)
-    os.remove(logToParse2)
-    return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
-
-
-def hltv_file_handler(ftp, pickup_date, pickup_map):
-    try:
-        output_filename = None
-        # getting lists
-        HLTVListNameAsc = (
-            ftp.nlst()
-        )  # Get list of demos sorted in ascending order by name.
-        HLTVListNameDesc = list(reversed(HLTVListNameAsc))
-        lastTwoBigHLTVList = []
-        for HLTVFile in HLTVListNameDesc:
-            size = ftp.size(HLTVFile)
-            # Do a simple heuristic check to see if this is a "real" round.  TODO: maybe use a smarter heuristic
-            # if we find any edge cases.
-            if (size > 11000000) and (
-                ".dem" in HLTVFile
-            ):  # Rounds with logs of players and time will be big
-                print("passed heuristic!")
-                lastTwoBigHLTVList.append(HLTVFile)
-                if len(lastTwoBigHLTVList) >= 2:
+async def stat_log_file_handler(region):
+    async with aioftp.Client.context(
+        logins[region]["server_ip"],
+        user=logins[region]["ftp_username"],
+        password=logins[region]["ftp_password"]
+    ) as ftp_client:
+        await ftp_client.change_directory("logs")
+        
+        # Get list of logs and sort them
+        log_files = await ftp_client.list()
+        # Extract filenames from tuples and sort
+        log_files = sorted(log_files, key=lambda x: x[0], reverse=True)  # Most recent first
+        
+        last_two_big_logs = []
+        for log_file in log_files:
+            file_size = int(log_file[1]['size'])  # Access size from the dictionary
+            if file_size > 100000 and ".log" in log_file[0].name:
+                last_two_big_logs.append(log_file[0])
+                if len(last_two_big_logs) >= 2:
                     break
 
-        if len(lastTwoBigHLTVList) >= 2:
-            HLTVToZip1 = lastTwoBigHLTVList[1]
-            HLTVToZip2 = lastTwoBigHLTVList[0]
+        if len(last_two_big_logs) < 2:
+            raise Exception("Could not find enough log files")
 
-            # zip file stuff.. get rid of slashes so we dont error.
+        log_to_parse1 = last_two_big_logs[1]
+        log_to_parse2 = last_two_big_logs[0]
+
+        # Download logs asynchronously
+        for log_file in [log_to_parse1, log_to_parse2]:
+            async with aiofiles.open(str(log_file), mode='wb') as f:
+                try:
+                    async with ftp_client.download_stream(log_file) as stream:
+                        data = await stream.read()
+                        await f.write(data)
+                except aioftp.StatusCodeError as e:
+                    if '226' in str(e):  # Transfer complete
+                        logging.info(f"Successfully downloaded {log_file}")
+                    else:
+                        raise
+
+        # Rename files
+        await asyncio.to_thread(os.rename, str(log_to_parse1), f"{str(log_to_parse1)[0:-4]}-coach{region}.log")
+        await asyncio.to_thread(os.rename, str(log_to_parse2), f"{str(log_to_parse2)[0:-4]}-coach{region}.log")
+
+        log_to_parse1 = f"{str(log_to_parse1)[0:-4]}-coach{region}.log"
+        log_to_parse2 = f"{str(log_to_parse2)[0:-4]}-coach{region}.log"
+
+        # Read log file asynchronously
+        pickup_date = None
+        pickup_map = None
+        async with aiofiles.open(log_to_parse1, mode='r') as f:
+            async for line in f:
+                if "Loading map" in line:
+                    mapstart = line.find('map "') + 5
+                    mapend = line.find('"', mapstart)
+                    datestart = line.find("L ") + 2
+                    dateend = line.find("-", datestart)
+                    pickup_date = line[datestart:dateend]
+                    pickup_map = line[mapstart:mapend]
+                    break
+
+        # Make HTTP requests asynchronously
+        async with aiohttp.ClientSession() as session:
+            data = aiohttp.FormData()
+            data.add_field('force', 'on')
+            data.add_field('logs[]', open(log_to_parse1, 'rb'))
+            data.add_field('logs[]', open(log_to_parse2, 'rb'))
+            
+            async with session.post('http://app.hampalyzer.com/api/parseGame', data=data) as response:
+                output3 = await response.text()
+
+        hampalyzer_output = None
+        blarghalyzer_fallback = None
+        if "nginx" not in output3 and output3:
+            hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
+        else:
+            # Fallback to blarghalyzer
+            async with aiohttp.ClientSession() as session:
+                for log_file in [log_to_parse1, log_to_parse2]:
+                    data = aiohttp.FormData()
+                    data.add_field('process', 'true')
+                    data.add_field('inptImage', open(log_file, 'rb'))
+                    data.add_field('language', 'en')
+                    data.add_field('blarghalyze', 'Blarghalyze!')
+                    
+                    async with session.post('http://blarghalyzer.com/Blarghalyzer.php', data=data) as response:
+                        await response.text()
+
+            blarghalyzer_fallback = (
+                f"**Round 1:** https://blarghalyzer.com/parsedlogs/{log_to_parse1[:-4].lower()}/ "
+                f"**Round 2:** https://blarghalyzer.com/parsedlogs/{log_to_parse2[:-4].lower()}/"
+            )
+
+        # Clean up files asynchronously
+        await asyncio.to_thread(os.remove, log_to_parse1)
+        await asyncio.to_thread(os.remove, log_to_parse2)
+
+        return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
+
+async def hltv_file_handler(region, pickup_date, pickup_map):
+    try:
+        async with aioftp.Client.context(
+            logins[region]["server_ip"],
+            user=logins[region]["ftp_username"],
+            password=logins[region]["ftp_password"]
+        ) as ftp_client:
+            await ftp_client.change_directory(f"HLTV{region.upper()}")
+            
+            # Get list of demos
+            hltv_files = await ftp_client.list()
+            # Extract filenames from tuples and sort
+            hltv_files = sorted(hltv_files, key=lambda x: x[0], reverse=True)  # Most recent first
+
+            last_two_big_hltvs = []
+            for hltv_file in hltv_files:
+                file_size = int(hltv_file[1]['size'])
+                if file_size > 11000000 and ".dem" in hltv_file[0].name:
+                    last_two_big_hltvs.append(hltv_file[0])
+                    if len(last_two_big_hltvs) >= 2:
+                        break
+
+            if len(last_two_big_hltvs) < 2:
+                return None
+
+            hltv_to_zip1 = last_two_big_hltvs[1]
+            hltv_to_zip2 = last_two_big_hltvs[0]
+
+            # Download HLTV files asynchronously
+            for hltv_file in [hltv_to_zip1, hltv_to_zip2]:
+                async with aiofiles.open(str(hltv_file), mode='wb') as f:
+                    try:
+                        async with ftp_client.download_stream(hltv_file) as stream:
+                            data = await stream.read()
+                            await f.write(data)
+                    except aioftp.StatusCodeError as e:
+                        if '226' in str(e):  # Transfer complete
+                            logging.info(f"Successfully downloaded {hltv_file}")
+                        else:
+                            raise
+
+            # Create zip file
             formatted_date = pickup_date.replace("/", "")
-            ftp.retrbinary("RETR " + HLTVToZip1, open(HLTVToZip1, "wb").write)
-            ftp.retrbinary("RETR " + HLTVToZip2, open(HLTVToZip2, "wb").write)
-            mode = zipfile.ZIP_DEFLATED
-            output_filename = pickup_map + "-" + formatted_date + ".zip"
-            zip = zipfile.ZipFile(output_filename, "w", mode)
-            zip.write(HLTVToZip1)
-            zip.write(HLTVToZip2)
-            zip.close()
-            os.remove(HLTVToZip1)
-            os.remove(HLTVToZip2)
-        return output_filename
+            output_filename = f"{pickup_map}-{formatted_date}.zip"
+            
+            # Zip files asynchronously
+            await asyncio.to_thread(
+                lambda: zipfile.ZipFile(output_filename, 'w', zipfile.ZIP_DEFLATED).write(str(hltv_to_zip1))
+            )
+            await asyncio.to_thread(
+                lambda: zipfile.ZipFile(output_filename, 'a', zipfile.ZIP_DEFLATED).write(str(hltv_to_zip2))
+            )
+
+            # Clean up files asynchronously
+            await asyncio.to_thread(os.remove, str(hltv_to_zip1))
+            await asyncio.to_thread(os.remove, str(hltv_to_zip2))
+
+            return output_filename
     except Exception as e:
         logging.warning(traceback.format_exc())
-        logging.warning(f"error here. {e}")
+        logging.warning(f"Error in HLTV handling: {e}")
         return None
-
 
 @client.event
 async def on_ready():
@@ -1032,7 +1125,8 @@ async def on_ready():
     await load_extensions()
     # Remake the global lock to try to get it compatible with the bot's event loop
     # TODO: I don't fully understand why or if this helps exactly.
-    GLOBAL_LOCK = asyncio.Lock()
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
 
 
 @client.command(pass_context=True)
@@ -1045,6 +1139,9 @@ async def search(ctx, searchkey):
     ctx: Discord context object
     searchkey: string to search for in list of players
     """
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == "tfc-ratings") or (
             LOCAL_DEV_ENABLED and ctx.channel.name == "test-zero"
@@ -1087,6 +1184,9 @@ async def search(ctx, searchkey):
 @client.command(pass_context=True)
 async def private(ctx):
     global ELOpop
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
@@ -1137,7 +1237,7 @@ async def load_player_database(ctx):
         cursor.execute(sql, list(current_game.values()))"""
 
 
-@client.command(pass_context=True)
+@client.command(pass_context=True, aliases=["leaderboard"])
 async def top15(ctx):
     """ "
     Show the list of top, non-private players in the discord
@@ -1145,61 +1245,7 @@ async def top15(ctx):
     Example usage: "!top15"
     ctx: Discord context object
     """
-    global ELOpop
-    async with GLOBAL_LOCK:
-        with open("ELOpop.json") as f:
-            ELOpop = json.load(f)
-
-        db = mysql.connector.connect(
-            host=logins["mysql"]["host"],
-            user=logins["mysql"]["user"],
-            passwd=logins["mysql"]["passwd"],
-            database=logins["mysql"]["database"],
-            autocommit=True,
-        )
-        mycursor = db.cursor()
-
-        try:
-            mycursor.execute(
-                """
-                    with elo_row_numbered as (
-                        select player_name, discord_id, player_elos, row_number() over (partition by player_name order by entryID desc) as row_num from player_elo
-                    ),
-                    filtered_players as (
-                      select distinct discord_id from player_elo where created_at >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 45 DAY) and match_id != 0
-                    )
-
-                    select player_name, discord_id, player_elos from elo_row_numbered where row_num = 1
-                    and discord_id in (select discord_id from filtered_players)
-                    order by player_elos desc;
-"""
-            )
-            top_15 = []
-
-            for row in mycursor:
-                logging.info(row)
-                discord_id = str(row[1])
-                if ELOpop[discord_id][PLAYER_MAP_VISUAL_RANK_INDEX] and (
-                    (
-                        ELOpop[discord_id][PLAYER_MAP_WIN_INDEX]
-                        + ELOpop[discord_id][PLAYER_MAP_LOSS_INDEX]
-                        + ELOpop[discord_id][PLAYER_MAP_DRAW_INDEX]
-                    )
-                    > 10
-                ):
-                    top_15.append(
-                        ELOpop[discord_id][PLAYER_MAP_VISUAL_NAME_INDEX] + "\n"
-                    )
-                if len(top_15) == 15:
-                    break
-
-            message_formatted = "".join(top_15)
-            embed = discord.Embed(title="Top 15 Players")
-            embed.add_field(name="Player List", value=message_formatted, inline=True)
-            await ctx.send(embed=embed)
-        except Exception as e:
-            logging.error(e)
-            await ctx.send(e)
+    await ctx.send("https://tfpugs.online/leaderboard")
 
 
 # Toggle the "dunce" on a player (for being naughty) at admin discretion
@@ -1208,6 +1254,9 @@ async def top15(ctx):
 @commands.has_role(v["admin"])
 async def dunce(ctx, player: discord.Member, reason=None):
     global PLAYER_MAP_DUNCE_FLAG_INDEX
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         # Open ELO database
         with open("ELOpop.json") as f:
@@ -1643,6 +1692,9 @@ def TeamPickPopulate():
 
 @client.command(pass_context=True)
 async def testVote(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
@@ -1758,6 +1810,9 @@ async def voteSetup(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def addach(ctx, key, value):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("emotes.json") as f:
             e = json.load(f)
@@ -1772,6 +1827,9 @@ async def addach(ctx, key, value):
 @client.command(pass_context=True)
 @commands.has_role(v["admin"])
 async def ach(ctx, player: discord.Member, ach):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
@@ -1789,6 +1847,40 @@ async def ach(ctx, player: discord.Member, ach):
         await channel.send(
             f"Congratulations {player.display_name} for completing the {e[ach]} achievement!"
         )
+
+
+@client.command(pass_context=True)
+@commands.has_role(v["admin"])
+async def sync_players(ctx):
+    with open("ELOpop.json") as f:
+        ELOpop = json.load(f)
+    
+    db = mysql.connector.connect(
+        host=logins["mysql"]["host"],
+        user=logins["mysql"]["user"],
+        passwd=logins["mysql"]["passwd"],
+        database=logins["mysql"]["database"],
+        autocommit=True,
+    )
+
+    columns = "id, discord_id, created_at, updated_at, deleted_at, player_name, current_elo, visual_rank_override, pug_wins, pug_losses, pug_draws, dm_wins, dm_losses, achievements, dunce, steam_id"
+    placeholders = ", ".join(["%s"] * 16)
+
+    players = []
+
+    for index, player in enumerate(ELOpop):
+        row = (index+1,player,'2024-11-11 20:00:00','2024-11-11 20:00:00',None,ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX],ELOpop[player][PLAYER_MAP_CURRENT_ELO_INDEX],ELOpop[player][PLAYER_MAP_VISUAL_RANK_INDEX],ELOpop[player][PLAYER_MAP_WIN_INDEX],ELOpop[player][PLAYER_MAP_LOSS_INDEX],ELOpop[player][PLAYER_MAP_DRAW_INDEX],0,0,';'.join(ELOpop[player][PLAYER_MAP_ACHIEVEMENT_INDEX]),None,None)
+        players.append(row)
+
+    sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
+        "players",
+        columns,
+        placeholders,
+    )
+
+    cursor = db.cursor()
+    cursor.execute("TRUNCATE TABLE players")
+    cursor.executemany(sql, players)
 
 
 # Utility function for showing the pickup
@@ -2040,6 +2132,9 @@ def newRank(ID):
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def avatar(ctx, player: discord.Member, emote):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("ELOpop.json") as f:
             ELOpop = json.load(f)
@@ -2055,6 +2150,9 @@ async def avatar(ctx, player: discord.Member, emote):
 @client.command(pass_context=True)
 @commands.has_role(v["rater"])
 async def adjustELO(ctx, player, ELO):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["ratingsChannel"]:
             with open("ELOpop.json") as f:
@@ -2089,6 +2187,9 @@ async def hello(ctx):
 async def swapteam(
     ctx, player1: discord.Member, player2: discord.Member, number="None"
 ):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             if number == "None":
@@ -2327,6 +2428,10 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
 async def add(ctx, cap=None):
     global last_add_timestamp
     global last_add_context
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
+
     async with GLOBAL_LOCK:
         try:
             if ctx.channel.name == v["pc"] or (ctx.channel.id == DEV_TESTING_CHANNEL):
@@ -2354,6 +2459,9 @@ async def add(ctx, cap=None):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def addplayer(ctx, player: discord.Member):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(player.id)
@@ -2369,6 +2477,9 @@ async def addplayer(ctx, player: discord.Member):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def test7(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             cancelImpl()  # Clear out any existing pickup
@@ -2388,6 +2499,9 @@ async def test7(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def test8(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             cancelImpl()  # Clear out any existing pickup
@@ -2431,6 +2545,9 @@ async def removePlayerImpl(ctx, player_id_list):
 
 @client.command(pass_context=True, aliases=["-"])
 async def remove(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(ctx.author.id)
@@ -2440,6 +2557,9 @@ async def remove(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def kick(ctx, player: discord.Member):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             playerID = str(player.id)
@@ -2450,6 +2570,9 @@ async def kick(ctx, player: discord.Member):
 @commands.has_role(v["runner"])
 async def noELO(ctx):
     global vnoELO
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         logging.info(vnoELO)
         if vnoELO == 0:
@@ -2466,6 +2589,9 @@ async def noELO(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def teams(ctx, playerCount=4):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
@@ -2539,76 +2665,90 @@ async def teams(ctx, playerCount=4):
 async def stats(
     ctx, region=None, match_number=None, winning_score=None, losing_score=None
 ):
-    with open("login.json") as f:
-        logins = json.load(f)
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
+    async with GLOBAL_LOCK:
+        if not region or region.lower() == "none":
+            await ctx.send("Please specify region..")
+            return
+            
+        region = region.lower()
+        if region not in ("east", "east2", "eu", "central", "west", "southeast"):
+            await ctx.send("Invalid region specified")
+            return
 
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
-    mycursor = db.cursor()
-
-    schannel = await client.fetch_channel(
-        1000847501194174675
-    )  # 1000847501194174675 original channelID
-    region_formatted = region.lower()
-    output_zipfile = None
-    if region_formatted == "none" or region_formatted is None:
-        await ctx.send("please specify region..")
-    elif region_formatted in ("east", "east2", "eu", "central", "west", "southeast"):
         try:
-            ftp = FTP(logins[region_formatted]["server_ip"])
-            ftp.login(
-                user=logins[region_formatted]["ftp_username"],
-                passwd=logins[region_formatted]["ftp_password"],
-            )
-            ftp.cwd("logs")
+            # Get stats channel
+            schannel = await client.fetch_channel(1000847501194174675)
 
-            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = (
-                stat_log_file_handler(ftp, region)
-            )
-            ftp.cwd("..")
-            ftp.cwd(f"HLTV{region.upper()}")
-            output_zipfile = hltv_file_handler(ftp, pickup_date, pickup_map)
+            # Process log files
+            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = await stat_log_file_handler(region)
+            
+            # Process HLTV files
+            output_zipfile = await hltv_file_handler(region, pickup_date, pickup_map)
+
+            # Get MVP steam ID
+            mvp_steam_id = await get_mvp_steam_id(hampalyzer_output)
+
+            # Update database
             current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            
+            async with aiomysql.connect(
+                host=logins["mysql"]["host"],
+                user=logins["mysql"]["user"],
+                password=logins["mysql"]["passwd"],
+                db=logins["mysql"]["database"],
+                autocommit=True
+            ) as conn:
+                async with conn.cursor() as cursor:
+                    if hampalyzer_output:
+                        update_query = """
+                            UPDATE matches 
+                            SET winning_score = %s, losing_score = %s, stats_url = %s, mvp = %s, updated_at = %s 
+                            WHERE match_id = %s
+                        """
+                        await cursor.execute(
+                            update_query, 
+                            (winning_score, losing_score, hampalyzer_output, mvp_steam_id, current_timestamp, match_number)
+                        )
 
-            if hampalyzer_output is not None:
-                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
-                mycursor.execute(update_query, (winning_score, losing_score, hampalyzer_output, current_timestamp, match_number))
-                if output_zipfile is None:
+            # Send results
+            if output_zipfile:
+                if hampalyzer_output:
                     await schannel.send(
-                        f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
-                    )
-                elif output_zipfile is not None:
-                    await schannel.send(
-                        file=discord.File(output_zipfile),
-                        content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
-                    )
-                    os.remove(output_zipfile)
-            else:
-                update_query = "UPDATE matches SET winning_score = %s, losing_score = %s, stats_url = %s, updated_at = %s WHERE match_id = %s"
-                mycursor.execute(update_query, (winning_score, losing_score, blarghalyzer_fallback, current_timestamp, match_number))
-                if output_zipfile is None:
-                    await schannel.send(
-                        f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
-                    )
-                elif output_zipfile is not None:
+                            file=discord.File(output_zipfile),
+                            content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
+                        )
+                elif blarghalyzer_fallback:
                     await schannel.send(
                         file=discord.File(output_zipfile),
                         content=f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
                     )
-                    os.remove(output_zipfile)
-
-            ftp.close()
-        except ZeroDivisionError:
-            print(traceback.format_exc())
+                else:
+                    await ctx.send("Could not generate stats URLs")
+                await asyncio.to_thread(os.remove, output_zipfile)
+            else:
+                if hampalyzer_output:
+                    await schannel.send(
+                        f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                elif blarghalyzer_fallback:
+                    await schannel.send(
+                        f"**Blarghalyzer:** {blarghalyzer_fallback} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                    )
+                else:
+                    await ctx.send("Could not generate stats URLs")
+        except Exception as e:
+            logging.error(traceback.format_exc())
+            await ctx.send(f"Error processing stats: {str(e)}")
 
 
 @client.command(pass_context=True)
 async def status(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             await showPickup(ctx)
@@ -2616,6 +2756,9 @@ async def status(ctx):
 
 @client.command(aliases=["map"], pass_context=True)
 async def tfcmap(ctx, map_name_string):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         map = map_name_string.lower()
         with urllib.request.urlopen(r"http://mrclan.com/tfcmaps/") as mapIndex:
@@ -2630,6 +2773,9 @@ async def tfcmap(ctx, map_name_string):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def startserver(ctx, region: str):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         boto_region = "us-east-1" if region != 'west' else 'us-west-1'
         boto_client = boto3.client('ec2', region_name=boto_region)
@@ -2653,6 +2799,9 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
     global playersAdded
     global MAP_VOTE_FIRST
 
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
@@ -2980,6 +3129,19 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 
                 with open("activePickups.json", "w") as cd:
                     json.dump(activePickups, cd, indent=4)
+                async with await get_db_pool() as pool:
+                    async with pool.acquire() as conn:
+                        async with conn.cursor() as cursor:
+                            try:
+                                current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                                blueTeamString = ','.join(blueTeam)
+                                redTeamString = ','.join(redTeam)
+                                await cursor.execute(
+                                    "UPDATE matches SET blue_probability = %s, blue_team = %s, blue_rank = %s, red_probability = %s, red_team = %s, red_rank = %s, updated_at = %s WHERE match_id = %s",
+                                    (team1prob, blueTeamString, blueRank, team2prob, redTeamString, redRank, current_timestamp, number)
+                                )
+                            except Exception as e:
+                                await dev_channel.send(f"SQL QUERY ERROR: {e}")
                 await ctx.send(
                     embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
                 )
@@ -2990,15 +3152,10 @@ async def sub(ctx, playerone: discord.Member, playertwo: discord.Member, number=
 async def draw(ctx, pNumber="None"):
     global ELOpop
     dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
 
-    mycursor = db.cursor()
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             with open("activePickups.json") as f:
@@ -3029,54 +3186,48 @@ async def draw(ctx, pNumber="None"):
                 adjustTeam2 = adjustTeam2 * 2
                 logging.info("giving double ELO")
 
+            # Prepare player data for bulk insert
+            player_elo_data = []
+            
+            # Process blue team
             for i in blueTeam:
                 ELOpop[i][1] += adjustTeam1
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]} {e}"
-                    )
-                    await dev_channel.send(input_query)
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
+
+            # Process red team
             for i in redTeam:
                 ELOpop[i][1] += adjustTeam2
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
-                    )
-                    await dev_channel.send(input_query)
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
-            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
-            mycursor.execute(update_query, ('0', current_timestamp, pNumber))
-            logging.info(update_query)
+
+            # Perform database operations
+            async with await get_db_pool() as pool:
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cursor:
+                        try:
+                            # Bulk insert player ELO data
+                            await cursor.executemany(
+                                "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                                player_elo_data
+                            )
+                            
+                            # Update match outcome
+                            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                            await cursor.execute(
+                                "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s",
+                                ('0', current_timestamp, pNumber)
+                            )
+                        except Exception as e:
+                            await dev_channel.send(f"SQL QUERY ERROR: {e}")
 
             if len(list(pastTen)) >= 10:
                 while len(list(pastTen)) > 9:
@@ -3094,8 +3245,9 @@ async def draw(ctx, pNumber="None"):
                 redRank,
                 0,
                 activePickups[pNumber][7],
-            ]  # winningTeam, team1prob, adjustmentTeam1, losingteam, team2prob, adjustmentTeam2
+            ]
             del activePickups[pNumber]
+            
             with open("activePickups.json", "w") as cd:
                 json.dump(activePickups, cd, indent=4)
             with open("ELOpop.json", "w") as cd:
@@ -3106,66 +3258,27 @@ async def draw(ctx, pNumber="None"):
             await ctx.send("Match reported.. thank you!")
             await sync_players(ctx)
 
-
-@client.command(pass_context=True)
-@commands.has_role(v["admin"])
-async def sync_players(ctx):
-    with open("ELOpop.json") as f:
-        ELOpop = json.load(f)
-    
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
-
-    columns = "id, discord_id, created_at, updated_at, deleted_at, player_name, current_elo, visual_rank_override, pug_wins, pug_losses, pug_draws, dm_wins, dm_losses, achievements, dunce, steam_id"
-    placeholders = ", ".join(["%s"] * 16)
-
-    players = []
-
-    for index, player in enumerate(ELOpop):
-        row = (index+1,player,'2024-11-11 20:00:00','2024-11-11 20:00:00',None,ELOpop[player][PLAYER_MAP_VISUAL_NAME_INDEX],ELOpop[player][PLAYER_MAP_CURRENT_ELO_INDEX],ELOpop[player][PLAYER_MAP_VISUAL_RANK_INDEX],ELOpop[player][PLAYER_MAP_WIN_INDEX],ELOpop[player][PLAYER_MAP_LOSS_INDEX],ELOpop[player][PLAYER_MAP_DRAW_INDEX],0,0,';'.join(ELOpop[player][PLAYER_MAP_ACHIEVEMENT_INDEX]),None,None)
-        players.append(row)
-
-    sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (
-        "players",
-        columns,
-        placeholders,
-    )
-
-    cursor = db.cursor()
-    cursor.execute("TRUNCATE TABLE players")
-    cursor.executemany(sql, players)
-
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def win(ctx, team, pNumber="None"):
     global ELOpop
     dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
-    db = mysql.connector.connect(
-        host=logins["mysql"]["host"],
-        user=logins["mysql"]["user"],
-        passwd=logins["mysql"]["passwd"],
-        database=logins["mysql"]["database"],
-        autocommit=True,
-    )
-
-    mycursor = db.cursor()
+    
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
-        if (
-            (ctx.channel.name == v["pc"])
-            or (ctx.channel.name == "tfc-admins")
-            or (ctx.channel.name == "tfc-runners")
-        ):
+        if ((ctx.channel.name == v["pc"]) or 
+            (ctx.channel.name == "tfc-admins") or 
+            (ctx.channel.name == "tfc-runners")):
+            
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
             with open("ELOpop.json") as f:
                 ELOpop = json.load(f)
             with open("pastten.json") as f:
                 pastTen = json.load(f)
+
             if pNumber == "None":
                 pNumber = list(activePickups)[-1]
 
@@ -3179,6 +3292,7 @@ async def win(ctx, team, pNumber="None"):
             adjustTeam1 = 0
             adjustTeam2 = 0
             winner = 0
+
             if team == "1":
                 adjustTeam1 = int(blueRank + 50 * (1 - blueProb)) - blueRank
                 adjustTeam2 = int(redRank + 50 * (0 - redProb)) - redRank
@@ -3187,72 +3301,60 @@ async def win(ctx, team, pNumber="None"):
                 adjustTeam1 = int(blueRank + 50 * (0 - blueProb)) - blueRank
                 adjustTeam2 = int(redRank + 50 * (1 - redProb)) - redRank
                 winner = 2
-            if team in ("0", "draw"):
-                adjustTeam1 = int(blueRank + 50 * (0.5 - blueProb)) - blueRank
-                adjustTeam2 = int(redRank + 50 * (0.5 - redProb)) - redRank
+
             if "Bot's Choice" in pMap:
                 adjustTeam1 = adjustTeam1 * 2
                 adjustTeam2 = adjustTeam2 * 2
                 logging.info("giving double ELO")
 
+            # Prepare player data for bulk insert
+            player_elo_data = []
+            
+            # Process blue team
             for i in blueTeam:
                 ELOpop[i][1] += adjustTeam1
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
-                    )
-                    await dev_channel.send(input_query)
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 if team == "1":
                     ELOpop[i][4] += 1
                 if team == "2":
                     ELOpop[i][5] += 1
-                if team == "draw":
-                    ELOpop[i][6] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
+
+            # Process red team
             for i in redTeam:
                 ELOpop[i][1] += adjustTeam2
-                # if(int(ELOpop[i][1]) > 2599):
-                # ELOpop[i][1] = 2599
                 if int(ELOpop[i][1]) < 0:
                     ELOpop[i][1] = 0
-                # ELOpop[i][2].append([int(ELOpop[i][1]), pNumber])
-                try:
-                    input_query = f"INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES ({pNumber}, {ELOpop[i][0]}, {ELOpop[i][1]}, {int(i)})"
-                    logging.info(input_query)
-                    mycursor.execute(
-                        "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
-                        (pNumber, ELOpop[i][0], ELOpop[i][1], int(i)),
-                    )
-                except Exception as e:
-                    await dev_channel.send(
-                        f"SQL QUERY DID NOT WORK FOR {ELOpop[i][0]}    {e}"
-                    )
-                    await dev_channel.send(input_query)
-                if team == "1":
-                    ELOpop[i][5] += 1
+                player_elo_data.append((pNumber, ELOpop[i][0], ELOpop[i][1], int(i)))
                 if team == "2":
                     ELOpop[i][4] += 1
-                if team == "draw":
-                    ELOpop[i][6] += 1
+                if team == "1":
+                    ELOpop[i][5] += 1
                 if ELOpop[i][3] != "<:norank:1001265843683987487>":
                     newRank(i)
-            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            update_query = "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s"
-            mycursor.execute(update_query, (team, current_timestamp, pNumber))
-            logging.info(update_query)
+
+            # Perform database operations
+            async with await get_db_pool() as pool:
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cursor:
+                        try:
+                            # Bulk insert player ELO data
+                            await cursor.executemany(
+                                "INSERT INTO player_elo (match_id, player_name, player_elos, discord_id) VALUES (%s, %s, %s, %s)",
+                                player_elo_data
+                            )
+                            
+                            # Update match outcome
+                            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                            await cursor.execute(
+                                "UPDATE matches SET match_outcome = %s, updated_at = %s WHERE match_id = %s",
+                                (team, current_timestamp, pNumber)
+                            )
+                        except Exception as e:
+                            await dev_channel.send(f"SQL QUERY ERROR: {e}")
 
             if len(list(pastTen)) >= 10:
                 while len(list(pastTen)) > 9:
@@ -3270,7 +3372,7 @@ async def win(ctx, team, pNumber="None"):
                 redRank,
                 winner,
                 activePickups[pNumber][7],
-            ]  # winningTeam, team1prob, adjustmentTeam1, losingteam, team2prob, adjustmentTeam2
+            ]
             del activePickups[pNumber]
 
             with open("activePickups.json", "w") as cd:
@@ -3279,8 +3381,6 @@ async def win(ctx, team, pNumber="None"):
                 json.dump(ELOpop, cd, indent=4)
             with open("pastten.json", "w") as cd:
                 json.dump(pastTen, cd, indent=4)
-
-            pastTen[pNumber] = []
 
             await ctx.send("Match reported!")
             await sync_players(ctx)
@@ -3299,6 +3399,9 @@ async def tfc(ctx, person: discord.Member):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def undo(ctx, pNumber="None"):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("pastten.json") as f:
             pastTen = json.load(f)
@@ -3388,6 +3491,9 @@ async def undo(ctx, pNumber="None"):
 
 @client.command(pass_context=True)
 async def games(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
@@ -3399,6 +3505,9 @@ async def games(ctx):
 
 @client.command(pass_context=True)
 async def recent(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (
             (ctx.channel.name == v["pc"])
@@ -3412,6 +3521,9 @@ async def recent(ctx):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def checkgame(ctx, number):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("pastten.json") as f:
             past_ten = json.load(f)
@@ -3458,6 +3570,9 @@ async def checkgame(ctx, number):
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def removegame(ctx, number):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         with open("activePickups.json") as f:
             activePickups = json.load(f)
@@ -3494,6 +3609,9 @@ def cancelImpl():
 @client.command(pass_context=True)
 @commands.has_role(v["runner"])
 async def cancel(ctx):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             cancelImpl()
@@ -3508,6 +3626,9 @@ async def requeue(ctx, show_queue=True):
     global playersAdded
     global inVote
 
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if inVote == 0:
             await ctx.send("ERROR: Tried calling !requeue outside of mapvote!")
@@ -3579,6 +3700,9 @@ async def forceVote(ctx):
     global server_vote_message_view
     global map_vote_message_view
 
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         channel = await client.fetch_channel(v["pID"])
         if channel.name == v["pc"]:
@@ -3804,7 +3928,12 @@ async def shuffle(ctx, idx=None, game="None"):
     global blueRank
     global redRank
     global tMsg
+    
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
+        dev_channel = await client.fetch_channel(DEV_TESTING_CHANNEL)
         if (ctx.channel.name == v["pc"]) or (ctx.channel.id == DEV_TESTING_CHANNEL):
             if idx is None:
                 idx = random.randint(1, 11)
@@ -3814,96 +3943,89 @@ async def shuffle(ctx, idx=None, game="None"):
                 ELOpop = json.load(f)
 
             if game == "None":
+                game = list(activePickups)[-1]
+            
+            rankedOrder = []
+            nblueTeam = activePickups[game][2]
+            nredTeam = activePickups[game][5]
+            neligiblePlayers = []
+            for i in nblueTeam:
+                neligiblePlayers.append(i)
+            for i in nredTeam:
+                neligiblePlayers.append(i)
+
+            combos = list(
+                itertools.combinations(
+                    neligiblePlayers, int(len(neligiblePlayers) / 2)
+                )
+            )
+            random.shuffle(combos)
+            blueTeam = []
+            redTeam = []
+            rankedOrder = []
+            redRank = 0
+            blueRank = 0
+            totalRank = 0
+            half = 0
+            for j in neligiblePlayers:
+                totalRank += int(ELOpop[j][1])
+            half = int(totalRank / 2)
+            for i in list(combos):
                 blueRank = 0
-                redRank = 0
-                blueTeam = []
-                redTeam = []
-                logging.info(rankedOrder)
-                blueTeam = list(rankedOrder[int(idx)][0])
-                for j in eligiblePlayers:
-                    if j not in blueTeam:
-                        redTeam.append(j)
-                for j in blueTeam:
+                for j in i:
                     blueRank += int(ELOpop[j][1])
-                for j in redTeam:
-                    redRank += int(ELOpop[j][1])
+                rankedOrder.append((i, abs(blueRank - half)))
+            rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
 
-                team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-                team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
-                red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
-                logging.info(blue_team_info_string)
-                logging.info(red_team_info_string)
+            blueTeam = list(rankedOrder[int(idx)][0])
+            for j in neligiblePlayers:
+                if j not in blueTeam:
+                    redTeam.append(j)
+            blueRank = 0
+            for j in blueTeam:
+                blueRank += int(ELOpop[j][1])
+            for j in redTeam:
+                redRank += int(ELOpop[j][1])
+            team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
+            team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
+            blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
+            red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
+            logging.info(blue_team_info_string)
+            logging.info(red_team_info_string)
 
-                await ctx.send(
-                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
-                )
-            else:
-                rankedOrder = []
-                nblueTeam = activePickups[game][2]
-                nredTeam = activePickups[game][5]
-                neligiblePlayers = []
-                for i in nblueTeam:
-                    neligiblePlayers.append(i)
-                for i in nredTeam:
-                    neligiblePlayers.append(i)
+            await ctx.send(
+                embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
+            )
+            activePickups[game][0] = team1prob
+            activePickups[game][1] = blueRank
+            activePickups[game][2] = blueTeam
+            activePickups[game][3] = team2prob
+            activePickups[game][4] = redRank
+            activePickups[game][5] = redTeam
 
-                combos = list(
-                    itertools.combinations(
-                        neligiblePlayers, int(len(neligiblePlayers) / 2)
-                    )
-                )
-                random.shuffle(combos)
-                blueTeam = []
-                redTeam = []
-                rankedOrder = []
-                redRank = 0
-                blueRank = 0
-                totalRank = 0
-                half = 0
-                for j in neligiblePlayers:
-                    totalRank += int(ELOpop[j][1])
-                half = int(totalRank / 2)
-                for i in list(combos):
-                    blueRank = 0
-                    for j in i:
-                        blueRank += int(ELOpop[j][1])
-                    rankedOrder.append((i, abs(blueRank - half)))
-                rankedOrder = sorted(rankedOrder, key=lambda x: x[1])
-
-                blueTeam = list(rankedOrder[int(idx)][0])
-                for j in neligiblePlayers:
-                    if j not in blueTeam:
-                        redTeam.append(j)
-                blueRank = 0
-                for j in blueTeam:
-                    blueRank += int(ELOpop[j][1])
-                for j in redTeam:
-                    redRank += int(ELOpop[j][1])
-                team1prob = round(1 / (1 + 10 ** ((redRank - blueRank) / 400)), 2)
-                team2prob = round(1 / (1 + 10 ** ((blueRank - redRank) / 400)), 2)
-                blue_team_info_string = f"blueTeam: {blueTeam}, blueRank: {blueRank}, blue_win_probability: {team1prob}"
-                red_team_info_string = f"redTeam: {redTeam}, redRank: {redRank}, red_win_probability {team2prob}"
-                logging.info(blue_team_info_string)
-                logging.info(red_team_info_string)
-
-                await ctx.send(
-                    embed=teamsDisplay(blueTeam, redTeam, team1prob, team2prob)
-                )
-                activePickups[game][0] = team1prob
-                activePickups[game][1] = blueRank
-                activePickups[game][2] = blueTeam
-                activePickups[game][3] = team2prob
-                activePickups[game][4] = redRank
-                activePickups[game][5] = redTeam
-
-                with open("activePickups.json", "w") as cd:
-                    json.dump(activePickups, cd, indent=4)
+            with open("activePickups.json", "w") as cd:
+                json.dump(activePickups, cd, indent=4)
+            async with await get_db_pool() as pool:
+                async with pool.acquire() as conn:
+                    async with conn.cursor() as cursor:
+                        try:
+                            current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                            blueTeamString = ','.join(blueTeam)
+                            redTeamString = ','.join(redTeam)
+                            await cursor.execute(
+                                "UPDATE matches SET blue_probability = %s, blue_team = %s, blue_rank = %s, red_probability = %s, red_team = %s, red_rank = %s, updated_at = %s WHERE match_id = %s",
+                                (team1prob, blueTeamString, blueRank, team2prob, redTeamString, redRank, current_timestamp, game)
+                            )
+                        except Exception as e:
+                            await dev_channel.send(f"SQL QUERY ERROR: {e}")
 
 
 @client.command(pass_context=True)
 @commands.cooldown(1, 30, commands.BucketType.channel)
 async def notice(ctx, anumber=8):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"]:
             global playersAdded
@@ -3919,6 +4041,9 @@ async def vote(ctx):
     """
     Nagging message to get people to vote who haven't picked their server or map choice yet
     """
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if ctx.channel.name == v["pc"] or ctx.channel.id == DEV_TESTING_CHANNEL:
             global players_abstained_discord_id
@@ -3939,6 +4064,9 @@ async def slap(ctx, player: discord.Member):
 
 @client.event
 async def on_reaction_add(reaction, user):
+    global GLOBAL_LOCK
+    if GLOBAL_LOCK is None:
+        await setup_global_lock()
     async with GLOBAL_LOCK:
         if not user.bot:
             global vMsg
