@@ -508,7 +508,7 @@ def generate_map_vote_embed(vote_round, time_remaining=MAP_VOTE_TIME_LIMIT):
         title="Vote for map!",
         description=f"Time remaining in vote - {time_remaining} Seconds",
         color=0xF1C40F,
-        url="https://tfcmaps.net/",
+        url="https://tfpugs.online/",
     )
 
     main_embed.add_field(
@@ -624,7 +624,7 @@ def generate_server_vote_embed(time_remaining=SERVER_VOTE_TIME_LIMIT):
         title="Vote for server!",
         description=f"Time remaining in vote - {time_remaining} Seconds",
         color=0xF1C40F,
-        url="https://tfcmaps.net/",
+        url="https://tfpugs.online/",
     )
 
     main_embed.add_field(
@@ -1763,23 +1763,23 @@ async def voteSetup(ctx):
             server_vote_timer.start(vMsg)
     elif server_vote == 0:
         vote_image_embed_1 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+            url="https://tfpugs.online/", title="Vote up and make sure you hydrate!"
         )
         vote_image_embed_1.set_image(url=mapList[map_choice_1]["image_url"])
         vote_image_embed_2 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+            url="https://tfpugs.online/", title="Vote up and make sure you hydrate!"
         )
         vote_image_embed_2.set_image(url=mapList[map_choice_2]["image_url"])
         vote_image_embed_3 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+            url="https://tfpugs.online/", title="Vote up and make sure you hydrate!"
         )
         vote_image_embed_3.set_image(url=mapList2[map_choice_3]["image_url"])
         vote_image_embed_4 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+            url="https://tfpugs.online/", title="Vote up and make sure you hydrate!"
         )
         vote_image_embed_4.set_image(url=mapList2[map_choice_4]["image_url"])
         vote_image_embed_5 = discord.Embed(
-            url="https://tfcmaps.net/", title="Vote up and make sure you hydrate!"
+            url="https://tfpugs.online/", title="Vote up and make sure you hydrate!"
         )
         vote_image_embed_5.set_image(url=mapList2[map_choice_4]["image_url"])
         vote_embed, progress_bar = generate_map_vote_embed(reVote)
