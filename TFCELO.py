@@ -2384,6 +2384,13 @@ def addplayerImpl(playerID, playerDisplayName, cap=None):
     if MAP_VOTE_FIRST is True:
         if inVote == 1:
             return 2
+        
+    with open("activePickups.json") as f:
+        active_pickups = json.load(f)
+    
+    for game in active_pickups:
+        if playerID in active_pickups[game][2] or playerID in active_pickups[game][5]:
+            return 3
 
     if len(playersAdded) <= 19:
         if playerID not in playersAdded:
@@ -2439,6 +2446,8 @@ async def add(ctx, cap=None):
                 playerDisplayName = ctx.author.display_name
 
                 retVal = addplayerImpl(playerID, playerDisplayName, cap)
+                if retVal == 3:
+                    await ctx.send(f"{playerDisplayName} is currently in an unreported pickup - wait for report before adding!")
                 if retVal == 2:
                     await ctx.send("Currently in a mapvote for a pickup, please wait for that to finish before adding!")
                 if retVal == 1:  # Already added
