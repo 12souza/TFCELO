@@ -35,7 +35,7 @@ async def on_ready():
         # This is blocks the discord heartbeat, but otherwise works
         data, addr = serverSock.recvfrom(1024)
         logging.info((str(data)))
-        # L 12/31/2022 - 11:21:34: [MATCH RESULT] DRAW at <0> EAST
+        # L 01/05/2025 - 20:19:45: [MATCH RESULT] Team 1 Wins <70> (60) EAST phantom_lg
         if "[MATCH RESULT]" in str(data):
             with open("activePickups.json") as f:
                 activePickups = json.load(f)
@@ -46,19 +46,30 @@ async def on_ready():
             begin = string.find("(") + 1
             end = string.find(")")
             losingScore = string[begin:end]
-            begin = string.find(")") + 2
-            end = string.find("\n") - 6
-            region = string[begin:end]
+            # Lazy way to get region and map
+            final_part = string[string.find(")") + 2:].split(" ")
+            region = final_part[0]
+            map = final_part[1][:-2]
 
             if losingScore == "0":
                 print("Ignoring match result due to 0")
             else:
                 if len(activePickups) > 0:
-                    reported_match = list(activePickups)[-1]
+                    logging.info(str(activePickups))
+                    reported_match = None
+                    for game in activePickups:
+                        if map == activePickups[game][7]:
+                            logging.info(f"Found match {game} for map {map}")
+                            reported_match = game
+                            break
+                    # if we can't find the map in the active pickups, use the most recent one
+                    if reported_match is None:
+                        logging.info("No match found for map, using most recent match")
+                        reported_match = list(activePickups)[-1]
                     if "Team 1 Wins" in (str(data)):
                         # team 1 wins
-                        await pChannel.send("!win 1")
-                        # [MATCH RESULT] Team 1 Wins <10> (0)
+                        await pChannel.send(f"!win 1 {reported_match}")
+                        # [MATCH RESULT] Team 1 Wins <10> (0) EAST phantom_lg
                         await pChannel.send(
                             f"**AUTO-REPORTING** Team 1 wins {winningScore} to {losingScore} for game {reported_match}"
                         )
@@ -66,8 +77,8 @@ async def on_ready():
                             f"!stats {region.lower()} {reported_match} {winningScore} {losingScore}"
                         )
                     elif "Team 2 Wins" in (str(data)):
-                        await pChannel.send("!win 2")
-                        # [MATCH RESULT] Team 2 Wins <10> (0)
+                        await pChannel.send(f"!win 2 {reported_match}")
+                        # [MATCH RESULT] Team 2 Wins <10> (0) EAST phantom_lg
                         await pChannel.send(
                             f"**AUTO-REPORTING** Team 2 wins {winningScore} to {losingScore} for game {reported_match}"
                         )
@@ -75,8 +86,8 @@ async def on_ready():
                             f"!stats {region.lower()} {reported_match} {winningScore} {losingScore}"
                         )
                     elif "DRAW" in (str(data)):
-                        await pChannel.send("!draw")
-                        # [MATCH RESULT] DRAW at <0>
+                        await pChannel.send(f"!draw {reported_match}")
+                        # [MATCH RESULT] DRAW at (50) CENTRAL phantom_lg
                         await pChannel.send(f"**AUTO-REPORTING** DRAW at {losingScore} for game {reported_match}")
                         await pChannel.send(
                             f"!stats {region.lower()} {reported_match} {losingScore}"
