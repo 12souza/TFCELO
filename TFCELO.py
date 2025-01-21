@@ -4042,9 +4042,10 @@ async def notice(ctx, anumber=8):
             role = discord.utils.get(ctx.guild.roles, id=v["TFCPlayer"])
 
         await ctx.send(f"{role.mention} {number}/{anumber}")
+        await showPickup(ctx)
 
 
-@client.command(pass_context=True)
+@client.command(pass_context=True, aliases=["v"])
 @commands.cooldown(1, 30, commands.BucketType.channel)
 async def vote(ctx):
     """

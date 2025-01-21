@@ -49,7 +49,7 @@ async def on_ready():
             # Lazy way to get region and map
             final_part = string[string.find(")") + 2:].split(" ")
             region = final_part[0]
-            map = final_part[1][:-2]
+            map = final_part[1][:-7]
 
             if losingScore == "0":
                 print("Ignoring match result due to 0")
