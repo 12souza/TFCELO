@@ -1024,36 +1024,51 @@ async def stat_log_file_handler(region):
             data.add_field('logs[]', open(log_to_parse1, 'rb'))
             data.add_field('logs[]', open(log_to_parse2, 'rb'))
             
-            async with session.post('http://app.hampalyzer.com/api/parseGame', data=data) as response:
-                output3 = await response.text()
+            async with session.post('https://www.tfcstats.com/api/parsePickup', data=data) as response:
+                api_output = await response.text()
 
-        hampalyzer_output = None
+        log_output = None
         blarghalyzer_fallback = None
-        if "nginx" not in output3 and output3:
-            hampalyzer_output = "http://app.hampalyzer.com/" + output3[21:-3]
-        else:
-            # Fallback to blarghalyzer
-            async with aiohttp.ClientSession() as session:
-                for log_file in [log_to_parse1, log_to_parse2]:
-                    data = aiohttp.FormData()
-                    data.add_field('process', 'true')
-                    data.add_field('inptImage', open(log_file, 'rb'))
-                    data.add_field('language', 'en')
-                    data.add_field('blarghalyze', 'Blarghalyze!')
-                    
-                    async with session.post('http://blarghalyzer.com/Blarghalyzer.php', data=data) as response:
-                        await response.text()
 
-            blarghalyzer_fallback = (
-                f"**Round 1:** https://blarghalyzer.com/parsedlogs/{log_to_parse1[:-4].lower()}/ "
-                f"**Round 2:** https://blarghalyzer.com/parsedlogs/{log_to_parse2[:-4].lower()}/"
-            )
+        tfc_stats_output = json.loads(api_output)
+        if tfc_stats_output.get('success') is not None:
+            log_output = tfc_stats_output["success"]["path"]
+        if log_output is None:
+            # Fallback to hampalyzer
+            async with aiohttp.ClientSession() as session:
+                data = aiohttp.FormData()
+                data.add_field('force', 'on')
+                data.add_field('logs[]', open(log_to_parse1, 'rb'))
+                data.add_field('logs[]', open(log_to_parse2, 'rb'))
+                
+                async with session.post('http://app.hampalyzer.com/api/parseGame', data=data) as response:
+                    output3 = await response.text()
+
+            if "nginx" not in output3 and output3:
+                log_output = "http://app.hampalyzer.com/" + output3[21:-3]
+            # Fallback to blarghalyzer
+            else:
+                async with aiohttp.ClientSession() as session:
+                    for log_file in [log_to_parse1, log_to_parse2]:
+                        data = aiohttp.FormData()
+                        data.add_field('process', 'true')
+                        data.add_field('inptImage', open(log_file, 'rb'))
+                        data.add_field('language', 'en')
+                        data.add_field('blarghalyze', 'Blarghalyze!')
+                        
+                        async with session.post('http://blarghalyzer.com/Blarghalyzer.php', data=data) as response:
+                            await response.text()
+
+                blarghalyzer_fallback = (
+                    f"**Round 1:** https://blarghalyzer.com/parsedlogs/{log_to_parse1[:-4].lower()}/ "
+                    f"**Round 2:** https://blarghalyzer.com/parsedlogs/{log_to_parse2[:-4].lower()}/"
+                )
 
         # Clean up files asynchronously
         await asyncio.to_thread(os.remove, log_to_parse1)
         await asyncio.to_thread(os.remove, log_to_parse2)
 
-        return pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback
+        return pickup_date, pickup_map, log_output, blarghalyzer_fallback
 
 async def hltv_file_handler(region, pickup_date, pickup_map):
     try:
@@ -2692,13 +2707,14 @@ async def stats(
             schannel = await client.fetch_channel(1000847501194174675)
 
             # Process log files
-            pickup_date, pickup_map, hampalyzer_output, blarghalyzer_fallback = await stat_log_file_handler(region)
+            pickup_date, pickup_map, log_output, blarghalyzer_fallback = await stat_log_file_handler(region)
             
             # Process HLTV files
             output_zipfile = await hltv_file_handler(region, pickup_date, pickup_map)
 
             # Get MVP steam ID
-            mvp_steam_id = await get_mvp_steam_id(hampalyzer_output)
+            # mvp_steam_id = await get_mvp_steam_id(hampalyzer_output)
+            mvp_steam_id = ''
 
             # Update database
             current_timestamp = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -2711,7 +2727,7 @@ async def stats(
                 autocommit=True
             ) as conn:
                 async with conn.cursor() as cursor:
-                    if hampalyzer_output:
+                    if log_output:
                         update_query = """
                             UPDATE matches 
                             SET winning_score = %s, losing_score = %s, stats_url = %s, mvp = %s, updated_at = %s 
@@ -2719,15 +2735,15 @@ async def stats(
                         """
                         await cursor.execute(
                             update_query, 
-                            (winning_score, losing_score, hampalyzer_output, mvp_steam_id, current_timestamp, match_number)
+                            (winning_score, losing_score, log_output, mvp_steam_id, current_timestamp, match_number)
                         )
 
             # Send results
             if output_zipfile:
-                if hampalyzer_output:
+                if log_output:
                     await schannel.send(
                             file=discord.File(output_zipfile),
-                            content=f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
+                            content=f"**Stats:** {log_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}",
                         )
                 elif blarghalyzer_fallback:
                     await schannel.send(
@@ -2738,9 +2754,9 @@ async def stats(
                     await ctx.send("Could not generate stats URLs")
                 await asyncio.to_thread(os.remove, output_zipfile)
             else:
-                if hampalyzer_output:
+                if log_output:
                     await schannel.send(
-                        f"**Hampalyzer:** {hampalyzer_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
+                        f"**Stats:** {log_output} {pickup_map} {pickup_date} {region} {match_number} {winning_score} {losing_score}"
                     )
                 elif blarghalyzer_fallback:
                     await schannel.send(
