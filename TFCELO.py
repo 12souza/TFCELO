@@ -127,7 +127,7 @@ SECONDARY_MAPS_FILE = "spring_2024_maps.json"
 SHOW_VISUAL_RANKS = False
 SERVER_VOTE_TIME_LIMIT = 181
 MAP_VOTE_TIME_LIMIT = 61
-SHOW_MAP_VOTE_COUNTS = False
+SHOW_MAP_VOTE_COUNTS = True
 
 cap1 = None
 cap1Name = None
@@ -642,16 +642,7 @@ def generate_server_vote_embed(time_remaining=SERVER_VOTE_TIME_LIMIT):
         value="3️⃣ " + map_choice_3 + "\n" + server_vote_output(map_choice_3),
         inline=False,
     )
-    main_embed.add_field(
-        name="",
-        value="4️⃣ " + map_choice_4 + "\n" + server_vote_output(map_choice_4),
-        inline=False,
-    )
-    main_embed.add_field(
-        name="",
-        value="5️⃣ " + map_choice_5 + "\n" + server_vote_output(map_choice_5),
-        inline=False,
-    )
+
     unvoted_string = "💩" + ", ".join(playersAbstained) + " need to vote! 💩"
     main_embed.set_footer(text=unvoted_string)
 
@@ -707,12 +698,6 @@ class ServerVoteView(discord.ui.View):
         )
         self.add_item(
             self.create_button(label=f"3️⃣ {map_choice_3}", custom_id=map_choice_3)
-        )
-        self.add_item(
-            self.create_button(label=f"4️⃣ {map_choice_4}", custom_id=map_choice_4)
-        )
-        self.add_item(
-            self.create_button(label=f"5️⃣ {map_choice_5}", custom_id=map_choice_5)
         )
 
     def create_button(self, label, custom_id):
@@ -1762,16 +1747,12 @@ async def voteSetup(ctx):
     server_vote_timer.cancel()
 
     if server_vote == 1:
-        map_choice_1 = "West - North California"
+        map_choice_1 = "Central - Dallas"
         mapVotes[map_choice_1] = []
-        map_choice_2 = "East - North Virginia"
+        map_choice_2 = "South East - Miami"
         mapVotes[map_choice_2] = []
-        map_choice_3 = "Central - Dallas"
+        map_choice_3 = "East2 - New York City"
         mapVotes[map_choice_3] = []
-        map_choice_4 = "South East - Miami"
-        mapVotes[map_choice_4] = []
-        map_choice_5 = "East2 - New York City"
-        mapVotes[map_choice_5] = []
         vote_embed, progress_bar = generate_server_vote_embed()
         server_vote_message_view = ServerVoteView()
         vMsg = await ctx.send(
@@ -3748,8 +3729,6 @@ async def forceVote(ctx):
                     len(mapVotes[map_choice_1]),
                     len(mapVotes[map_choice_2]),
                     len(mapVotes[map_choice_3]),
-                    len(mapVotes[map_choice_4]),
-                    len(mapVotes[map_choice_5]),
                 ]
                 server_names = [
                     map_choice_1,
@@ -3776,20 +3755,16 @@ async def forceVote(ctx):
                 # Pick a random final winner from the candidate maps
 
                 winningServer = winning_server  # keeping this random variable around til I refactor it into oblivion
-                if winning_server == "West - North California":
-                    winningIP = f"http://tinyurl.com/tfpwestaws - {winning_server} connect {logins['west']['server_ip']}:27015; password letsplay!"
-                elif winning_server == "East - North Virginia":
-                    winningIP = f"http://tinyurl.com/tfpeastaws - {winning_server} connect {logins['east']['server_ip']}:27015; password letsplay!"
-                elif winning_server == "Central - Dallas":
-                    winningIP = f"https://tinyurl.com/tfpcentralaws - {winning_server} connect {logins['central']['server_ip']}:27015; password letsplay!"
+                if winning_server == "Central - Dallas":
+                    winningIP = f"https://tinyurl.com/tfpcentralvultr2 - {winning_server} connect {logins['central']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "South East - Miami":
                     winningIP = f"http://tinyurl.com/tfpsoutheastvultr - {winning_server} connect {logins['southeast']['server_ip']}:27015; password letsplay!"
                 elif winning_server == "East2 - New York City":
                     winningIP = f"http://tinyurl.com/tfpeast2vultr - {winning_server} connect {logins['east2']['server_ip']}:27015; password letsplay!"
                 else:
                     # Just pick one so things aren't completely broken
-                    winningIP = f"http://tinyurl.com/tfpeastaws - connect {logins['east']['server_ip']}:27015; password letsplay!"
-                    winningServer = "East (North Virginia)"
+                    winningIP = f"http://tinyurl.com/tfpeast2vultr - {winning_server} connect {logins['east2']['server_ip']}:27015; password letsplay!"
+                    winningServer = "East2 - New York City"
                 server_vote = 0
                 map_choice_5 = "New Maps"
                 if winningIP.find('aws') != -1:
@@ -4330,12 +4305,6 @@ async def on_reaction_add(reaction, user):
                                         + map_choice_3
                                         + " " * (70 - len(map_choice_3))
                                         + server_vote_output(map_choice_3)
-                                        + "\n"
-                                        + "4️⃣ "
-                                        + map_choice_4
-                                        + " " * (70 - len(map_choice_4))
-                                        + server_vote_output(map_choice_4)
-                                        + toVoteString
                                     )
                                 elif server_vote == 0:
                                     vMsg = await vMsg.edit(
